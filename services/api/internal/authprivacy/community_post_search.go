@@ -36,7 +36,16 @@ func (c *Community) SearchPosts(ctx context.Context, bearer [32]byte, query post
 		return PostResponse{}, posts.ErrInvalidIntent
 	}
 	return c.withPostSession(ctx, bearer, func(tx pgx.Tx, account uuid.UUID, final AuthorizationDecision, _ restriction) (any, error) {
-		return c.listSearchPosts(ctx, tx, account, query, final.TrustedAt)
+		page, err := c.listSearchPosts(ctx, tx, account, query, final.TrustedAt)
+		if err != nil {
+			return nil, err
+		}
+		if query.RecordHistory {
+			if err := recordPostSearchHistory(ctx, tx, account, query.ChannelID, query.Keyword, final.TrustedAt); err != nil {
+				return nil, err
+			}
+		}
+		return page, nil
 	})
 }
 

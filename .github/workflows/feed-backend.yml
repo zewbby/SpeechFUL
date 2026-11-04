@@ -47,7 +47,7 @@ jobs:
       - name: Host tests, formatting, build and vet
         working-directory: services/api
         run: |
-          test -z "$(gofmt -l internal/posts internal/authprivacy/community_feed*.go internal/authprivacy/community_post_interactions*.go internal/authprivacy/community_posts_read.go internal/authprivacyhttp/feed*.go internal/authprivacyhttp/post_interactions*.go)"
+          test -z "$(gofmt -l internal/posts internal/authprivacy/community_feed*.go internal/authprivacy/community_post_interactions*.go internal/authprivacy/community_posts_read.go internal/authprivacy/community_post_search*.go internal/authprivacyhttp/feed*.go internal/authprivacyhttp/post_interactions*.go internal/authprivacyhttp/post_search*.go)"
           go test -mod=readonly ./...
           test -z "$(gofmt -l internal/authprivacy/community_post_reposts*.go internal/authprivacyhttp/post_reposts*.go internal/posts/reposts.go)"
           go build -mod=readonly ./...
