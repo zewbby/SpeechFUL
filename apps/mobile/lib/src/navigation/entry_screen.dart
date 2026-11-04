@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'package:flutter/material.dart';
 
 import '../auth/auth_presentation.dart';
@@ -76,15 +78,15 @@ class _EntryScreenState extends State<EntryScreen> {
           barrierDismissible: false,
           builder: (c) => AlertDialog(
             key: const ValueKey('entry-unavailable-dialog'),
-            title: const Text('暂时无法进入'),
+            title: Text(hhText(c, '暂时无法进入')),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(c, false),
-                child: const Text('取消'),
+                child: Text(hhText(c, '取消')),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(c, true),
-                child: const Text('重试'),
+                child: Text(hhText(c, '重试')),
               ),
             ],
           ),

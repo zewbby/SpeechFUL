@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
@@ -127,7 +129,7 @@ class FeedComposeButton extends StatelessWidget {
       height: floating ? 56 : 48,
       child: IconButton.filled(
         key: const ValueKey('feed-compose'),
-        tooltip: tooltip,
+        tooltip: hhText(context, tooltip),
         onPressed: onPressed,
         style: IconButton.styleFrom(
           backgroundColor: floating ? p.action : p.background,

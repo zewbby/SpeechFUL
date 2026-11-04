@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
 import '../identity/identity_switcher.dart';
-import '../messaging/direct_message_models.dart';
+import '../localization/app_localizations.dart';
 import '../messaging/direct_message_composer.dart';
-import '../posts/post_models.dart';
+import '../messaging/direct_message_models.dart';
 import '../posts/post_images.dart';
+import '../posts/post_models.dart';
 import 'governance_controller.dart';
 import 'inbox_models.dart';
+import 'notification_localizations.dart';
 import 'notification_screens.dart';
 import 'notification_thumbnail.dart';
 
@@ -338,8 +340,9 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
       }
     } on Object {
       if (mounted && current(ticket, owner, identity)) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('暂时无法打开，请重试')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(hhText(context, '暂时无法打开，请重试'))));
       }
     }
   }
@@ -404,7 +407,7 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                     Expanded(
                       child: Semantics(
                         selected: selected == i,
-                        label: labels[i],
+                        label: hhText(context, labels[i]),
                         child: InkWell(
                           key: ValueKey('notification-tab:${categories[i]}'),
                           onTap: () => goPage(i),
@@ -429,7 +432,7 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          labels[i],
+                                          hhText(context, labels[i]),
                                           style: TextStyle(
                                             fontSize: 14,
 
@@ -522,8 +525,8 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                 Expanded(
                   child: Text(
                     category == 'all'
-                        ? '通知记录'
-                        : labels[categories.indexOf(category)],
+                        ? hhText(context, '通知记录')
+                        : hhText(context, labels[categories.indexOf(category)]),
                     style: TextStyle(fontSize: 13, color: p.secondary),
                   ),
                 ),
@@ -558,7 +561,7 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '仅看未读',
+                        hhText(context, '仅看未读'),
                         style: TextStyle(fontSize: 11, color: p.secondary),
                       ),
                     ],
@@ -572,8 +575,11 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Text(error),
-                  TextButton(onPressed: initialize, child: const Text('重试')),
+                  Text(hhText(context, error)),
+                  TextButton(
+                    onPressed: initialize,
+                    child: Text(hhText(context, '重试')),
+                  ),
                 ],
               ),
             ),
@@ -582,10 +588,10 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Text(error),
+                  Text(hhText(context, error)),
                   TextButton(
                     onPressed: () => load(category),
-                    child: const Text('重试'),
+                    child: Text(hhText(context, '重试')),
                   ),
                 ],
               ),
@@ -602,7 +608,9 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                   Icon(Icons.notifications_none, size: 36, color: p.accent),
                   const SizedBox(height: 20),
                   Text(
-                    onlyUnread ? '未读消息，都看完了' : '暂时没有新通知',
+                    onlyUnread
+                        ? hhText(context, '未读消息，都看完了')
+                        : hhText(context, '暂时没有新通知'),
                     style: TextStyle(color: p.secondary),
                   ),
                 ],
@@ -617,7 +625,7 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
           if (next[category] != null)
             TextButton(
               onPressed: () => load(category, more: true),
-              child: const Text('加载更多'),
+              child: Text(hhText(context, '加载更多')),
             ),
         ],
       ),
@@ -626,11 +634,27 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
 
   String time(DateTime value) {
     final now = DateTime.now(), difference = now.difference(value);
-    if (difference.isNegative) return '刚刚';
-    if (difference.inMinutes < 1) return '刚刚';
-    if (difference.inMinutes < 60) return '${difference.inMinutes} 分钟前';
-    if (difference.inHours < 24) return '${difference.inHours} 小时前';
-    return '${value.toLocal().month} 月 ${value.toLocal().day} 日';
+    if (difference.isNegative) return hhText(context, '刚刚');
+    if (difference.inMinutes < 1) return hhText(context, '刚刚');
+    if (difference.inMinutes < 60) {
+      return hhText(
+        context,
+        '{count} 分钟前',
+        args: {'count': difference.inMinutes},
+      );
+    }
+    if (difference.inHours < 24) {
+      return hhText(
+        context,
+        '{count} 小时前',
+        args: {'count': difference.inHours},
+      );
+    }
+    return hhText(
+      context,
+      '{month} 月 {day} 日',
+      args: {'month': value.toLocal().month, 'day': value.toLocal().day},
+    );
   }
 
   Widget notificationRow(InboxNotice n, HhTelegramPalette p) => InkWell(
@@ -672,7 +696,10 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          n.actor?.name ?? (n.kind == 'like' ? '收到的赞' : '社区通知'),
+                          n.actor?.name ??
+                              (n.kind == 'like'
+                                  ? hhText(context, '收到的赞')
+                                  : hhText(context, '社区通知')),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -706,14 +733,25 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                   const SizedBox(height: 3),
                   Text(
                     n.kind == 'like' && n.newLikes > 0
-                        ? '${n.title} · 新增 ${n.newLikes} 个'
-                        : n.title,
+                        ? hhText(
+                            context,
+                            '{title} · 新增 {count} 个',
+                            args: {
+                              'title': hhText(context, n.title),
+                              'count': n.newLikes,
+                            },
+                          )
+                        : hhText(context, n.title),
                     style: TextStyle(fontSize: 12, color: p.secondary),
                   ),
                   if (n.body.isNotEmpty) ...[
                     const SizedBox(height: 7),
                     Text(
-                      n.body,
+                      n.system != null
+                          ? systemNoticeBody(context, n.system!)
+                          : !n.available && n.body == '该评论已删除'
+                          ? hhText(context, '该评论已删除')
+                          : n.body,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -736,7 +774,11 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        n.sourceTitle,
+                        !n.available &&
+                                n.body.isEmpty &&
+                                n.sourceTitle == '该帖子已删除或不可访问'
+                            ? hhText(context, '该帖子已删除或不可访问')
+                            : n.sourceTitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 11, color: p.secondary),
@@ -780,7 +822,7 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      '通知',
+                      hhText(context, '通知'),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
+import '../localization/app_localizations.dart';
 import 'direct_message_bubble.dart';
+import 'direct_message_chrome.dart';
 import 'direct_message_composer.dart';
 import 'direct_message_models.dart';
-import 'direct_message_chrome.dart';
 import 'direct_message_timeline.dart';
+import 'messaging_ui_text.dart';
 
 /// Presentation only. The owner supplies the identity-pair projection and all
 /// persistence/network operations; inbox identity changes must not retarget it.
@@ -121,7 +123,8 @@ class _HhDirectMessageScreenState extends State<HhDirectMessageScreen> {
 
   void _notice(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(hhText(context, text))));
   }
 
   Future<void> _identity() async {
@@ -155,7 +158,7 @@ class _HhDirectMessageScreenState extends State<HhDirectMessageScreen> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      '选择发送身份',
+                      hhText(context, '选择发送身份'),
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -167,7 +170,7 @@ class _HhDirectMessageScreenState extends State<HhDirectMessageScreen> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      '首次发送后，这段对话将固定使用该身份',
+                      hhText(context, '首次发送后，这段对话将固定使用该身份'),
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.5,
@@ -218,7 +221,7 @@ class _HhDirectMessageScreenState extends State<HhDirectMessageScreen> {
                                 (identity) => identity.id == selected,
                               ),
                             ),
-                      child: const Text('使用此身份'),
+                      child: Text(hhText(context, '使用此身份')),
                     ),
                   ),
                 ],
@@ -320,19 +323,19 @@ class _HhDirectMessageScreenState extends State<HhDirectMessageScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('重新发送这条消息？'),
-        content: const Text(
-          '将使用原来的身份重新发送，内容保持不变。',
-          style: TextStyle(height: 1.6),
+        title: Text(hhText(context, '重新发送这条消息？')),
+        content: Text(
+          hhText(context, '将使用原来的身份重新发送，内容保持不变。'),
+          style: const TextStyle(height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(hhText(context, '取消')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('重新发送'),
+            child: Text(hhText(context, '重新发送')),
           ),
         ],
       ),
@@ -400,12 +403,14 @@ class _HhDirectMessageScreenState extends State<HhDirectMessageScreen> {
           PopupMenuItem(
             value: action,
             height: 48,
-            child: Row(
-              children: [
-                Icon(icon, size: 22),
-                const SizedBox(width: 20),
-                Text(label),
-              ],
+            child: Builder(
+              builder: (context) => Row(
+                children: [
+                  Icon(icon, size: 22),
+                  const SizedBox(width: 20),
+                  Flexible(child: Text(hhText(context, label))),
+                ],
+              ),
             ),
           ),
       ],
@@ -479,7 +484,7 @@ class _HhDirectMessageScreenState extends State<HhDirectMessageScreen> {
                     vertical: 4,
                   ),
                   child: Text(
-                    widget.syncError!,
+                    messagingUiError(context, widget.syncError!),
                     style: TextStyle(fontSize: 12, color: p.secondary),
                   ),
                 ),
@@ -507,8 +512,12 @@ class _HhDirectMessageScreenState extends State<HhDirectMessageScreen> {
                           Expanded(
                             child: Text(
                               view.sourceDeleted
-                                  ? '原帖已删除'
-                                  : '来自：${view.sourceTitle}',
+                                  ? hhText(context, '原帖已删除')
+                                  : hhText(
+                                      context,
+                                      '来自：{title}',
+                                      args: {'title': view.sourceTitle},
+                                    ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -536,13 +545,13 @@ class _HhDirectMessageScreenState extends State<HhDirectMessageScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          '部分聊天记录未保存，请清理空间后重试',
+                          hhText(context, '部分聊天记录未保存，请清理空间后重试'),
                           style: TextStyle(fontSize: 13, color: p.error),
                         ),
                       ),
                       TextButton(
                         onPressed: widget.onSaveRetry,
-                        child: const Text('重试保存'),
+                        child: Text(hhText(context, '重试保存')),
                       ),
                     ],
                   ),

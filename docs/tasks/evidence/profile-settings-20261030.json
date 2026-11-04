@@ -1,0 +1,126 @@
+{
+  "schema": "PROFILE-SETTINGS-LOCAL-VERIFICATION/1",
+  "date": "2026-10-30",
+  "timezone": "Asia/Shanghai",
+  "testedCommit": "2be6b8073a83ebac3366fd8b33a72e40cba373e7",
+  "baseCommit": "a4d7228a0dd4b91e851746ab7f9fb37d1ec806b5",
+  "contract": "v2-direct-settings@890a602437075c226773f318588b017bd26cf0a5",
+  "environment": {
+    "os": "Windows",
+    "flutter": "3.47.5",
+    "dart": "3.13.4",
+    "java": "17.0.20.1+1",
+    "dependencies": "flutter pub get --offline --enforce-lockfile; PUB_HOSTED_URL=https://pub.dev; existing cache",
+    "dependencyFilesChanged": false
+  },
+  "analyze": {
+    "result": "PASS",
+    "command": "flutter analyze --no-pub",
+    "issues": 0
+  },
+  "affectedRegression": {
+    "result": "PASS",
+    "passed": 174,
+    "testFileCount": 18,
+    "command": "flutter test --no-pub test/app_navigation_test.dart test/feed_scroll_refresh_test.dart test/feed_ui_test.dart test/notification_inbox_test.dart test/personal_profile_test.dart test/personal_reposts_integration_test.dart test/personal_route_account_test.dart test/login_home_navigation_test.dart test/talkback_semantics_test.dart test/identity_management_screen_test.dart test/direct_message_navigation_test.dart test/dm_route_test.dart test/dm_notification_navigation_test.dart test/feed_read_error_scope_test.dart test/post_screens_test.dart test/profile_settings_flow_test.dart test/home_side_menu_test.dart test/settings_screen_test.dart",
+    "scope": "Direct settings gesture and back, no intermediary/search/descriptions, nested frontends, protected existing callbacks, feed mode/data/reading position, personal collections, inbox, DM navigation, stale windows, semantics and vertical refresh."
+  },
+  "independentReview": {
+    "result": "PASS",
+    "reviewer": "/root/independent_review",
+    "sourceRange": "a4d7228a0dd4b91e851746ab7f9fb37d1ec806b5..2be6b8073a83ebac3366fd8b33a72e40cba373e7",
+    "findings": "No deterministic defects found after v2 fixes",
+    "independentTests": {
+      "personalAndNotification": 11,
+      "menuAndSettings": 8
+    },
+    "githubMemberApproval": false
+  },
+  "visual": {
+    "result": "PASS",
+    "fonts": "Packaged Roboto, HhNotoSansSC, MaterialIcons",
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "viewports": [
+      "393x852 at 1.0 text scale",
+      "320x740 at 1.8 text scale"
+    ],
+    "preview": "E:\\Hnuhole-env\\profile-settings-20261030\\final-preview\\preview.png",
+    "previewSha256": "b185986adb2e71e850752d8fe5fe3951a43a305432c43ce453adeb6bbf265aa8",
+    "rawRenders": "E:\\Hnuhole-env\\source\\HnuHole-profile-settings-integration\\apps\\mobile\\build\\profile-settings-render",
+    "physicalDevice": false
+  },
+  "android": {
+    "result": "PASS",
+    "command": "flutter build apk --debug --target lib/main.dart --target-platform android-arm64 --no-pub",
+    "path": "E:\\Hnuhole-env\\source\\HnuHole-profile-settings-integration\\apps\\mobile\\build\\app\\outputs\\flutter-apk\\app-debug.apk",
+    "bytes": 112070171,
+    "sha256": "818a80056fc2f472b397bb7d06ebdf856737726b3c9a2286f52320bf2427b1f1",
+    "package": "org.hnuhole.hnuhole_mobile",
+    "versionName": "0.1.0",
+    "versionCode": 1,
+    "minSdk": 29,
+    "targetSdk": 36,
+    "signature": "PASS APK v2, Android Debug certificate",
+    "flutterEngineAbis": [
+      "arm64-v8a"
+    ],
+    "packagedJniAbis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86_64"
+    ],
+    "realFontAssetsPackaged": true,
+    "cachedSqliteMatchesOfficialPackageHash": true,
+    "installedOnDevice": false,
+    "warning": "Existing Android SDK XML tool version warning; assembleDebug exited 0."
+  },
+  "logs": {
+    "final-analyze.log": {
+      "path": "E:\\Hnuhole-env\\profile-settings-20261030\\final-analyze.log",
+      "sha256": "30ff0f61d183b4057e4daa2ff071f61bb844c9da4ad3a19141aa3e03ca416c7f"
+    },
+    "final-affected-regression.log": {
+      "path": "E:\\Hnuhole-env\\profile-settings-20261030\\final-affected-regression.log",
+      "sha256": "80ee9da3b0a6356511e6a3ee325cbc0b6fd300361eb2080121542c5046ffa67e"
+    },
+    "v2-integration-focused.log": {
+      "path": "E:\\Hnuhole-env\\profile-settings-20261030\\v2-integration-focused.log",
+      "sha256": "10c5ba9718d8a672d82c9fcdf26b7340d9ed50e2f221ef684991434fb3a33fc0"
+    },
+    "r1-v2-navigation-forms.log": {
+      "path": "E:\\Hnuhole-env\\profile-settings-20261030\\r1-v2-navigation-forms.log",
+      "sha256": "533d2c1c60c9a2b7079bf09629571d44fff191b098fd9ecae7eb2cbb03a727eb"
+    },
+    "r1-profile-notification.log": {
+      "path": "E:\\Hnuhole-env\\profile-settings-20261030\\r1-profile-notification.log",
+      "sha256": "0f4b811171233d1e48660d385c632b13435bb773969ed68a78490429b2951861"
+    },
+    "android-build.log": {
+      "path": "E:\\Hnuhole-env\\profile-settings-20261030\\android-build.log",
+      "sha256": "b180f554c6679da332442d84bf3ef2ed3f235c1e6b9a89c3b110756eb8a9eaaa"
+    },
+    "android-apk-signature.log": {
+      "path": "E:\\Hnuhole-env\\profile-settings-20261030\\android-apk-signature.log",
+      "sha256": "37492f05b9397d2e79e750e76b1e60e7c4b24b969e60a03b7ea279d615a12a86"
+    },
+    "android-apk-metadata.log": {
+      "path": "E:\\Hnuhole-env\\profile-settings-20261030\\android-apk-metadata.log",
+      "sha256": "e487b2917278adffec93ce8d6f2b49466f30d0d82eeed66caa79697aed2d417c"
+    }
+  },
+  "remoteCI": {
+    "result": "NOT_RUN",
+    "configuredWorkflow": ".github/workflows/feed-ui.yml",
+    "includesNewFlowGestureFormTests": true,
+    "reason": "Push and PR were not authorized in this task."
+  },
+  "notRun": [
+    "Physical-device execution",
+    "iOS build",
+    "Release signing/build"
+  ],
+  "backend": "SKIP: frontend-only task; no backend interfaces or database changes; existing protected routes retained."
+}

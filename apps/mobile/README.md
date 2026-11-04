@@ -25,7 +25,7 @@ Android vault instrumentation 在历史版本曾编译／组装测试库 APK，�
 
 ## 设备与恢复凭据管理（2026-10-02）
 
-“我的”进入当前／最近接替设备与恢复凭据页：主动退出、密码复验后恢复码轮换、一次展示／隐藏／完整确认、可选Passkey绑定和两步移除。登录页可发现Passkey证明接现有密码重设，不自动登录。权威截止先落盘；最终提交前保存原意图与键，未知结果只读核对，不保存密码、新码或系统证明。
+首页左滑或点击左上角头像直接显示设置列表，再点“设备管理”进入当前／最近接替设备与恢复凭据页：主动退出、密码复验后恢复码轮换、一次展示／隐藏／完整确认、可选Passkey绑定和两步移除。登录页可发现Passkey证明接现有密码重设，不自动登录。权威截止先落盘；最终提交前保存原意图与键，未知结果只读核对，不保存密码、新码或系统证明。
 
 原生桥、平台关联生成及真机矩阵见 [auth_passkey](../../packages/auth_passkey/README.md)。用户尚无RP／签名／Team配置，系统Passkey真机闭环待验。新增真实vault／跨进程入口为 `integration_test/auth_security_device_test.dart`，iOS RunnerTests直接测试Keychain；步骤见[本片报告](../../docs/design/auth-privacy-device-credentials-passkey-validation-report.md)和[模块交接](../../docs/design/module-acceptance-handoff.md)。本机共享Swift codec／marker、关联生成器及轻量检查通过；Go／Flutter／SQL／完整app与设备未验。
 

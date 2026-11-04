@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
 import '../identity/identity_switcher.dart';
+import '../localization/app_localizations.dart';
 import 'direct_message_composer.dart';
 import 'direct_message_models.dart';
+import 'messaging_ui_text.dart';
 
 @immutable
 class DmInboxEntry {
@@ -13,6 +15,7 @@ class DmInboxEntry {
     required this.recipient,
     required this.preview,
     required this.time,
+    this.previewVersion,
     this.unread = 0,
     this.privateNote,
     this.sourceTitle = '',
@@ -22,6 +25,10 @@ class DmInboxEntry {
     this.outgoingState,
   });
   final String id, selfIdentityId, preview, time, sourceTitle, localSearchText;
+
+  /// Stable content identity supplied by the owner, independent of display
+  /// language. Older callers can continue to use the preview text itself.
+  final Object? previewVersion;
   final DmIdentity recipient;
   final String? privateNote;
   final int unread;
@@ -160,7 +167,8 @@ class _HhDmInboxScreenState extends State<HhDmInboxScreen> {
           final old = previous[entry.id];
           return old == null ||
               entry.time != old.time ||
-              entry.preview != old.preview ||
+              (entry.previewVersion ?? entry.preview) !=
+                  (old.previewVersion ?? old.preview) ||
               entry.unread > old.unread;
         });
         _pending = _pending || newContent || next.join('|') != _order.join('|');
@@ -229,7 +237,10 @@ class _HhDmInboxScreenState extends State<HhDmInboxScreen> {
           clipBehavior: Clip.antiAlias,
           child: ListTile(
             leading: Icon(Icons.notifications_none, color: p.accent),
-            title: const Text('系统通知', style: TextStyle(fontSize: 16)),
+            title: Text(
+              hhText(context, '系统通知'),
+              style: const TextStyle(fontSize: 16),
+            ),
             trailing: _Unread(count: widget.systemUnread),
             onTap: widget.onSystemNotifications,
           ),
@@ -251,11 +262,14 @@ class _HhDmInboxScreenState extends State<HhDmInboxScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    Text(widget.error!, style: TextStyle(color: p.error)),
+                    Text(
+                      messagingUiError(context, widget.error!),
+                      style: TextStyle(color: p.error),
+                    ),
                     if (widget.onRetry != null)
                       TextButton(
                         onPressed: widget.onRetry,
-                        child: const Text('重新加载'),
+                        child: Text(hhText(context, '重新加载')),
                       ),
                   ],
                 ),
@@ -264,7 +278,9 @@ class _HhDmInboxScreenState extends State<HhDmInboxScreen> {
               Padding(
                 padding: const EdgeInsets.all(28),
                 child: Text(
-                  query.isEmpty ? '还没有会话' : '没有找到相关会话',
+                  query.isEmpty
+                      ? hhText(context, '还没有会话')
+                      : hhText(context, '没有找到相关会话'),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: p.secondary),
                 ),
@@ -285,7 +301,7 @@ class _HhDmInboxScreenState extends State<HhDmInboxScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      '私信',
+                      hhText(context, '私信'),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -332,7 +348,7 @@ class _HhDmInboxScreenState extends State<HhDmInboxScreen> {
                   ),
                   isDense: true,
                   constraints: const BoxConstraints(minHeight: 40),
-                  hintText: '搜索',
+                  hintText: hhText(context, '搜索'),
                   hintStyle: TextStyle(fontSize: 14, color: p.secondary),
                   prefixIcon: Icon(Icons.search, size: 20, color: p.secondary),
                   prefixIconConstraints: const BoxConstraints(
@@ -346,7 +362,7 @@ class _HhDmInboxScreenState extends State<HhDmInboxScreen> {
                   suffixIcon: query.isEmpty
                       ? null
                       : IconButton(
-                          tooltip: '清除搜索',
+                          tooltip: hhText(context, '清除搜索'),
                           onPressed: () {
                             setState(() => _search.clear());
                             widget.onSearchChanged?.call('');
@@ -519,7 +535,7 @@ class _HhDmInboxScreenState extends State<HhDmInboxScreen> {
                           _scroll.jumpTo(0);
                         },
                         icon: const Icon(Icons.arrow_upward, size: 18),
-                        label: const Text('有新消息'),
+                        label: Text(hhText(context, '有新消息')),
                       ),
                     ),
                 ],
@@ -540,7 +556,7 @@ class _Unread extends StatelessWidget {
     final p = HhTelegramPalette.of(context);
     if (count <= 0) return const SizedBox.shrink();
     return Semantics(
-      label: '$count条未读',
+      label: hhText(context, '{count}条未读', args: {'count': count}),
       child: ExcludeSemantics(
         child: DecoratedBox(
           decoration: BoxDecoration(

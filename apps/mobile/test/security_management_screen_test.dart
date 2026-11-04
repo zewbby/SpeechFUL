@@ -189,11 +189,11 @@ void main() {
   }
 
   testWidgets(
-    'shows current and replaced devices and password-required operations',
+    'account security excludes devices and keeps password-required operations',
     (tester) async {
       await open(tester);
-      expect(find.text('当前设备'), findsOneWidget);
-      expect(find.text('最近被接替的设备'), findsOneWidget);
+      expect(find.text('当前设备'), findsNothing);
+      expect(find.text('最近被接替的设备'), findsNothing);
       await tap(tester, '轮换恢复码');
       expect(find.text('请输入当前密码'), findsOneWidget);
       expect(api.commits, 0);

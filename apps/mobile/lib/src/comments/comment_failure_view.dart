@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -31,7 +33,8 @@ class _CommentFailureViewState extends State<CommentFailureView> {
   CommentTask? task;
   CommentImage? image;
   bool busy = false, missingImage = false;
-  String? error, target, identityLabel;
+  String? error, identityLabel, _targetNickname, _targetBody;
+  bool _targetReply = false, _targetMissing = false, _identityMissing = false;
   final pickedBlobs = <String>{};
   bool get current => mounted && widget.runtime.current(epoch);
 
@@ -76,23 +79,22 @@ class _CommentFailureViewState extends State<CommentFailureView> {
         throw const FormatException('Wrong failure task');
       }
       final directory = await widget.runtime.directory();
-      final label =
-          directory.identities
-              .where((i) => i.id == t.binding.identityId)
-              .firstOrNull
-              ?.nickname ??
-          '原身份已失效';
-      String targetText = '原帖子';
+      final identity = directory.identities
+          .where((i) => i.id == t.binding.identityId)
+          .firstOrNull;
+      final label = identity?.nickname;
+      String? targetNickname, targetBody;
+      var targetMissing = false;
       if (t.binding.targetCommentId != null) {
         try {
-          final targetRow = await widget.runtime.request(
+          final row = await widget.runtime.request(
             'GET',
             '/api/v1/posts/${t.binding.postId}/comments/${t.binding.targetCommentId}',
           );
-          targetText =
-              '回复 ${(targetRow['author'] as Map)['nickname']}\n${targetRow['body']}';
+          targetNickname = (row['author'] as Map)['nickname'] as String?;
+          targetBody = row['body'] as String?;
         } catch (_) {
-          targetText = '原回复对象已删除或暂时无法读取';
+          targetMissing = true;
         }
       }
 
@@ -110,7 +112,11 @@ class _CommentFailureViewState extends State<CommentFailureView> {
         text.text = entry?.content?.body ?? content?['body'] as String? ?? '';
         image = entry?.content?.image;
         missingImage = image == null && content?['image'] != null;
-        target = targetText;
+        _targetReply = t.binding.targetCommentId != null;
+        _targetNickname = targetNickname;
+        _targetBody = targetBody;
+        _targetMissing = targetMissing;
+        _identityMissing = identity == null;
         identityLabel = label;
         error = null;
       });
@@ -153,16 +159,16 @@ class _CommentFailureViewState extends State<CommentFailureView> {
       final yes = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
-          title: const Text('放弃这份失败任务？'),
-          content: const Text('将删除保留内容并移除失败通知。'),
+          title: Text(hhText(c, '放弃这份失败任务？')),
+          content: Text(hhText(c, '将删除保留内容并移除失败通知。')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(c, false),
-              child: const Text('取消'),
+              child: Text(hhText(c, '取消')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('放弃任务'),
+              child: Text(hhText(c, '放弃任务')),
             ),
           ],
         ),
@@ -223,16 +229,16 @@ class _CommentFailureViewState extends State<CommentFailureView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('保留内容并重新选择回复对象？'),
-        content: const Text('先结束原失败任务，再返回原帖选择有效对象。不会自动发布。'),
+        title: Text(hhText(c, '保留内容并重新选择回复对象？')),
+        content: Text(hhText(c, '先结束原失败任务，再返回原帖选择有效对象。不会自动发布。')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('取消'),
+            child: Text(hhText(c, '取消')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('重新选择'),
+            child: Text(hhText(c, '重新选择')),
           ),
         ],
       ),
@@ -294,36 +300,66 @@ class _CommentFailureViewState extends State<CommentFailureView> {
 
   @override
   Widget build(BuildContext context) {
-    if (!current) return const Text('会话已变化，请返回。');
+    if (!current) return Text(hhText(context, '会话已变化，请返回。'));
     final t = task;
     final confirmed = t != null && confirmedFailure(t);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (busy) const LinearProgressIndicator(),
-        if (error != null) Semantics(liveRegion: true, child: Text(error!)),
+        if (error != null)
+          Semantics(liveRegion: true, child: Text(hhText(context, error!))),
         if (t != null) ...[
           Text(
             t.state == CommentTaskState.failed
-                ? '发送失败'
-                : '当前状态：${t.state.name}',
+                ? hhText(context, '发送失败')
+                : hhText(
+                    context,
+                    '当前状态：{v0}',
+                    args: {
+                      'v0': hhText(context, switch (t.state) {
+                        CommentTaskState.accepted => '处理中',
+                        CommentTaskState.published => '已发布',
+                        CommentTaskState.failed => '发送失败',
+                        CommentTaskState.abandoned => '已放弃',
+                      }),
+                    },
+                  ),
           ),
-          Text(target ?? ''),
-          Text('发言身份：${identityLabel ?? '原身份'}'),
+          Text(
+            _targetReply && !_targetMissing
+                ? '${hhText(context, '回复给 ')}${_targetNickname ?? ''}\n${_targetBody ?? ''}'
+                : hhText(context, _targetMissing ? '原回复对象已删除或暂时无法读取' : '原帖子'),
+          ),
+          Text(
+            hhText(
+              context,
+              '发言身份：{v0}',
+              args: {
+                'v0': _identityMissing
+                    ? hhText(context, '原身份已失效')
+                    : identityLabel ?? '',
+              },
+            ),
+          ),
           if (t.state == CommentTaskState.failed) ...[
-            if (!confirmed) const Text('任务结果待核对，请核对最新状态。'),
+            if (!confirmed) Text(hhText(context, '任务结果待核对，请核对最新状态。')),
             TextField(
               controller: text,
               minLines: 3,
               maxLines: 8,
               enabled: !busy,
-              decoration: const InputDecoration(labelText: '保留内容'),
+              decoration: InputDecoration(labelText: hhText(context, '保留内容')),
             ),
             if (image != null || missingImage)
               ListTile(
-                title: Text(missingImage ? '本机缺少原图，请重选或移除后重试' : '已保留 1 张图片'),
+                title: Text(
+                  missingImage
+                      ? hhText(context, '本机缺少原图，请重选或移除后重试')
+                      : hhText(context, '已保留 1 张图片'),
+                ),
                 trailing: IconButton(
-                  tooltip: '移除图片',
+                  tooltip: hhText(context, '移除图片'),
                   onPressed: busy
                       ? null
                       : () => setState(() {
@@ -336,7 +372,7 @@ class _CommentFailureViewState extends State<CommentFailureView> {
             TextButton.icon(
               onPressed: busy ? null : _pick,
               icon: const Icon(Icons.image_outlined),
-              label: const Text('选择一张图片'),
+              label: Text(hhText(context, '选择一张图片')),
             ),
             if (t.failureCode == 'COMMENT_TARGET_DELETED' &&
                 widget.runtime.openRetarget != null)
@@ -344,7 +380,7 @@ class _CommentFailureViewState extends State<CommentFailureView> {
                 onPressed: busy || missingImage || !confirmed
                     ? null
                     : _retarget,
-                child: const Text('保留内容，重新选择回复对象'),
+                child: Text(hhText(context, '保留内容，重新选择回复对象')),
               ),
             Wrap(
               children: [
@@ -352,19 +388,22 @@ class _CommentFailureViewState extends State<CommentFailureView> {
                   onPressed: busy || missingImage || !confirmed || !t.canRetry
                       ? null
                       : () => _act(false),
-                  child: const Text('按原身份和对象重试'),
+                  child: Text(hhText(context, '按原身份和对象重试')),
                 ),
                 TextButton(
                   onPressed: busy || !confirmed || !t.canAbandon
                       ? null
                       : () => _act(true),
-                  child: const Text('放弃任务'),
+                  child: Text(hhText(context, '放弃任务')),
                 ),
               ],
             ),
           ],
         ],
-        TextButton(onPressed: busy ? null : _load, child: const Text('核对最新状态')),
+        TextButton(
+          onPressed: busy ? null : _load,
+          child: Text(hhText(context, '核对最新状态')),
+        ),
       ],
     );
   }
@@ -385,7 +424,7 @@ class CommentPendingView extends StatelessWidget {
     animation: runtime,
     builder: (context, _) => Column(
       children: [
-        if (runtime.error != null) Text(runtime.error!),
+        if (runtime.error != null) Text(hhText(context, runtime.error!)),
         for (final e in runtime.core.entries.where(
           (e) =>
               e.intent.binding.identityId == identityId &&
@@ -394,8 +433,12 @@ class CommentPendingView extends StatelessWidget {
                   e.rejectionCode != null),
         ))
           ListTile(
-            title: Text(e.rejectionCode != null ? '评论未受理' : '评论结果待核对'),
-            subtitle: Text(e.content?.body ?? '原任务内容已隔离'),
+            title: Text(
+              e.rejectionCode != null
+                  ? hhText(context, '评论未受理')
+                  : hhText(context, '评论结果待核对'),
+            ),
+            subtitle: Text(e.content?.body ?? hhText(context, '原任务内容已隔离')),
             trailing: TextButton(
               onPressed: () async {
                 try {
@@ -406,7 +449,7 @@ class CommentPendingView extends StatelessWidget {
                   }
                 } catch (_) {}
               },
-              child: const Text('核对并停止迟到发送'),
+              child: Text(hhText(context, '核对并停止迟到发送')),
             ),
           ),
         // Account-scoped mutation recovery is shown only in the account tab.
@@ -415,11 +458,13 @@ class CommentPendingView extends StatelessWidget {
         ))
           ListTile(
             title: Text(
-              e.value['operation'] == 'DELETE' ? '删除结果待核对' : '点赞结果待核对',
+              e.value['operation'] == 'DELETE'
+                  ? hhText(context, '删除结果待核对')
+                  : hhText(context, '点赞结果待核对'),
             ),
             trailing: TextButton(
               onPressed: () => runtime.sealMutation(e.key),
-              child: const Text('核对原操作'),
+              child: Text(hhText(context, '核对原操作')),
             ),
           ),
       ],

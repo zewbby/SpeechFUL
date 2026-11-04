@@ -157,7 +157,7 @@ void main() {
         final channel = f.directory.channels.last.id;
         await pickChannel(tester, channel);
         expect(f.posts.timelineChannelId, channel);
-        await tester.tap(find.byKey(const ValueKey('feed-account')));
+        await tester.tap(find.byKey(const ValueKey('destination:personal')));
         await tester.pumpAndSettle();
         await f.loginB(
           tester,
@@ -223,7 +223,7 @@ void main() {
           await tester.pumpAndSettle();
           Navigator.of(tester.element(find.byType(PostDetailScreen))).pop();
         } else {
-          await tester.tap(find.byKey(const ValueKey('feed-account')));
+          await tester.tap(find.byKey(const ValueKey('destination:personal')));
           await tester.pumpAndSettle();
           await tester.tap(find.byTooltip('首页'));
         }

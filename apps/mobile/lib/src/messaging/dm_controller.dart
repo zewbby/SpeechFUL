@@ -712,6 +712,11 @@ class DmController extends ChangeNotifier {
       if (!_current(epoch)) return;
       if (local.isNotEmpty) {
         final last = local.single;
+        v['localPreviewKind'] = last['recalled'] == true
+            ? 'recalled'
+            : last['messageType'] == 'IMAGE'
+            ? 'image'
+            : 'text';
         v['localPreview'] = last['recalled'] == true
             ? '消息已撤回'
             : last['messageType'] == 'IMAGE'

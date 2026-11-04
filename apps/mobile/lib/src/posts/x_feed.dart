@@ -1,8 +1,12 @@
+import '../localization/app_localizations.dart';
+import 'post_models.dart';
+
 import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
 import '../navigation/app_navigation.dart';
 import '../navigation/feed_chrome.dart';
+import '../navigation/home_side_menu.dart';
 import 'feed_refresh.dart';
 export '../navigation/app_navigation.dart' show AppDestination;
 
@@ -183,9 +187,12 @@ class HhXPostFeed extends StatelessWidget {
                         left: 12,
                         child: IconButton(
                           key: const ValueKey('feed-account'),
-                          tooltip: '我的',
-                          onPressed: () =>
-                              onDestination(FeedDestination.personal),
+                          tooltip: HomeSideMenuScope.maybeOf(context) == null
+                              ? hhText(context, '我的')
+                              : hhText(context, '打开设置'),
+                          onPressed:
+                              HomeSideMenuScope.maybeOf(context)?.open ??
+                              () => onDestination(FeedDestination.personal),
                           icon: SizedBox(
                             width: 36,
                             height: 36,
@@ -208,7 +215,7 @@ class HhXPostFeed extends StatelessWidget {
                         right: 12,
                         child: IconButton(
                           key: const ValueKey('feed-search'),
-                          tooltip: '搜索当前通道',
+                          tooltip: hhText(context, '搜索当前通道'),
                           onPressed: onSearch,
                           icon: Icon(
                             Icons.search_rounded,
@@ -244,7 +251,7 @@ class HhXPostFeed extends StatelessWidget {
                                 key: const ValueKey('feed-recommended'),
                                 onPressed: onRecommended,
                                 child: Text(
-                                  feedTitle ?? channelTitle,
+                                  hhText(context, feedTitle ?? channelTitle),
                                   style: _text(
                                     context,
                                     17,
@@ -256,7 +263,7 @@ class HhXPostFeed extends StatelessWidget {
                           ),
                           IconButton(
                             key: const ValueKey('feed-channel-picker'),
-                            tooltip: '选择通道',
+                            tooltip: hhText(context, '选择通道'),
                             onPressed: onBack,
                             icon: Icon(
                               Icons.keyboard_arrow_down_rounded,
@@ -278,7 +285,7 @@ class HhXPostFeed extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '筛选',
+                            hhText(context, '筛选'),
                             style: _text(
                               context,
                               16,
@@ -337,7 +344,7 @@ class HhXPostFeed extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 6),
                           ),
                           child: Text(
-                            '最新',
+                            hhText(context, '最新'),
                             style: _text(
                               context,
                               17,
@@ -391,7 +398,7 @@ class HhXPostFeed extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              '暂无可显示的帖子',
+                              hhText(context, '暂无可显示的帖子'),
                               style: _text(
                                 context,
                                 17,
@@ -401,7 +408,7 @@ class HhXPostFeed extends StatelessWidget {
                             if (blockedCount > 0)
                               TextButton(
                                 onPressed: onFilter,
-                                child: const Text('调整屏蔽设置'),
+                                child: Text(hhText(context, '调整屏蔽设置')),
                               ),
                           ],
                         ),
@@ -469,7 +476,15 @@ class HhXPostFeed extends StatelessWidget {
                               ? const SizedBox(width: 60, height: 56)
                               : FeedComposeButton(
                                   onPressed: onCompose,
-                                  tooltip: composeTooltip ?? '发布到$channelTitle',
+                                  tooltip:
+                                      composeTooltip ??
+                                      hhText(
+                                        context,
+                                        '发布到{v0}',
+                                        args: {
+                                          'v0': hhText(context, channelTitle),
+                                        },
+                                      ),
                                   floating: true,
                                 ),
                         ),
@@ -688,28 +703,46 @@ class HhXPostItem extends StatelessWidget {
                                 post.comments == null
                                     ? '—'
                                     : _count(post.comments!),
-                                '评论',
+                                hhText(context, '评论'),
                                 false,
                               ),
                               _action(
                                 context,
                                 FeedAction.like,
                                 post.likes == null ? '—' : _count(post.likes!),
-                                post.liked ? '取消点赞' : '点赞',
+                                post.liked
+                                    ? hhText(context, '取消点赞')
+                                    : hhText(context, '点赞'),
                                 post.liked,
                               ),
                               _action(
                                 context,
                                 FeedAction.bookmark,
                                 null,
-                                '${post.bookmarked ? '取消收藏' : '收藏'}${post.favorites == null ? '' : '，收藏数${post.favorites}'}',
+                                hhText(
+                                  context,
+                                  '{v0}{v1}',
+                                  args: {
+                                    'v0': hhText(
+                                      context,
+                                      post.bookmarked ? '取消收藏' : '收藏',
+                                    ),
+                                    'v1': post.favorites == null
+                                        ? ''
+                                        : hhText(
+                                            context,
+                                            '，收藏数{count}',
+                                            args: {'count': post.favorites},
+                                          ),
+                                  },
+                                ),
                                 post.bookmarked,
                               ),
                               _action(
                                 context,
                                 FeedAction.share,
                                 null,
-                                '分享',
+                                hhText(context, '分享'),
                                 false,
                               ),
                             ];
@@ -758,7 +791,7 @@ class HhXPostItem extends StatelessWidget {
               right: 4,
               child: IconButton(
                 key: ValueKey('menu:${post.id}'),
-                tooltip: '帖子更多操作',
+                tooltip: hhText(context, '帖子更多操作'),
                 onPressed: onMenu,
                 icon: Icon(
                   Icons.more_vert_rounded,
@@ -835,14 +868,22 @@ class HhXPostItem extends StatelessWidget {
     final enabled = !busy && post.availableActions.contains(action);
     final stacked = MediaQuery.textScalerOf(context).scale(12) > 16;
     return Semantics(
-      label: '$label${count == null ? '' : '，$count'}${busy ? '，处理中' : ''}',
+      label: hhText(
+        context,
+        '{v0}{v1}{v2}',
+        args: {
+          'v0': hhText(context, label),
+          'v1': count == null ? '' : '，$count',
+          'v2': busy ? ', ${hhText(context, '处理中')}' : '',
+        },
+      ),
       button: true,
       enabled: enabled,
       selected: selected,
       excludeSemantics: true,
       onTap: enabled ? () => onAction(action) : null,
       child: Tooltip(
-        message: label,
+        message: hhText(context, label),
         // Keep this recognizer even while enabled. If the button becomes busy
         // between pointer-down and pointer-up, its parent still absorbs the
         // gesture instead of letting the whole post's InkWell open the detail.
@@ -913,7 +954,9 @@ class HhXPostItem extends StatelessWidget {
     final count = post.views == null ? '—' : _count(post.views!);
     return Semantics(
       key: ValueKey('views:${post.id}'),
-      label: post.views == null ? '浏览量暂不可用' : '浏览量，${post.views}',
+      label: post.views == null
+          ? hhText(context, '浏览量暂不可用')
+          : hhText(context, '浏览量，{v0}', args: {'v0': post.views}),
       excludeSemantics: true,
       child: SizedBox(
         height: 48,
@@ -1054,3 +1097,8 @@ class _FeedActionGlyph extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.selected != selected;
 }
+
+String localizedPostAuthor(BuildContext context, PostAuthor author) =>
+    author.state == PostAuthorState.active
+    ? author.nickname!
+    : hhText(context, '注销身份 · {code}', args: {'code': author.shortCode});

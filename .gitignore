@@ -22,6 +22,7 @@ application-local.yml
 application-local.yaml
 
 # Flutter / Dart
+apps/mobile/android/.kotlin/
 .flutter-plugins-dependencies
 .flutter-plugins
 .dart_tool/

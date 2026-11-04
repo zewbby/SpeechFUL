@@ -54,20 +54,27 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
       context: context,
       builder: (dialogContext) => ListenableBuilder(
         listenable: c,
-        builder: (_, __) => AlertDialog(
+        builder: (context, __) => AlertDialog(
           backgroundColor: HhTelegramPalette.of(context).surface,
           surfaceTintColor: Colors.transparent,
           title: Text(
-            '确认移除？',
+            hhText(context, '确认移除？'),
             style: TextStyle(color: HhTelegramPalette.of(context).ink),
           ),
           content: Text(
-            '仅移除“${_repostIdentityNames[identityId] ?? '此身份'}”保存的这条记录。',
+            hhText(
+              context,
+              '仅移除“{v0}”保存的这条记录。',
+              args: {
+                'v0':
+                    _repostIdentityNames[identityId] ?? hhText(context, '此身份'),
+              },
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
+              child: Text(hhText(context, '取消')),
             ),
             TextButton(
               key: ValueKey('confirm-undo-repost:$identityId/$postId'),
@@ -80,7 +87,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                       }
                       Navigator.of(dialogContext).pop(true);
                     },
-              child: const Text('确认'),
+              child: Text(hhText(context, '确认')),
             ),
           ],
         ),
@@ -109,7 +116,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
       builder: (sheetContext) => SafeArea(
         child: ListenableBuilder(
           listenable: c,
-          builder: (_, __) {
+          builder: (context, __) {
             final available =
                 _authority.current &&
                 _repostOriginal(postId, identityId) != null;
@@ -130,7 +137,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                     color: HhTelegramPalette.of(context).secondary,
                   ),
                   title: Text(
-                    '查看帖子',
+                    hhText(context, '查看帖子'),
                     style: TextStyle(color: HhTelegramPalette.of(context).ink),
                   ),
                   enabled: available,
@@ -143,7 +150,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                     color: HhTelegramPalette.of(context).secondary,
                   ),
                   title: Text(
-                    '举报帖子',
+                    hhText(context, '举报帖子'),
                     style: TextStyle(color: HhTelegramPalette.of(context).ink),
                   ),
                   enabled: available && governance?.available == true,
@@ -156,7 +163,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                     color: HhTelegramPalette.of(context).secondary,
                   ),
                   title: Text(
-                    '移除',
+                    hhText(context, '移除'),
                     style: TextStyle(color: HhTelegramPalette.of(context).ink),
                   ),
                   enabled:
@@ -202,9 +209,9 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
     final c = widget.controller;
     if (!c.supportsReposts) {
       return [
-        const SliverFillRemaining(
+        SliverFillRemaining(
           hasScrollBody: false,
-          child: Center(child: Text('转帖服务暂不可用')),
+          child: Center(child: Text(hhText(context, '转帖服务暂不可用'))),
         ),
       ];
     }
@@ -214,32 +221,42 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
         const SliverToBoxAdapter(child: LinearProgressIndicator()),
       if (_repostIdentityError case final error?)
         SliverToBoxAdapter(
-          child: TextButton(onPressed: _loadRepostNames, child: Text(error)),
+          child: TextButton(
+            onPressed: _loadRepostNames,
+            child: Text(hhText(context, error)),
+          ),
         ),
       for (final id in c.unresolvedRepostIds)
         SliverToBoxAdapter(
           child: ListTile(
-            title: Text(c.repostState(id).sending ? '正在保存转帖…' : '转帖结果尚未确认'),
+            title: Text(
+              c.repostState(id).sending
+                  ? hhText(context, '正在保存转帖…')
+                  : hhText(context, '转帖结果尚未确认'),
+            ),
             trailing: TextButton(
               onPressed: c.repostState(id).sending
                   ? null
                   : () =>
                         c.retryRepost(id, authorityVersion: _authority.version),
-              child: const Text('重试核对'),
+              child: Text(hhText(context, '重试核对')),
             ),
           ),
         ),
       if (c.repostListError case final error?)
         SliverToBoxAdapter(
-          child: TextButton(onPressed: _refreshReposts, child: Text(error)),
+          child: TextButton(
+            onPressed: _refreshReposts,
+            child: Text(hhText(context, error)),
+          ),
         ),
       if (!c.repostListLoading &&
           c.repostListError == null &&
           c.unresolvedRepostIds.isEmpty &&
           items.isEmpty)
-        const SliverFillRemaining(
+        SliverFillRemaining(
           hasScrollBody: false,
-          child: Center(child: Text('暂无转帖')),
+          child: Center(child: Text(hhText(context, '暂无转帖'))),
         ),
       SliverList.builder(
         itemCount: items.length,
@@ -259,10 +276,10 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
             children: [
               if (post == null)
                 ListTile(
-                  title: const Text('原帖已不可用'),
-                  subtitle: const Text('无法查看原帖内容'),
+                  title: Text(hhText(context, '原帖已不可用')),
+                  subtitle: Text(hhText(context, '无法查看原帖内容')),
                   trailing: IconButton(
-                    tooltip: '帖子更多操作',
+                    tooltip: hhText(context, '帖子更多操作'),
                     icon: const Icon(Icons.more_vert),
                     onPressed: () =>
                         _showRepostMenu(item.postId, item.identityId),
@@ -274,7 +291,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                   onMenu: () => _showRepostMenu(item.postId, item.identityId),
                   repostAction: IconButton(
                     key: ValueKey('repost-undo:${item.key}'),
-                    tooltip: '移除',
+                    tooltip: hhText(context, '移除'),
                     color: const Color(0xFF229ED9),
                     onPressed: state.unresolved
                         ? null
@@ -302,7 +319,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
               if (state.error != null && !state.unresolved)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(state.error!),
+                  child: Text(hhText(context, state.error!)),
                 ),
               const Divider(height: 1),
             ],
@@ -319,7 +336,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                     authorityVersion: _authority.version,
                     more: true,
                   ),
-            child: const Text('加载更多'),
+            child: Text(hhText(context, '加载更多')),
           ),
         ),
     ];
@@ -407,7 +424,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                 return const SizedBox.shrink();
               }
               return Text(
-                '切换身份',
+                hhText(context, '切换身份'),
                 style: TextStyle(fontSize: 13, color: p.secondary),
               );
             },
@@ -457,9 +474,9 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 224, minHeight: 48),
       child: Tooltip(
-        message: '切换身份',
+        message: hhText(context, '切换身份'),
         child: Semantics(
-          label: '切换身份，当前$name',
+          label: hhText(context, '切换身份，当前{v0}', args: {'v0': name}),
           button: true,
           excludeSemantics: true,
           onTap: _chooseIdentity,
@@ -530,8 +547,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
     );
   }
 
-  bool _hot = false, _sorting = false, _searching = false;
-  String _query = '';
+  bool _hot = false, _sorting = false;
   final _offsets = <int, double>{};
   final _replies = <CommentRow>[];
   bool _replyLoading = false, _replyLoaded = false;
@@ -589,7 +605,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
   Future<void> _sort(bool hot) async {
     if (hot && !widget.controller.supportsInteractions) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('热度数据暂不可用')));
+          .showSnackBar(SnackBar(content: Text(hhText(context, '热度数据暂不可用'))));
       return;
     }
     if (_sorting || widget.controller.personalLoading) return;
@@ -623,8 +639,9 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
     } catch (_) {
       if (mounted && _authority.current && identityEpoch == _identityEpoch) {
         setState(() => _hot = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('暂时无法获取完整热度，请重试')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(hhText(context, '暂时无法获取完整热度，请重试'))),
+        );
       }
     } finally {
       if (mounted && identityEpoch == _identityEpoch) {
@@ -703,16 +720,12 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
     final name =
         c.personalIdentity?.nickname ??
         (c.personalProfileError != null
-            ? '个人资料暂不可用'
+            ? hhText(context, '个人资料暂不可用')
             : c.personalProfileLoading
-            ? '正在加载个人资料…'
-            : '我的身份');
+            ? hhText(context, '正在加载个人资料…')
+            : hhText(context, '我的身份'));
     final items = c.personalItems
-        .where(
-          (e) =>
-              c.personalIdentity != null &&
-              (_query.isEmpty || e.title.contains(_query)),
-        )
+        .where((e) => c.personalIdentity != null)
         .toList();
     if (_hot) {
       items.sort((a, b) {
@@ -757,7 +770,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                   Row(
                     children: [
                       Text(
-                        '我的',
+                        hhText(context, '我的'),
                         key: const ValueKey('profile-title'),
                         style: TextStyle(
                           fontSize: 22,
@@ -775,68 +788,6 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                       ),
                     ],
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      IconButton(
-                        tooltip: '搜索我的帖子',
-                        icon: Icon(
-                          Icons.search,
-                          size: 28,
-                          color: HhTelegramPalette.of(context).ink,
-                        ),
-                        onPressed: c.personalLoading
-                            ? null
-                            : () async {
-                                final searchIdentity = c.personalIdentity?.id;
-                                setState(() {
-                                  _searching = !_searching;
-                                  _tab = 0;
-                                  if (!_searching) _query = '';
-                                });
-                                while (mounted &&
-                                    _authority.current &&
-                                    _searching &&
-                                    c.personalIdentity?.id == searchIdentity &&
-                                    c.personalHasMore) {
-                                  await c.loadPersonal(more: true);
-                                  if (c.personalError != null) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                            const SnackBar(
-                                              content: Text('部分帖子加载失败，请下拉重试'),
-                                            ),
-                                          );
-                                    }
-                                    break;
-                                  }
-                                }
-                              },
-                      ),
-                      IconButton(
-                        tooltip: '设置',
-                        icon: Icon(
-                          Icons.settings_outlined,
-                          size: 28,
-                          color: HhTelegramPalette.of(context).ink,
-                        ),
-                        onPressed: widget.onOpenSettings,
-                      ),
-                    ],
-                  ),
-                  if (_searching)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: TextField(
-                        autofocus: true,
-                        decoration: const InputDecoration(
-                          hintText: '搜索我的帖子',
-                          prefixIcon: Icon(Icons.search),
-                        ),
-                        onChanged: (v) => setState(() => _query = v.trim()),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -873,10 +824,12 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
             const SliverToBoxAdapter(child: LinearProgressIndicator()),
           if (_tab == 0) ...[
             if (c.personalLoading && items.isEmpty)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
-                  child: CircularProgressIndicator(semanticsLabel: '正在加载自己的帖子'),
+                  child: CircularProgressIndicator(
+                    semanticsLabel: hhText(context, '正在加载自己的帖子'),
+                  ),
                 ),
               )
             else if (items.isEmpty)
@@ -884,10 +837,8 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                 hasScrollBody: false,
                 child: _PageState(
                   title: c.personalError != null
-                      ? '暂时无法加载自己的帖子'
-                      : _query.isNotEmpty
-                      ? '没有匹配的帖子'
-                      : '还没有自己的帖子',
+                      ? hhText(context, '暂时无法加载自己的帖子')
+                      : hhText(context, '还没有自己的帖子'),
                   message: c.personalError,
                   action: c.personalError != null ? '重新加载' : '选择通道发帖',
                   actionIcon: c.personalError == null ? Icons.add : null,
@@ -947,13 +898,13 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
               SliverToBoxAdapter(
                 child: TextButton(
                   onPressed: _loadReplies,
-                  child: Text(_replyError!),
+                  child: Text(hhText(context, _replyError!)),
                 ),
               ),
             if (!_replyLoading && _replies.isEmpty && _replyError == null)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 hasScrollBody: false,
-                child: Center(child: Text('还没有回复')),
+                child: Center(child: Text(hhText(context, '还没有回复'))),
               ),
             SliverList.builder(
               itemCount: _replies.length,
@@ -977,6 +928,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                     authorId: '',
                     authorName: row.nickname,
                     elapsed: _postDate(
+                      context,
                       DateTime.parse(row.data['publishedAt'] as String),
                     ),
                     title: row.body,
@@ -1018,7 +970,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
               SliverToBoxAdapter(
                 child: TextButton(
                   onPressed: () => _loadCollection(_tab),
-                  child: Text(error),
+                  child: Text(hhText(context, error)),
                 ),
               ),
             if (!_collectionLoading.contains(_tab) &&
@@ -1026,7 +978,13 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                 _collectionItems(_tab).isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: Center(child: Text(_tab == 3 ? '还没有喜欢的帖子' : '还没有收藏的帖子')),
+                child: Center(
+                  child: Text(
+                    _tab == 3
+                        ? hhText(context, '还没有喜欢的帖子')
+                        : hhText(context, '还没有收藏的帖子'),
+                  ),
+                ),
               ),
             SliverList.builder(
               itemCount: _collectionItems(_tab).length,
@@ -1106,7 +1064,7 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
                   child: Semantics(
                     selected: selected == i,
                     button: true,
-                    label: labels[i],
+                    label: hhText(context, labels[i]),
                     child: TweenAnimationBuilder<double>(
                       key: ValueKey('profile-tab-$i'),
                       tween: Tween(end: selected == i ? 1.0 : 0.0),
@@ -1115,7 +1073,7 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
                       builder: (context, progress, _) {
                         final color = Color.lerp(
                           HhTelegramPalette.of(context).secondary,
-                          HhTelegramPalette.of(context).ink,
+                          HhTelegramPalette.of(context).accent,
                           progress,
                         )!;
                         final label = SizedBox(
@@ -1143,28 +1101,41 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
                                         size: 16 + 5 * progress,
                                         color: color,
                                       ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          labels[i],
-                                          style: TextStyle(
-                                            fontSize: 11 + 3 * progress,
-                                            fontWeight: selected == i
-                                                ? FontWeight.w600
-                                                : FontWeight.w400,
-                                            color: color,
+                                    if (progress > 0) ...[
+                                      SizedBox(height: 2 * progress),
+                                      ExcludeSemantics(
+                                        child: ClipRect(
+                                          child: Align(
+                                            heightFactor: progress,
+                                            child: Opacity(
+                                              opacity: progress,
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    hhText(context, labels[i]),
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          11 + 3 * progress,
+                                                      fontWeight: selected == i
+                                                          ? FontWeight.w600
+                                                          : FontWeight.w400,
+                                                      color: color,
+                                                    ),
+                                                  ),
+                                                  if (i == 0)
+                                                    Icon(
+                                                      Icons.keyboard_arrow_down,
+                                                      size: 12 + 2 * progress,
+                                                      color: color,
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                        if (i == 0)
-                                          Icon(
-                                            Icons.keyboard_arrow_down,
-                                            size: 12 + 2 * progress,
-                                            color: color,
-                                          ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -1173,7 +1144,7 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
                         );
                         if (i == 0 && selected == 0) {
                           return PopupMenuButton<bool>(
-                            tooltip: '帖子排序',
+                            tooltip: hhText(context, '帖子排序'),
                             initialValue: hot,
                             onSelected: onSort,
                             padding: EdgeInsets.zero,
@@ -1181,12 +1152,18 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
                               CheckedPopupMenuItem(
                                 value: false,
                                 checked: !hot,
-                                child: const Text('最新'),
+                                child: Builder(
+                                  builder: (context) =>
+                                      Text(hhText(context, '最新')),
+                                ),
                               ),
                               CheckedPopupMenuItem(
                                 value: true,
                                 checked: hot,
-                                child: const Text('最热'),
+                                child: Builder(
+                                  builder: (context) =>
+                                      Text(hhText(context, '最热')),
+                                ),
                               ),
                             ],
                             child: label,
@@ -1222,7 +1199,10 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
                   child: SizedBox(
                     width: 28,
                     height: 2,
-                    child: ColoredBox(color: HhTelegramPalette.of(context).ink),
+                    child: ColoredBox(
+                      key: const ValueKey('profile-tab-indicator'),
+                      color: HhTelegramPalette.of(context).accent,
+                    ),
                   ),
                 ),
               ),
@@ -1296,8 +1276,8 @@ class _ProfilePostState extends State<_ProfilePost> {
       post: FeedPostView(
         id: p.postId,
         authorId: '',
-        authorName: p.author.displayName,
-        elapsed: _postDate(p.publishedAt),
+        authorName: localizedPostAuthor(context, p.author),
+        elapsed: _postDate(context, p.publishedAt),
         title: p.title,
         body: detail?.body ?? '',
         comments: interaction.value?.commentCount,
@@ -1312,13 +1292,16 @@ class _ProfilePostState extends State<_ProfilePost> {
         isOwnAuthor: widget.own,
       ),
       avatarBuilder: (_, __) => DetailAvatar(
-        name: p.author.displayName,
+        name: localizedPostAuthor(context, p.author),
         avatar: p.author.avatar,
         radius: 21,
       ),
       mediaBuilder: (_, __) => const SizedBox.shrink(),
       mediaSection: _failed
-          ? TextButton(onPressed: _load, child: const Text('内容加载失败，点击重试'))
+          ? TextButton(
+              onPressed: _load,
+              child: Text(hhText(context, '内容加载失败，点击重试')),
+            )
           : detail != null && detail.imageCount > 0 && widget.loadImages != null
           ? PostImagesSection(
               postId: p.postId,

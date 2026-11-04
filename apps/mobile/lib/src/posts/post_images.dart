@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -354,13 +356,15 @@ class _PostImagesSectionState extends State<PostImagesSection>
         return _feedMedia(
           context,
           _group,
-          placeholder: const Center(
-            child: CircularProgressIndicator(semanticsLabel: '正在读取图片'),
+          placeholder: Center(
+            child: CircularProgressIndicator(
+              semanticsLabel: hhText(context, '正在读取图片'),
+            ),
           ),
         );
       }
       return _detailPlaceholder(
-        const CircularProgressIndicator(semanticsLabel: '正在读取图片'),
+        CircularProgressIndicator(semanticsLabel: hhText(context, '正在读取图片')),
       );
     }
     if (_failed) {
@@ -375,8 +379,11 @@ class _PostImagesSectionState extends State<PostImagesSection>
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('图片暂时无法读取'),
-            TextButton(onPressed: _load, child: const Text('重新加载图片')),
+            Text(hhText(context, '图片暂时无法读取')),
+            TextButton(
+              onPressed: _load,
+              child: Text(hhText(context, '重新加载图片')),
+            ),
           ],
         ),
       );
@@ -396,8 +403,11 @@ class _PostImagesSectionState extends State<PostImagesSection>
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('图片已不可访问'),
-            TextButton(onPressed: _load, child: const Text('重新读取图片')),
+            Text(hhText(context, '图片已不可访问')),
+            TextButton(
+              onPressed: _load,
+              child: Text(hhText(context, '重新读取图片')),
+            ),
           ],
         ),
       );
@@ -419,7 +429,11 @@ class _PostImagesSectionState extends State<PostImagesSection>
         itemCount: group.images.length,
         itemBuilder: (context, index) => Semantics(
           button: true,
-          label: '查看第${index + 1}张图片，共${group.images.length}张',
+          label: hhText(
+            context,
+            '查看第{v0}张图片，共{v1}张',
+            args: {'v0': index + 1, 'v1': group.images.length},
+          ),
           child: Material(
             clipBehavior: Clip.antiAlias,
             borderRadius: BorderRadius.circular(4),
@@ -498,7 +512,11 @@ class _PostImagesSectionState extends State<PostImagesSection>
         child: Semantics(
           button: placeholder == null,
           label: placeholder == null
-              ? '查看第${index + 1}张图片，共${sizes.length}张'
+              ? hhText(
+                  context,
+                  '查看第{v0}张图片，共{v1}张',
+                  args: {'v0': index + 1, 'v1': sizes.length},
+                )
               : null,
           child: Material(
             clipBehavior: Clip.antiAlias,
@@ -535,9 +553,12 @@ class _PostImagesSectionState extends State<PostImagesSection>
             children: [
               card(0, width, width / previewRatio),
               if (r != previewRatio)
-                const Padding(
-                  padding: EdgeInsets.only(top: 4),
-                  child: Text('点击查看完整图片', style: TextStyle(fontSize: 12)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    hhText(context, '点击查看完整图片'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ),
             ],
           ),
@@ -601,7 +622,7 @@ class _PostThumbnailState extends State<_PostThumbnail> {
     });
   }
 
-  Widget _loading() => const Center(child: Text('图片加载中'));
+  Widget _loading() => Center(child: Text(hhText(context, '图片加载中')));
 
   Widget _failure() => Center(
     child: SingleChildScrollView(
@@ -609,9 +630,9 @@ class _PostThumbnailState extends State<_PostThumbnail> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('图片加载失败'),
+          Text(hhText(context, '图片加载失败')),
           if (widget.image.loadThumbnail != null)
-            TextButton(onPressed: _retry, child: const Text('点击重试')),
+            TextButton(onPressed: _retry, child: Text(hhText(context, '点击重试'))),
         ],
       ),
     ),
@@ -655,19 +676,19 @@ class _PostThumbnailState extends State<_PostThumbnail> {
         fit: StackFit.expand,
         children: [
           image,
-          const Positioned(
+          Positioned(
             right: 6,
             bottom: 6,
             child: DecoratedBox(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.black54,
                 borderRadius: BorderRadius.all(Radius.circular(4)),
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 child: Text(
-                  '动图',
-                  style: TextStyle(color: Colors.white, fontSize: 12),
+                  hhText(context, '动图'),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
               ),
             ),

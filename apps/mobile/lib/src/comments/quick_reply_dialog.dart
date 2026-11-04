@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
@@ -60,7 +62,7 @@ class QuickReplyDialog extends StatelessWidget {
                         TextSpan(
                           children: [
                             TextSpan(
-                              text: '回复给 ',
+                              text: hhText(context, '回复给 '),
                               style: type(17, color: p.secondary),
                             ),
                             TextSpan(
@@ -72,7 +74,7 @@ class QuickReplyDialog extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: '收起回复',
+                      tooltip: hhText(context, '收起回复'),
                       onPressed: onClose,
                       icon: Icon(
                         Icons.close_rounded,
@@ -93,7 +95,7 @@ class QuickReplyDialog extends StatelessWidget {
                   style: type(17),
                   cursorColor: p.action,
                   decoration: InputDecoration(
-                    hintText: '写下你的回复…',
+                    hintText: hhText(context, '写下你的回复…'),
                     hintStyle: type(17, color: p.secondary),
                     isDense: true,
                     border: InputBorder.none,
@@ -109,12 +111,15 @@ class QuickReplyDialog extends StatelessWidget {
                 if (error != null) ...[
                   Semantics(
                     liveRegion: true,
-                    child: Text(error!, style: type(14, color: p.error)),
+                    child: Text(
+                      hhText(context, error!),
+                      style: type(14, color: p.error),
+                    ),
                   ),
                   if (onRetry != null)
                     TextButton(
                       onPressed: busy ? null : onRetry,
-                      child: Text(retryLabel),
+                      child: Text(hhText(context, retryLabel)),
                     ),
                 ],
                 const SizedBox(height: 8),
@@ -158,7 +163,7 @@ class QuickReplyDialog extends StatelessWidget {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('回复'),
+                            : Text(hhText(context, '回复')),
                       ),
                     ),
                   ],

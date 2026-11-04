@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/auth_crypto.dart';
 import '../auth/auth_store.dart';
+import '../localization/app_localizations.dart';
 import '../posts/post_models.dart';
 import 'governance_api.dart';
 
@@ -132,24 +133,24 @@ class _ModerationAccessScreenState extends State<ModerationAccessScreen> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.access,
     builder: (context, _) => Scaffold(
-      appBar: AppBar(title: const Text('查看处理通知与申诉')),
+      appBar: AppBar(title: Text(hhText(context, '查看处理通知与申诉'))),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text('账号受限时，仍可用原用户名和密码查看本人的处理结果并申诉。此入口只允许处理通知与申诉。'),
+          Text(hhText(context, '账号受限时，仍可用原用户名和密码查看本人的处理结果并申诉。此入口只允许处理通知与申诉。')),
           const SizedBox(height: 24),
           TextField(
             controller: _username,
             autocorrect: false,
             enableSuggestions: false,
-            decoration: const InputDecoration(labelText: '私有用户名'),
+            decoration: InputDecoration(labelText: hhText(context, '私有用户名')),
           ),
           TextField(
             controller: _password,
             obscureText: true,
             autocorrect: false,
             enableSuggestions: false,
-            decoration: const InputDecoration(labelText: '密码'),
+            decoration: InputDecoration(labelText: hhText(context, '密码')),
           ),
           const SizedBox(height: 24),
           FilledButton(
@@ -164,10 +165,17 @@ class _ModerationAccessScreenState extends State<ModerationAccessScreen> {
                     );
                     if (context.mounted && ok) Navigator.pop(context, true);
                   },
-            child: Text(widget.access.busy ? '正在核对' : '查看处理通知'),
+            child: Text(
+              widget.access.busy
+                  ? hhText(context, '正在核对')
+                  : hhText(context, '查看处理通知'),
+            ),
           ),
           if (widget.access.error != null)
-            Semantics(liveRegion: true, child: Text(widget.access.error!)),
+            Semantics(
+              liveRegion: true,
+              child: Text(hhText(context, widget.access.error!)),
+            ),
         ],
       ),
     ),

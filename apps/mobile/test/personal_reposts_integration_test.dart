@@ -211,8 +211,11 @@ void main() {
       await tapVisible(tester, find.text('关闭'));
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
-      await tapVisible(tester, find.byKey(const ValueKey('feed-account')));
-      await tapVisible(tester, find.text('转帖'));
+      await tapVisible(
+        tester,
+        find.byKey(const ValueKey('destination:personal')),
+      );
+      await tapVisible(tester, find.byKey(const ValueKey('profile-tab-2')));
       expect(
         tester
             .widget<PersonalPostsScreen>(find.byType(PersonalPostsScreen))
@@ -287,8 +290,8 @@ void main() {
       );
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
-      await tapVisible(tester, find.text('喜欢'));
-      await tapVisible(tester, find.text('转帖'));
+      await tapVisible(tester, find.byKey(const ValueKey('profile-tab-3')));
+      await tapVisible(tester, find.byKey(const ValueKey('profile-tab-2')));
       expect(f.posts.repostItems, hasLength(2));
       expect(api.pages, [null, '1']);
 
@@ -417,7 +420,7 @@ void main() {
       oldConfirm();
       await tester.pumpAndSettle();
       expect(api.mutations, hasLength(writes));
-      await tapVisible(tester, find.text('转帖'));
+      await tapVisible(tester, find.byKey(const ValueKey('profile-tab-2')));
       expect(find.text('暂无转帖'), findsOneWidget);
       expect(find.text('原帖已不可用'), findsNothing);
       expect(tester.takeException(), isNull);

@@ -43,7 +43,7 @@ void main() {
         await tester.pumpWidget(await f.create());
         await tester.pumpAndSettle();
         f.identitiesApi.readWait = Completer();
-        await tester.tap(find.byKey(const ValueKey('feed-account')));
+        await tester.tap(find.byKey(const ValueKey('destination:personal')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
         expect(find.bySemanticsLabel('正在加载自己的帖子'), findsOneWidget);
@@ -81,7 +81,7 @@ void main() {
           oldFeed = tester.state(find.byType(FeedScreen));
           tester.widget<FeedScreen>(find.byType(FeedScreen)).onOpenPersonal!();
         } else {
-          await tester.tap(find.byKey(const ValueKey('feed-account')));
+          await tester.tap(find.byKey(const ValueKey('destination:personal')));
         }
         await tester.pumpAndSettle();
         expect(find.text('账号A的身份'), findsOneWidget);
@@ -144,7 +144,7 @@ void main() {
         f.postApi.oldPersonal = Completer();
         await tester.pumpWidget(await f.create());
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('feed-account')));
+        await tester.tap(find.byKey(const ValueKey('destination:personal')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         await f.loginB(tester);
@@ -183,7 +183,7 @@ void main() {
     final f = HomeTestFixture();
     await tester.pumpWidget(await f.create());
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('feed-account')));
+    await tester.tap(find.byKey(const ValueKey('destination:personal')));
     await tester.pumpAndSettle();
     final old = tester.state(find.byType(PersonalPostsScreen));
     await f.loginB(tester, account: identityTestAccount, name: '同账号的新窗口');
@@ -202,7 +202,7 @@ void main() {
     final f = HomeTestFixture();
     await tester.pumpWidget(await f.create());
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('feed-account')));
+    await tester.tap(find.byKey(const ValueKey('destination:personal')));
     await tester.pumpAndSettle();
     f.channels.wait = Completer();
     await f.loginB(tester, directoryPending: true);
@@ -226,7 +226,7 @@ void main() {
     );
     expect(f.posts.timelineChannelId, isNull);
     expect(find.byType(PersonalPostsScreen), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('feed-account')));
+    await tester.tap(find.byKey(const ValueKey('destination:personal')));
     await tester.pumpAndSettle();
     expect(
       tester

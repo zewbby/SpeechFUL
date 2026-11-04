@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -6,6 +8,7 @@ import '../design_system/telegram_theme.dart';
 import 'post_controller.dart';
 import 'post_reposts_api.dart';
 import 'post_images.dart';
+import 'x_feed.dart' show localizedPostAuthor;
 
 /// Rounded two-arrow mark, shared by every post surface.
 class PostRepostIcon extends StatelessWidget {
@@ -113,15 +116,17 @@ class _PostRepostButtonState extends State<PostRepostButton> {
         context: context,
         builder: (dialogContext) => AnimatedBuilder(
           animation: c,
-          builder: (_, _) {
-            if (!current) return const AlertDialog(content: Text('请重新登录'));
+          builder: (context, _) {
+            if (!current) {
+              return AlertDialog(content: Text(hhText(context, '请重新登录')));
+            }
             final state = c.repostState(widget.postId);
             return AlertDialog(
-              title: const Text('选择身份'),
+              title: Text(hhText(context, '选择身份')),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (identities.isEmpty) const Text('请先在设置中创建身份。'),
+                  if (identities.isEmpty) Text(hhText(context, '请先在设置中创建身份。')),
                   for (final identity in identities)
                     ListTile(
                       title: Text(identity.nickname),
@@ -145,20 +150,24 @@ class _PostRepostButtonState extends State<PostRepostButton> {
                                       context,
                                     ).surface,
                                     surfaceTintColor: Colors.transparent,
-                                    title: const Text('确认移除？'),
+                                    title: Text(hhText(context, '确认移除？')),
                                     content: Text(
-                                      '仅移除“${identity.nickname}”保存的这条记录。',
+                                      hhText(
+                                        context,
+                                        '仅移除“{v0}”保存的这条记录。',
+                                        args: {'v0': identity.nickname},
+                                      ),
                                     ),
                                     actions: [
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.pop(context, false),
-                                        child: const Text('取消'),
+                                        child: Text(hhText(context, '取消')),
                                       ),
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.pop(context, true),
-                                        child: const Text('确认'),
+                                        child: Text(hhText(context, '确认')),
                                       ),
                                     ],
                                   ),
@@ -178,11 +187,11 @@ class _PostRepostButtonState extends State<PostRepostButton> {
                             },
                     ),
                   if (state.sending)
-                    const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text('正在保存…'),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(hhText(context, '正在保存…')),
                     ),
-                  if (state.error != null) Text(state.error!),
+                  if (state.error != null) Text(hhText(context, state.error!)),
                   if (state.error != null)
                     TextButton(
                       onPressed: state.sending
@@ -191,14 +200,18 @@ class _PostRepostButtonState extends State<PostRepostButton> {
                               widget.postId,
                               authorityVersion: epoch,
                             ),
-                      child: Text(state.unresolved ? '重试核对' : '重新读取'),
+                      child: Text(
+                        state.unresolved
+                            ? hhText(context, '重试核对')
+                            : hhText(context, '重新读取'),
+                      ),
                     ),
                 ],
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('关闭'),
+                  child: Text(hhText(context, '关闭')),
                 ),
               ],
             );
@@ -207,8 +220,9 @@ class _PostRepostButtonState extends State<PostRepostButton> {
       );
     } catch (_) {
       if (mounted && current) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('身份读取失败，请重试。')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(hhText(context, '身份读取失败，请重试。'))));
       }
     } finally {
       if (mounted) setState(() => opening = false);
@@ -223,7 +237,9 @@ class _PostRepostButtonState extends State<PostRepostButton> {
       final state = c.repostState(widget.postId);
       return IconButton(
         key: ValueKey('repost:${widget.postId}'),
-        tooltip: state.unresolved ? '重试核对' : '转帖',
+        tooltip: state.unresolved
+            ? hhText(context, '重试核对')
+            : hhText(context, '转帖'),
         onPressed: current && !opening ? open : null,
         color: state.reposted ? const Color(0xFF229ED9) : null,
         icon: const PostRepostIcon(),
@@ -289,7 +305,7 @@ class _PersonalRepostsListState extends State<PersonalRepostsList> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: c,
     builder: (_, _) {
-      if (!current) return const Center(child: Text('请重新登录'));
+      if (!current) return Center(child: Text(hhText(context, '请重新登录')));
       return RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
@@ -297,47 +313,54 @@ class _PersonalRepostsListState extends State<PersonalRepostsList> {
           children: [
             if (identityError case final error?)
               ListTile(
-                title: Text(error),
+                title: Text(hhText(context, error)),
                 trailing: TextButton(
                   onPressed: _loadIdentityNames,
-                  child: const Text('重新读取身份'),
+                  child: Text(hhText(context, '重新读取身份')),
                 ),
               ),
             if (c.repostListLoading) const LinearProgressIndicator(),
             for (final id in c.unresolvedRepostIds)
               ListTile(
-                title: Text(c.repostState(id).sending ? '正在保存转帖…' : '转帖结果尚未确认'),
+                title: Text(
+                  c.repostState(id).sending
+                      ? hhText(context, '正在保存转帖…')
+                      : hhText(context, '转帖结果尚未确认'),
+                ),
                 trailing: TextButton(
                   onPressed: c.repostState(id).sending
                       ? null
                       : () => c.retryRepost(id, authorityVersion: epoch),
-                  child: const Text('重试核对'),
+                  child: Text(hhText(context, '重试核对')),
                 ),
               ),
             if (c.repostListError case final error?)
               ListTile(
-                title: Text(error),
+                title: Text(hhText(context, error)),
                 trailing: TextButton(
                   onPressed: () => c.loadReposts(authorityVersion: epoch),
-                  child: const Text('重试'),
+                  child: Text(hhText(context, '重试')),
                 ),
               ),
             if (!c.repostListLoading &&
                 c.unresolvedRepostIds.isEmpty &&
                 c.repostListError == null &&
                 c.repostItems.isEmpty)
-              const Padding(padding: EdgeInsets.all(32), child: Text('暂无转帖')),
+              Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(hhText(context, '暂无转帖')),
+              ),
             for (final item in c.repostItems)
               Column(
                 key: ValueKey(item.key),
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ListTile(
-                    title: Text(item.post?.title ?? '原帖已不可用'),
+                    title: Text(item.post?.title ?? hhText(context, '原帖已不可用')),
                     subtitle: Text(
                       item.post == null
-                          ? '无法查看原帖内容'
-                          : item.post!.author.displayName,
+                          ? hhText(context, '无法查看原帖内容')
+                          : localizedPostAuthor(context, item.post!.author),
                     ),
                     onTap: item.post == null
                         ? null
@@ -368,7 +391,7 @@ class _PersonalRepostsListState extends State<PersonalRepostsList> {
                     alignment: Alignment.centerRight,
                     child: IconButton(
                       key: ValueKey('cancel-repost:${item.key}'),
-                      tooltip: '移除',
+                      tooltip: hhText(context, '移除'),
                       color: const Color(0xFF229ED9),
                       icon: const PostRepostIcon(),
                       onPressed: c.repostState(item.postId).unresolved
@@ -380,20 +403,28 @@ class _PersonalRepostsListState extends State<PersonalRepostsList> {
                                   backgroundColor: HhTelegramPalette.of(context)
                                       .surface,
                                   surfaceTintColor: Colors.transparent,
-                                  title: const Text('确认移除？'),
+                                  title: Text(hhText(context, '确认移除？')),
                                   content: Text(
-                                    '仅移除“${identityNames[item.identityId] ?? '此身份'}”保存的这条记录。',
+                                    hhText(
+                                      context,
+                                      '仅移除“{v0}”保存的这条记录。',
+                                      args: {
+                                        'v0':
+                                            identityNames[item.identityId] ??
+                                            hhText(context, '此身份'),
+                                      },
+                                    ),
                                   ),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.pop(context, false),
-                                      child: const Text('取消'),
+                                      child: Text(hhText(context, '取消')),
                                     ),
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.pop(context, true),
-                                      child: const Text('确认'),
+                                      child: Text(hhText(context, '确认')),
                                     ),
                                   ],
                                 ),
@@ -413,7 +444,7 @@ class _PersonalRepostsListState extends State<PersonalRepostsList> {
                   ),
                   if (c.repostState(item.postId).error case final error?)
                     ListTile(
-                      title: Text(error),
+                      title: Text(hhText(context, error)),
                       trailing: TextButton(
                         onPressed: c.repostState(item.postId).sending
                             ? null
@@ -421,7 +452,7 @@ class _PersonalRepostsListState extends State<PersonalRepostsList> {
                                 item.postId,
                                 authorityVersion: epoch,
                               ),
-                        child: const Text('重试核对'),
+                        child: Text(hhText(context, '重试核对')),
                       ),
                     ),
                   const Divider(),
@@ -432,7 +463,7 @@ class _PersonalRepostsListState extends State<PersonalRepostsList> {
                 onPressed: c.repostListLoading
                     ? null
                     : () => c.loadReposts(authorityVersion: epoch, more: true),
-                child: const Text('加载更多'),
+                child: Text(hhText(context, '加载更多')),
               ),
           ],
         ),

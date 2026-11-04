@@ -2,6 +2,7 @@ import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hnuhole_mobile/src/identity/settings_screen.dart';
 import 'package:hnuhole_mobile/src/navigation/community_material_labels.dart';
 import 'package:hnuhole_mobile/src/navigation/entry_screen.dart';
 import 'package:hnuhole_mobile/src/navigation/channel_directory_controller.dart';
@@ -67,13 +68,19 @@ void main() {
   });
 
   testWidgets(
-    'home profile entry is labelled in Chinese and stays actionable',
+    'home avatar opens settings directly and the personal tab remains available',
     (tester) async {
       final fixture = HomeTestFixture();
       await tester.pumpWidget(await fixture.create());
       await tester.pumpAndSettle();
       expect(find.byTooltip('My content'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('feed-account')));
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(find.byKey(const ValueKey('home-menu-settings')), findsNothing);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('destination:personal')));
       await tester.pumpAndSettle();
       expect(find.text('账号A的身份'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());

@@ -4,9 +4,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../localization/app_localizations.dart';
 import '../reports/report_screens.dart';
 import '../system_notifications/notification_models.dart';
 import 'dm_controller.dart';
+import 'messaging_ui_text.dart';
 
 Future<void> showDmBlock(
   BuildContext context,
@@ -22,19 +24,26 @@ Future<void> showDmBlock(
       mainAxisSize: MainAxisSize.min,
       children: [
         ListTile(
-          title: Text(blocked ? '解除拉黑？' : '确认拉黑？'),
-          subtitle: const Text('聊天记录保留。拉黑期间双方暂停发送私信。'),
+          title: Text(
+            blocked ? hhText(context, '解除拉黑？') : hhText(context, '确认拉黑？'),
+          ),
+          subtitle: Text(hhText(context, '聊天记录保留。拉黑期间双方暂停发送私信。')),
         ),
         ListTile(
-          title: Text(blocked ? '解除拉黑' : '确认拉黑'),
+          title: Text(
+            blocked ? hhText(context, '解除拉黑') : hhText(context, '确认拉黑'),
+          ),
           onTap: () => Navigator.pop(context, 'block'),
         ),
         if (!blocked)
           ListTile(
-            title: const Text('举报'),
+            title: Text(hhText(context, '举报')),
             onTap: () => Navigator.pop(context, 'report'),
           ),
-        ListTile(title: const Text('取消'), onTap: () => Navigator.pop(context)),
+        ListTile(
+          title: Text(hhText(context, '取消')),
+          onTap: () => Navigator.pop(context),
+        ),
       ],
     ),
   );
@@ -49,14 +58,18 @@ Future<void> showDmBlock(
   try {
     await controller.setBlocked(row['identityId'], row['id'], !blocked);
     if (context.mounted && scope == controller.scope) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(controller.error ?? '操作已保存，正在同步')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            messagingUiError(context, controller.error ?? '操作已保存，正在同步'),
+          ),
+        ),
+      );
     }
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('操作未保存，请重试')));
+          .showSnackBar(SnackBar(content: Text(hhText(context, '操作未保存，请重试'))));
     }
   }
 }
@@ -101,17 +114,19 @@ class _DmBlacklistScreenState extends State<DmBlacklistScreen> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.controller,
     builder: (context, _) => Scaffold(
-      appBar: AppBar(title: const Text('黑名单')),
+      appBar: AppBar(title: Text(hhText(context, '黑名单'))),
       body: !widget.controller.available || _scope != widget.controller.scope
-          ? const Center(child: Text('会话已变化，请重新进入'))
+          ? Center(child: Text(hhText(context, '会话已变化，请重新进入')))
           : ListView(
               children: [
-                const ListTile(subtitle: Text('仅显示拉黑时选择的身份。解除后才可继续发送。')),
+                ListTile(
+                  subtitle: Text(hhText(context, '仅显示拉黑时选择的身份。解除后才可继续发送。')),
+                ),
                 if (_error != null)
-                  ListTile(title: Text(_error!), onTap: _load),
+                  ListTile(title: Text(hhText(context, _error!)), onTap: _load),
                 if (_busy) const LinearProgressIndicator(),
                 if (_rows?.isEmpty == true)
-                  const ListTile(title: Text('暂无拉黑记录')),
+                  ListTile(title: Text(hhText(context, '暂无拉黑记录'))),
                 for (final row in _rows ?? <Map<String, dynamic>>[])
                   ListTile(
                     title: Text(row['peerName']),
@@ -129,7 +144,7 @@ class _DmBlacklistScreenState extends State<DmBlacklistScreen> {
                                 await _load();
                               }
                             },
-                      child: const Text('解除'),
+                      child: Text(hhText(context, '解除')),
                     ),
                   ),
               ],
@@ -172,12 +187,12 @@ class _DmReportReasonState extends State<_DmReportReason> {
   String? _reason;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('举报原因')),
+    appBar: AppBar(title: Text(hhText(context, '举报原因'))),
     body: ListView(
       children: [
         for (final entry in reportReasons.entries)
           ListTile(
-            title: Text(entry.value),
+            title: Text(hhText(context, entry.value)),
             trailing: Icon(
               _reason == entry.key
                   ? Icons.radio_button_checked
@@ -191,7 +206,7 @@ class _DmReportReasonState extends State<_DmReportReason> {
             onPressed: _reason == null
                 ? null
                 : () => Navigator.pop(context, _reason),
-            child: const Text('下一步'),
+            child: Text(hhText(context, '下一步')),
           ),
         ),
       ],
@@ -340,7 +355,7 @@ class _DmReportDetailsState extends State<_DmReportDetails> {
       animation: Listenable.merge([governance, widget.controller]),
       builder: (context, _) => MaterialEvidenceForm(
         controller: governance,
-        title: '举报详情',
+        title: hhText(context, '举报详情'),
         textLimit: 200,
         imageLimit: 6,
         hasExtraInput: _snapshot != null,
@@ -352,18 +367,29 @@ class _DmReportDetailsState extends State<_DmReportDetails> {
         summary: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(reportReasons[widget.reason]!),
-            const Text('选择首尾消息，提交该区间双方全部可用记录。旧记录无法认证或本地缺失时会明确标注。'),
+            Text(hhText(context, reportReasons[widget.reason]!)),
+            Text(hhText(context, '选择首尾消息，提交该区间双方全部可用记录。旧记录无法认证或本地缺失时会明确标注。')),
             OutlinedButton(
               onPressed:
                   governance.pending != null || governance.busy || _selecting
                   ? null
                   : _select,
-              child: Text(_snapshot == null ? '选择聊天证据' : '重选聊天区间'),
+              child: Text(
+                _snapshot == null
+                    ? hhText(context, '选择聊天证据')
+                    : hhText(context, '重选聊天区间'),
+              ),
             ),
             if (_snapshot != null) ...[
               Text(
-                '已固定第 ${_snapshot!['firstSequence']}–${_snapshot!['lastSequence']} 条',
+                hhText(
+                  context,
+                  '已固定第 {first}–{last} 条',
+                  args: {
+                    'first': _snapshot!['firstSequence'],
+                    'last': _snapshot!['lastSequence'],
+                  },
+                ),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).push(
@@ -375,17 +401,17 @@ class _DmReportDetailsState extends State<_DmReportDetails> {
                     ),
                   ),
                 ),
-                child: const Text('预览本次证据'),
+                child: Text(hhText(context, '预览本次证据')),
               ),
               CheckboxListTile(
                 value: _authorized,
                 onChanged: governance.pending != null || governance.busy
                     ? null
                     : (v) => setState(() => _authorized = v == true),
-                title: const Text('授权平台查看此区间的可用记录和已知缺口'),
+                title: Text(hhText(context, '授权平台查看此区间的可用记录和已知缺口')),
               ),
             ],
-            if (_error != null) Text(_error!),
+            if (_error != null) Text(hhText(context, _error!)),
           ],
         ),
         onSubmit: (text, images) => governance.submitDmReport(
@@ -434,7 +460,7 @@ class _DmEvidencePickerState extends State<_DmEvidencePicker> {
   String _text(Map row) {
     final value = row['outgoing'] == true ? (row['intent'] as Map?) : row;
     final text = value?['text'] as String?;
-    return text?.isNotEmpty == true ? text! : '[图片]';
+    return text?.isNotEmpty == true ? text! : hhText(context, '[图片]');
   }
 
   Future<void> _load() async {
@@ -502,16 +528,18 @@ class _DmEvidencePickerState extends State<_DmEvidencePicker> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.controller,
     builder: (context, _) => Scaffold(
-      appBar: AppBar(title: const Text('选择聊天证据')),
+      appBar: AppBar(title: Text(hhText(context, '选择聊天证据'))),
       body: !widget.controller.available || _scope != widget.controller.scope
-          ? const Center(child: Text('会话已变化，请返回'))
+          ? Center(child: Text(hhText(context, '会话已变化，请返回')))
           : Column(
               children: [
-                const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text('依次点选首条、末条；区间内双方记录都会包含。再次选择可重设范围。'),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    hhText(context, '依次点选首条、末条；区间内双方记录都会包含。再次选择可重设范围。'),
+                  ),
                 ),
-                if (_error != null) Text(_error!),
+                if (_error != null) Text(hhText(context, _error!)),
                 if (_busy) const LinearProgressIndicator(),
                 Expanded(
                   child: ListView(
@@ -519,7 +547,7 @@ class _DmEvidencePickerState extends State<_DmEvidencePicker> {
                       if (_more)
                         TextButton(
                           onPressed: _busy ? null : _load,
-                          child: const Text('加载更早消息'),
+                          child: Text(hhText(context, '加载更早消息')),
                         ),
                       for (final row in _rows)
                         if (_sequence(row) != null)
@@ -560,8 +588,15 @@ class _DmEvidencePickerState extends State<_DmEvidencePicker> {
                       onPressed: _busy || _first == null ? null : _preview,
                       child: Text(
                         _first == null
-                            ? '先选择消息'
-                            : '预览 $_first–${_last ?? _first}',
+                            ? hhText(context, '先选择消息')
+                            : hhText(
+                                context,
+                                '预览 {first}–{last}',
+                                args: {
+                                  'first': _first,
+                                  'last': _last ?? _first,
+                                },
+                              ),
                       ),
                     ),
                   ),
@@ -620,14 +655,14 @@ class _DmEvidencePreviewState extends State<DmEvidencePreview> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('固定证据预览')),
+    appBar: AppBar(title: Text(hhText(context, '固定证据预览'))),
     body:
         !widget.controller.available || widget.scope != widget.controller.scope
-        ? const Center(child: Text('会话已变化，请返回'))
+        ? Center(child: Text(hhText(context, '会话已变化，请返回')))
         : ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text('仅包含以下区间及缺口。预览后新消息不会加入，后续撤回不改变本次快照。'),
+              Text(hhText(context, '仅包含以下区间及缺口。预览后新消息不会加入，后续撤回不改变本次快照。')),
               for (final row in widget.snapshot['entries'] as List)
                 Align(
                   alignment: row['outgoing'] == true
@@ -646,13 +681,23 @@ class _DmEvidencePreviewState extends State<DmEvidencePreview> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '#${row['sequence']} ${row['outgoing'] == true ? '本人' : '对方'}',
+                          hhText(
+                            context,
+                            '#{sequence} {who}',
+                            args: {
+                              'sequence': row['sequence'],
+                              'who': hhText(
+                                context,
+                                row['outgoing'] == true ? '本人' : '对方',
+                              ),
+                            },
+                          ),
                         ),
                         if (row['gap'] != '')
                           Text(switch (row['gap']) {
-                            'UNVERIFIABLE' => '缺口：旧记录无法认证',
-                            'RETRACTED' => '缺口：消息已撤回',
-                            _ => '缺口：本机记录不可用',
+                            'UNVERIFIABLE' => hhText(context, '缺口：旧记录无法认证'),
+                            'RETRACTED' => hhText(context, '缺口：消息已撤回'),
+                            _ => hhText(context, '缺口：本机记录不可用'),
                           })
                         else if (row['kind'] == 'IMAGE')
                           Image(
@@ -673,7 +718,7 @@ class _DmEvidencePreviewState extends State<DmEvidencePreview> {
               if (widget.select)
                 FilledButton(
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('使用这份证据'),
+                  child: Text(hhText(context, '使用这份证据')),
                 ),
             ],
           ),

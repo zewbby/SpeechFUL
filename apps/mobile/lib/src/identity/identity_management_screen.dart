@@ -7,6 +7,8 @@ import 'identity_avatar_photo.dart';
 
 import 'package:flutter/material.dart';
 
+import '../localization/app_localizations.dart';
+
 import '../auth/auth_session_controller.dart';
 import 'identity_api.dart';
 import 'identity_management_controller.dart';
@@ -19,10 +21,16 @@ class DefaultIdentityAvatar extends StatelessWidget {
   Widget build(BuildContext context) => IdentityAvatar(radius: radius);
 }
 
-String identityDate(DateTime date) {
+String identityDate(DateTime date, [BuildContext? context]) {
   // Creation calendar boundaries are defined by the server in Asia/Shanghai.
   final local = date.toUtc().add(const Duration(hours: 8));
-  return '${local.year}年${local.month}月${local.day}日';
+  return context == null
+      ? '${local.year}年${local.month}月${local.day}日'
+      : hhText(
+          context,
+          '{year}年{month}月{day}日',
+          args: {'year': local.year, 'month': local.month, 'day': local.day},
+        );
 }
 
 class IdentityPendingPanel extends StatelessWidget {
@@ -43,7 +51,7 @@ class IdentityPendingPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          requiredInitial ? '完成身份设置' : '核对保存结果',
+          hhText(context, requiredInitial ? '完成身份设置' : '核对保存结果'),
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 16),
@@ -51,8 +59,13 @@ class IdentityPendingPanel extends StatelessWidget {
           const Center(child: CircularProgressIndicator())
         else ...[
           Text(
-            controller.errorMessage ??
-                (controller.hasPending ? '保存结果尚未确认，请核对后继续。' : '暂时无法读取身份，请重试。'),
+            hhText(
+              context,
+              controller.errorMessage ??
+                  (controller.hasPending
+                      ? '保存结果尚未确认，请核对后继续。'
+                      : '暂时无法读取身份，请重试。'),
+            ),
           ),
           const SizedBox(height: 16),
           FilledButton(
@@ -61,17 +74,17 @@ class IdentityPendingPanel extends StatelessWidget {
                   ? controller.reconcilePending()
                   : controller.load(),
             ),
-            child: const Text('重新核对'),
+            child: Text(hhText(context, '重新核对')),
           ),
           if (controller.status == IdentityManagementStatus.retryRequired)
             TextButton(
               onPressed: () => unawaited(controller.retryPending()),
-              child: const Text('重试原操作'),
+              child: Text(hhText(context, '重试原操作')),
             ),
         ],
         TextButton(
           onPressed: sessions.busy ? null : () => unawaited(sessions.logout()),
-          child: const Text('退出登录'),
+          child: Text(hhText(context, '退出登录')),
         ),
       ],
     ),
@@ -179,7 +192,10 @@ class _IdentityManagementScreenState extends State<IdentityManagementScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('删除身份', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  hhText(context, '删除身份'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 16),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -187,20 +203,32 @@ class _IdentityManagementScreenState extends State<IdentityManagementScreen> {
                   title: Text(identity.nickname),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '旧帖子和评论仍保留，头像与昵称会改为删除占位，无法再用此身份发言。'
-                  '曾绑定此身份的帖子中，也不能换其他身份继续发言。',
+                Text(
+                  hhText(
+                    context,
+                    '旧帖子和评论仍保留，头像与昵称会改为删除占位，无法再用此身份发言。'
+                    '曾绑定此身份的帖子中，也不能换其他身份继续发言。',
+                  ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  '此身份的聊天框、聊天记录和私人备注将从本机清除；'
-                  '对方已有的本地记录保留。此身份的旧帖及发布失败的帖子将从“我的”列表移除。'
-                  '新身份不会继承旧内容或聊天。',
+                Text(
+                  hhText(
+                    context,
+                    '此身份的聊天框、聊天记录和私人备注将从本机清除；'
+                    '对方已有的本地记录保留。此身份的旧帖及发布失败的帖子将从“我的”列表移除。'
+                    '新身份不会继承旧内容或聊天。',
+                  ),
                 ),
                 if (directory.creationCoolingDown) ...[
                   const SizedBox(height: 12),
                   Text(
-                    '删除仅释放名额，可于${identityDate(directory.nextCreateAt!)}创建新身份。',
+                    hhText(
+                      context,
+                      '删除仅释放名额，可于{date}创建新身份。',
+                      args: {
+                        'date': identityDate(directory.nextCreateAt!, context),
+                      },
+                    ),
                   ),
                 ],
                 const SizedBox(height: 24),
@@ -210,12 +238,12 @@ class _IdentityManagementScreenState extends State<IdentityManagementScreen> {
                     foregroundColor: Theme.of(context).colorScheme.onError,
                   ),
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('删除身份'),
+                  child: Text(hhText(context, '删除身份')),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: const Text('取消'),
+                  child: Text(hhText(context, '取消')),
                 ),
               ],
             ),
@@ -232,10 +260,14 @@ class _IdentityManagementScreenState extends State<IdentityManagementScreen> {
     }
   }
 
-  Widget _notice(String message) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: Semantics(liveRegion: true, child: Text(message)),
-  );
+  Widget _notice(String message, {Map<String, Object?> args = const {}}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Semantics(
+          liveRegion: true,
+          child: Text(hhText(context, message, args: args)),
+        ),
+      );
   Widget _action(
     String label,
     Future<void> Function() action, {
@@ -245,11 +277,11 @@ class _IdentityManagementScreenState extends State<IdentityManagementScreen> {
     child: primary
         ? FilledButton(
             onPressed: _busy ? null : () => unawaited(action()),
-            child: Text(label),
+            child: Text(hhText(context, label)),
           )
         : OutlinedButton(
             onPressed: _busy ? null : () => unawaited(action()),
-            child: Text(label),
+            child: Text(hhText(context, label)),
           ),
   );
 
@@ -259,7 +291,10 @@ class _IdentityManagementScreenState extends State<IdentityManagementScreen> {
       case IdentityManagementStatus.ready:
         final directory = controller.directory!;
         return [
-          Text('你的发言身份', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            hhText(context, '你的发言身份'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           _notice('身份列表仅本人可见。最多保留 3 个身份，创建后至少保留 1 个。'),
           if (directory.identities.isEmpty) _notice('还没有发言身份，请先完成初始身份设置。'),
           for (final identity in directory.identities) ...[
@@ -268,31 +303,52 @@ class _IdentityManagementScreenState extends State<IdentityManagementScreen> {
               contentPadding: EdgeInsets.zero,
               leading: IdentityAvatar(avatar: identity.avatar),
               title: Text(identity.nickname),
-              subtitle: Text(identity.isOriginal ? '原始身份' : '预设身份'),
+              subtitle: Text(
+                hhText(context, identity.isOriginal ? '原始身份' : '预设身份'),
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: _busy ? null : () => unawaited(_edit(identity)),
             ),
             if (!directory.canRename(identity))
-              Text('可于${identityDate(identity.renameAvailableAt!)}再次改名'),
+              Text(
+                hhText(
+                  context,
+                  '可于{date}再次改名',
+                  args: {
+                    'date': identityDate(identity.renameAvailableAt!, context),
+                  },
+                ),
+              ),
             Align(
               alignment: Alignment.centerRight,
-              child: TextButton(
+              child: IconButton(
+                key: ValueKey('identity-delete:${identity.id}'),
+                tooltip: hhText(
+                  context,
+                  directory.identities.length <= 1 ? '最后一个身份不能删除' : '删除身份',
+                ),
                 onPressed: _busy || directory.identities.length <= 1
                     ? null
                     : () => unawaited(_delete(identity)),
-                child: Text(
-                  directory.identities.length <= 1 ? '最后一个身份不能删除' : '删除此身份',
-                ),
+                icon: const Icon(Icons.delete_outline_rounded),
               ),
             ),
           ],
           const Divider(height: 32),
           Text(
-            '当前 ${directory.identities.length}/3 个身份，累计创建 ${directory.createdCount} 次',
+            hhText(
+              context,
+              '当前 {count}/3 个身份，累计创建 {created} 次',
+              args: {
+                'count': directory.identities.length,
+                'created': directory.createdCount,
+              },
+            ),
           ),
           if (directory.creationCoolingDown)
             _notice(
-              '可于${identityDate(directory.nextCreateAt!)}创建新身份；删除身份不会缩短等待时间。',
+              '可于{date}创建新身份；删除身份不会缩短等待时间。',
+              args: {'date': identityDate(directory.nextCreateAt!, context)},
             ),
           if (directory.identities.length == 3) _notice('身份名额已满。'),
           Padding(
@@ -302,7 +358,7 @@ class _IdentityManagementScreenState extends State<IdentityManagementScreen> {
               onPressed: _busy || !directory.canCreate
                   ? null
                   : () => unawaited(_edit()),
-              child: const Text('添加身份'),
+              child: Text(hhText(context, '添加身份')),
             ),
           ),
           _action('刷新身份列表', controller.load),
@@ -343,7 +399,7 @@ class _IdentityManagementScreenState extends State<IdentityManagementScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('身份管理')),
+    appBar: AppBar(title: Text(hhText(context, '身份管理'))),
     body: SafeArea(
       top: false,
       child: Align(
@@ -688,9 +744,12 @@ class _IdentityEditorState extends State<IdentityEditor> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  identity == null
-                      ? (widget.requiredInitial ? '设置你的初始身份' : '创建发言身份')
-                      : '编辑身份',
+                  hhText(
+                    context,
+                    identity == null
+                        ? (widget.requiredInitial ? '设置你的初始身份' : '创建发言身份')
+                        : '编辑身份',
+                  ),
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 24),
@@ -700,24 +759,26 @@ class _IdentityEditorState extends State<IdentityEditor> {
                   key: const ValueKey('identity-avatar-pick'),
                   onPressed: busy ? null : _pickAvatar,
                   icon: const Icon(Icons.photo_library_outlined, size: 18),
-                  label: Text(_picking ? '正在保存头像…' : '从图库选择头像'),
+                  label: Text(
+                    hhText(context, _picking ? '正在保存头像…' : '从图库选择头像'),
+                  ),
                 ),
                 if (widget.controller.pendingAvatar != null &&
                     _avatar !=
                         'avatar-v1:${widget.controller.pendingAvatar!['assetId']}')
                   TextButton(
                     onPressed: busy ? null : _recoverAvatar,
-                    child: const Text('核对原头像'),
+                    child: Text(hhText(context, '核对原头像')),
                   ),
                 if (_avatar != 'default-v1' ||
                     widget.controller.pendingAvatar != null)
                   TextButton(
                     onPressed: busy ? null : _defaultAvatar,
-                    child: const Text('使用默认头像'),
+                    child: Text(hhText(context, '使用默认头像')),
                   ),
                 if (_localError != null)
                   Text(
-                    _localError!,
+                    hhText(context, _localError!),
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                     ),
@@ -729,26 +790,42 @@ class _IdentityEditorState extends State<IdentityEditor> {
                   enabled: !busy && canRename,
                   inputFormatters: [_formatter],
                   decoration: InputDecoration(
-                    labelText: '昵称',
-                    helperText: '2–12 个字，支持中英日韩、数字及标点；不含空格或表情',
+                    labelText: hhText(context, '昵称'),
+                    helperText: hhText(context, '2–12 个字，支持中英日韩、数字及标点；不含空格或表情'),
                     helperMaxLines: 3,
                     counterText: '${_name.text.characters.length}/12',
-                    errorText: _localError ?? (feedback),
+                    errorText: (_localError ?? feedback) == null
+                        ? null
+                        : hhText(context, (_localError ?? feedback)!),
                   ),
-                  validator: (value) =>
-                      IdentityNameFormatter.validate(value ?? ''),
+                  validator: (value) {
+                    final error = IdentityNameFormatter.validate(value ?? '');
+                    return error == null ? null : hhText(context, error);
+                  },
                   onChanged: (_) => setState(() {}),
                   onFieldSubmitted: (_) => unawaited(_save()),
                 ),
                 if (!canRename && identity?.renameAvailableAt != null) ...[
                   const SizedBox(height: 12),
-                  Text('可于${identityDate(identity!.renameAvailableAt!)}再次改名'),
+                  Text(
+                    hhText(
+                      context,
+                      '可于{date}再次改名',
+                      args: {
+                        'date': identityDate(
+                          identity!.renameAvailableAt!,
+                          context,
+                        ),
+                      },
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 12),
-                if (identity != null) const Text('成功改名后需满 30 天才能再次改名。'),
+                if (identity != null)
+                  Text(hhText(context, '成功改名后需满 30 天才能再次改名。')),
                 if (_initialSetup && !widget.requiredInitial) ...[
                   const SizedBox(height: 8),
-                  const Text('已填昵称会在这台设备保留，使用同一账号可继续设置。'),
+                  Text(hhText(context, '已填昵称会在这台设备保留，使用同一账号可继续设置。')),
                 ],
                 const SizedBox(height: 24),
                 FilledButton(
@@ -763,9 +840,12 @@ class _IdentityEditorState extends State<IdentityEditor> {
                       ? null
                       : () => unawaited(_save()),
                   child: Text(
-                    identity == null
-                        ? (widget.requiredInitial ? '完成设置' : '创建身份')
-                        : '保存资料',
+                    hhText(
+                      context,
+                      identity == null
+                          ? (widget.requiredInitial ? '完成设置' : '创建身份')
+                          : '保存资料',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -775,12 +855,14 @@ class _IdentityEditorState extends State<IdentityEditor> {
                       : () => widget.requiredInitial
                             ? unawaited(widget.sessions.logout())
                             : Navigator.pop(context),
-                  child: Text(widget.requiredInitial ? '退出登录' : '取消'),
+                  child: Text(
+                    hhText(context, widget.requiredInitial ? '退出登录' : '取消'),
+                  ),
                 ),
                 if (_initialSetup && !widget.requiredInitial)
                   TextButton(
                     onPressed: busy ? null : () => unawaited(_discard()),
-                    child: const Text('放弃已填昵称'),
+                    child: Text(hhText(context, '放弃已填昵称')),
                   ),
               ],
             ),

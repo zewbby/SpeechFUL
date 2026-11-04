@@ -1,3 +1,4 @@
+import '../localization/app_localizations.dart';
 import '../rate_limit_notice.dart';
 
 import 'dart:async';
@@ -148,9 +149,9 @@ class _CommentHistoryScreenState extends State<CommentHistoryScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('我发出的评论')),
+    appBar: AppBar(title: Text(hhText(context, '我发出的评论'))),
     body: !current
-        ? const Center(child: Text('会话已变化，请返回。'))
+        ? Center(child: Text(hhText(context, '会话已变化，请返回。')))
         : ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -169,23 +170,31 @@ class _CommentHistoryScreenState extends State<CommentHistoryScreen> {
               ),
               if (loading) const LinearProgressIndicator(),
               if (error != null)
-                TextButton(onPressed: _load, child: Text(error!)),
+                TextButton(
+                  onPressed: _load,
+                  child: Text(hhText(context, error!)),
+                ),
               for (final row in items)
                 ListTile(
                   title: Text(
-                    row.body.isEmpty ? '图片评论' : row.body,
+                    row.body.isEmpty ? hhText(context, '图片评论') : row.body,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  subtitle: Text(row.root == null ? '主评论' : '回复'),
+                  subtitle: Text(
+                    row.root == null
+                        ? hhText(context, '主评论')
+                        : hhText(context, '回复'),
+                  ),
                   onTap: () => widget.onOpen(row),
                 ),
               if (cursor != null)
                 TextButton(
                   onPressed: () => _load(more: true),
-                  child: const Text('更多记录'),
+                  child: Text(hhText(context, '更多记录')),
                 ),
-              if (!loading && items.isEmpty) const Text('当前身份还没有已发布的评论。'),
+              if (!loading && items.isEmpty)
+                Text(hhText(context, '当前身份还没有已发布的评论。')),
             ],
           ),
   );
@@ -405,7 +414,9 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                                 TextSpan(
                                   children: [
                                     TextSpan(
-                                      text: identity?.nickname ?? '我',
+                                      text:
+                                          identity?.nickname ??
+                                          hhText(context, '我'),
                                       style: detailType(
                                         context,
                                         14,
@@ -413,8 +424,14 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                                       ),
                                     ),
                                     TextSpan(
-                                      text:
-                                          ' · ${local.createdAt.month}月${local.createdAt.day}日',
+                                      text: hhText(
+                                        context,
+                                        ' · {v0}月{v1}日',
+                                        args: {
+                                          'v0': local.createdAt.month,
+                                          'v1': local.createdAt.day,
+                                        },
+                                      ),
                                       style: detailType(
                                         context,
                                         12.5,
@@ -438,7 +455,14 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                         ),
                         if (binding.targetCommentId != null)
                           Text(
-                            '回复 ${target?.nickname ?? '该评论'}',
+                            hhText(
+                              context,
+                              '回复 {v0}',
+                              args: {
+                                'v0':
+                                    target?.nickname ?? hhText(context, '该评论'),
+                              },
+                            ),
                             style: detailType(context, 12),
                           ),
                         if (content.body.isNotEmpty)
@@ -464,17 +488,17 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                                     ),
                             ),
                           ),
-                        const Row(
+                        Row(
                           children: [
                             DetailAction(
                               action: FeedAction.comment,
-                              label: '回复',
+                              label: hhText(context, '回复'),
                               size: 18,
                             ),
-                            SizedBox(width: 36),
+                            const SizedBox(width: 36),
                             DetailAction(
                               action: FeedAction.like,
-                              label: '点赞',
+                              label: hhText(context, '点赞'),
                               count: '0',
                               size: 18,
                             ),
@@ -645,10 +669,14 @@ class _CommentPostPaneState extends State<CommentPostPane> {
         children: [
           const SizedBox(width: 12),
           Expanded(
-            child: Text(_notice!, maxLines: 3, overflow: TextOverflow.ellipsis),
+            child: Text(
+              hhText(context, _notice!),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           IconButton(
-            tooltip: '关闭提示',
+            tooltip: hhText(context, '关闭提示'),
             onPressed: () => setState(() => _notice = null),
             icon: const Icon(Icons.close, size: 20),
           ),
@@ -951,7 +979,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
       TextButton(
         key: ValueKey('retry-replies:${root.id}'),
         onPressed: () => _retryReplies(root.id),
-        child: Text(_replyErrors[root.id] ?? '重试回复'),
+        child: Text(_replyErrors[root.id] ?? hhText(context, '重试回复')),
       ),
     if (root.replyCount > 5 || replyCursors[root.id] != null)
       TextButton(
@@ -968,23 +996,30 @@ class _CommentPostPaneState extends State<CommentPostPane> {
         },
         child: Text(
           expanded.contains(root.id)
-              ? '收起回复'
+              ? hhText(context, '收起回复')
               : root.replyCount > 5
-              ? '展开其余 ${root.replyCount - 5} 条回复'
-              : '继续加载回复',
+              ? hhText(
+                  context,
+                  '展开其余 {v0} 条回复',
+                  args: {'v0': root.replyCount - 5},
+                )
+              : hhText(context, '继续加载回复'),
         ),
       ),
     if (expanded.contains(root.id) &&
         replies.containsKey(root.id) &&
         replyCursors[root.id] == null &&
         !_replyFailures.contains(root.id))
-      const Padding(padding: EdgeInsets.all(8), child: Text('没有更多回复')),
+      Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(hhText(context, '没有更多回复')),
+      ),
     if (expanded.contains(root.id) &&
         replyCursors[root.id] != null &&
         !_replyFailures.contains(root.id))
       TextButton(
         onPressed: () => _replies(root.id, more: true),
-        child: const Text('更多回复'),
+        child: Text(hhText(context, '更多回复')),
       ),
   ];
 
@@ -1269,16 +1304,22 @@ class _CommentPostPaneState extends State<CommentPostPane> {
         confirm: (_) => showDialog<bool>(
           context: context,
           builder: (c) => AlertDialog(
-            title: const Text('更换回复对象？'),
-            content: Text('改为回复 ${row?.nickname ?? '当前帖子'}，保留已输入的文字和图片。'),
+            title: Text(hhText(c, '更换回复对象？')),
+            content: Text(
+              hhText(
+                c,
+                '改为回复 {v0}，保留已输入的文字和图片。',
+                args: {'v0': row?.nickname ?? hhText(c, '当前帖子')},
+              ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(c, false),
-                child: const Text('保留原对象'),
+                child: Text(hhText(c, '保留原对象')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(c, true),
-                child: const Text('更换'),
+                child: Text(hhText(c, '更换')),
               ),
             ],
           ),
@@ -1340,7 +1381,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  '对回复排序',
+                  hhText(c, '对回复排序'),
                   style: detailType(c, 22, weight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
@@ -1351,7 +1392,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                 ])
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(option.$2),
+                    title: Text(hhText(c, option.$2)),
                     trailing: Icon(
                       sort == option.$1
                           ? Icons.radio_button_checked
@@ -1443,7 +1484,16 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${r.nickname}${r.data['isPostAuthor'] == true ? ' · 楼主' : ''}',
+                      hhText(
+                        context,
+                        '{v0}{v1}',
+                        args: {
+                          'v0': r.nickname,
+                          'v1': r.data['isPostAuthor'] == true
+                              ? hhText(context, ' · 楼主')
+                              : '',
+                        },
+                      ),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -1452,7 +1502,13 @@ class _CommentPostPaneState extends State<CommentPostPane> {
               if (r.data['replyTo'] case final Map relation)
                 TextButton(
                   onPressed: () => _locate(relation['commentId'] as String),
-                  child: Text('回复 ${(relation['author'] as Map)['nickname']}'),
+                  child: Text(
+                    hhText(
+                      context,
+                      '回复 {v0}',
+                      args: {'v0': (relation['author'] as Map)['nickname']},
+                    ),
+                  ),
                 ),
               if (r.body.isNotEmpty)
                 CommentBody(text: r.body, onReply: () => _compose(r)),
@@ -1476,7 +1532,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                   ),
                   TextButton(
                     onPressed: () => _compose(r),
-                    child: const Text('回复'),
+                    child: Text(hhText(context, '回复')),
                   ),
                   if (GovernanceScope.maybeOf(context) case final governance?)
                     TextButton(
@@ -1487,17 +1543,19 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                                   controller: governance,
                                   postId: r.post,
                                   commentId: r.id,
-                                  title: r.root == null ? '举报主评论' : '举报回复',
+                                  title: r.root == null
+                                      ? hhText(context, '举报主评论')
+                                      : hhText(context, '举报回复'),
                                 ),
                               ),
                             )
                           : null,
-                      child: const Text('举报'),
+                      child: Text(hhText(context, '举报')),
                     ),
                   if (own.contains(r.id))
                     TextButton(
                       onPressed: () => _mutate(r, delete: true),
-                      child: const Text('删除'),
+                      child: Text(hhText(context, '删除')),
                     ),
                 ],
               ),
@@ -1543,7 +1601,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                             ),
                             if (r.data['isPostAuthor'] == true)
                               TextSpan(
-                                text: '  楼主',
+                                text: hhText(context, '  楼主'),
                                 style: detailType(
                                   context,
                                   11.5,
@@ -1564,7 +1622,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                     ),
                   ),
                   PopupMenuButton<String>(
-                    tooltip: '评论操作',
+                    tooltip: hhText(context, '评论操作'),
                     style: IconButton.styleFrom(
                       minimumSize: const Size(32, 32),
                       padding: EdgeInsets.zero,
@@ -1576,11 +1634,26 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                       size: 18,
                     ),
                     itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'reply', child: Text('回复')),
+                      PopupMenuItem(
+                        value: 'reply',
+                        child: Builder(
+                          builder: (context) => Text(hhText(context, '回复')),
+                        ),
+                      ),
                       if (GovernanceScope.maybeOf(context)?.available == true)
-                        const PopupMenuItem(value: 'report', child: Text('举报')),
+                        PopupMenuItem(
+                          value: 'report',
+                          child: Builder(
+                            builder: (context) => Text(hhText(context, '举报')),
+                          ),
+                        ),
                       if (own.contains(r.id))
-                        const PopupMenuItem(value: 'delete', child: Text('删除')),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Builder(
+                            builder: (context) => Text(hhText(context, '删除')),
+                          ),
+                        ),
                     ],
                     onSelected: (value) {
                       if (!current) return;
@@ -1597,7 +1670,9 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                               controller: governance!,
                               postId: r.post,
                               commentId: r.id,
-                              title: r.root == null ? '举报主评论' : '举报回复',
+                              title: r.root == null
+                                  ? hhText(context, '举报主评论')
+                                  : hhText(context, '举报回复'),
                             ),
                           ),
                         );
@@ -1614,7 +1689,13 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   onPressed: () => _locate(relation['commentId'] as String),
-                  child: Text('回复 ${(relation['author'] as Map)['nickname']}'),
+                  child: Text(
+                    hhText(
+                      context,
+                      '回复 {v0}',
+                      args: {'v0': (relation['author'] as Map)['nickname']},
+                    ),
+                  ),
                 ),
               if (r.body.isNotEmpty)
                 DefaultTextStyle(
@@ -1630,7 +1711,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                 children: [
                   DetailAction(
                     action: FeedAction.comment,
-                    label: '回复${r.nickname}',
+                    label: hhText(context, '回复{v0}', args: {'v0': r.nickname}),
                     size: 18,
                     count: r.replyCount > 0 ? '${r.replyCount}' : null,
                     onPressed: () => _compose(r),
@@ -1638,7 +1719,9 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                   const SizedBox(width: 36),
                   DetailAction(
                     action: FeedAction.like,
-                    label: r.liked ? '取消点赞' : '点赞',
+                    label: r.liked
+                        ? hhText(context, '取消点赞')
+                        : hhText(context, '点赞'),
                     size: 18,
                     selected: r.liked,
                     count: '${r.likes}',
@@ -1705,9 +1788,9 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(switch (sort) {
-                        'recent' => '最近',
-                        'likes' => '最多点赞',
-                        _ => '相关',
+                        'recent' => hhText(context, '最近'),
+                        'likes' => hhText(context, '最多点赞'),
+                        _ => hhText(context, '相关'),
                       }, style: detailType(context, 14)),
                       const SizedBox(width: 4),
                       const Icon(Icons.keyboard_arrow_down, size: 16),
@@ -1718,7 +1801,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
             ),
             IconButton(
               key: const ValueKey('comment-refresh'),
-              tooltip: '刷新评论',
+              tooltip: hhText(context, '刷新评论'),
               onPressed: loading ? null : () => _load(refresh: true),
               icon: const Icon(Icons.refresh, size: 20),
             ),
@@ -1728,7 +1811,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
         if (error != null && !_mainFailedMore)
           TextButton(
             onPressed: loading ? null : _retryMain,
-            child: Text(error!),
+            child: Text(hhText(context, error!)),
           ),
         for (final entry in _localsFor(null))
           Builder(
@@ -1763,27 +1846,37 @@ class _CommentPostPaneState extends State<CommentPostPane> {
             _hasMainPage &&
             cursor == null &&
             !_sending)
-          const Padding(padding: EdgeInsets.all(20), child: Text('暂无评论')),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(hhText(context, '暂无评论')),
+          ),
         if (error != null && _mainFailedMore)
           TextButton(
             onPressed: loading ? null : _retryMain,
-            child: Text(error!),
+            child: Text(hhText(context, error!)),
           ),
         if (rows.isEmpty && cursor != null && error == null)
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text('暂未找到可见评论，可继续加载。'),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(hhText(context, '暂未找到可见评论，可继续加载。')),
           ),
         if (_hasMainPage &&
             rows.isNotEmpty &&
             cursor == null &&
             !loading &&
             error == null)
-          const Padding(padding: EdgeInsets.all(12), child: Text('没有更多评论')),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(hhText(context, '没有更多评论')),
+          ),
         if (cursor != null && error == null && !_mainInvalid)
           TextButton(
             onPressed: () => _load(more: true),
-            child: Text(rows.isEmpty ? '继续加载评论' : '更多评论'),
+            child: Text(
+              rows.isEmpty
+                  ? hhText(context, '继续加载评论')
+                  : hhText(context, '更多评论'),
+            ),
           ),
         Builder(
           builder: (context) => SizedBox(
@@ -1898,7 +1991,9 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                                   vertical: 14,
                                 ),
                                 child: Text(
-                                  editor.hasInput ? '继续输入' : '发布你的回复',
+                                  editor.hasInput
+                                      ? hhText(context, '继续输入')
+                                      : hhText(context, '发布你的回复'),
                                   style: detailType(
                                     context,
                                     14,
@@ -1909,12 +2004,12 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                             ),
                           ),
                           IconButton(
-                            tooltip: '选择一张图片',
+                            tooltip: hhText(context, '选择一张图片'),
                             icon: const Icon(Icons.image_outlined, size: 21),
                             onPressed: () => _compose(null, 'image'),
                           ),
                           IconButton(
-                            tooltip: '展开回复输入',
+                            tooltip: hhText(context, '展开回复输入'),
                             icon: const Icon(Icons.open_in_full, size: 19),
                             onPressed: () => _compose(null, null, true),
                           ),
@@ -1965,7 +2060,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
 
   @override
   Widget build(BuildContext context) {
-    if (!current) return const Center(child: Text('会话已变化，请重新进入帖子。'));
+    if (!current) return Center(child: Text(hhText(context, '会话已变化，请重新进入帖子。')));
     final content = widget.continuous ? _continuous() : _split();
     return Column(
       children: [
@@ -2025,19 +2120,27 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                 icon: Icon(
                   open ? Icons.expand_more : Icons.chat_bubble_outline,
                 ),
-                label: Text(open ? '收起评论' : '评论 $_displayTotal'),
+                label: Text(
+                  open
+                      ? hhText(context, '收起评论')
+                      : hhText(context, '评论 {v0}', args: {'v0': _displayTotal}),
+                ),
               ),
             ),
             TextButton(
               onPressed: () => _compose(),
-              child: Text(editor.hasInput ? '继续输入' : '写评论'),
+              child: Text(
+                editor.hasInput
+                    ? hhText(context, '继续输入')
+                    : hhText(context, '写评论'),
+              ),
             ),
           ],
         ),
       ),
       if (open)
         Semantics(
-          label: '调整正文与评论区域高度',
+          label: hhText(context, '调整正文与评论区域高度'),
           onIncrease: () =>
               setState(() => bodyFraction = (bodyFraction - .1).clamp(.2, .8)),
           onDecrease: () =>
@@ -2064,10 +2167,14 @@ class _CommentPostPaneState extends State<CommentPostPane> {
             children: [
               Row(
                 children: [
-                  Expanded(child: Text('评论 $total')),
+                  Expanded(
+                    child: Text(
+                      hhText(context, '评论 {v0}', args: {'v0': total}),
+                    ),
+                  ),
                   IconButton(
                     key: const ValueKey('comment-refresh'),
-                    tooltip: '刷新评论',
+                    tooltip: hhText(context, '刷新评论'),
                     onPressed: loading ? null : () => _load(refresh: true),
                     icon: const Icon(Icons.refresh),
                   ),
@@ -2087,7 +2194,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                       if (error != null && !_mainFailedMore)
                         TextButton(
                           onPressed: loading ? null : _retryMain,
-                          child: Text(error!),
+                          child: Text(hhText(context, error!)),
                         ),
                       for (final entry in _localsFor(null))
                         _localComment(entry.key, entry.value),
@@ -2102,27 +2209,31 @@ class _CommentPostPaneState extends State<CommentPostPane> {
                           _hasMainPage &&
                           cursor == null &&
                           !_sending)
-                        const Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Text('暂无评论'),
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Text(hhText(context, '暂无评论')),
                         ),
                       if (error != null && _mainFailedMore)
                         TextButton(
                           onPressed: loading ? null : _retryMain,
-                          child: Text(error!),
+                          child: Text(hhText(context, error!)),
                         ),
                       if (rows.isEmpty && cursor != null && error == null)
-                        const Text('暂未找到可见评论，可继续加载。'),
+                        Text(hhText(context, '暂未找到可见评论，可继续加载。')),
                       if (_hasMainPage &&
                           rows.isNotEmpty &&
                           cursor == null &&
                           !loading &&
                           error == null)
-                        const Text('没有更多评论'),
+                        Text(hhText(context, '没有更多评论')),
                       if (cursor != null && error == null && !_mainInvalid)
                         TextButton(
                           onPressed: () => _load(more: true),
-                          child: Text(rows.isEmpty ? '继续加载评论' : '更多评论'),
+                          child: Text(
+                            rows.isEmpty
+                                ? hhText(context, '继续加载评论')
+                                : hhText(context, '更多评论'),
+                          ),
                         ),
                     ],
                   ),
@@ -2374,7 +2485,7 @@ class _CommentComposerState extends State<CommentComposer>
       final route = DialogRoute<String>(
         context: context,
         builder: (pickerContext) => AlertDialog(
-          title: const Text('选择发言身份'),
+          title: Text(hhText(pickerContext, '选择发言身份')),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -2386,7 +2497,8 @@ class _CommentComposerState extends State<CommentComposer>
                       title: Text(item.nickname),
                       onTap: () => Navigator.pop(pickerContext, item.id),
                     ),
-                  if (identities.isEmpty) const Text('请先在身份设置中创建发言身份。'),
+                  if (identities.isEmpty)
+                    Text(hhText(pickerContext, '请先在身份设置中创建发言身份。')),
                 ],
               ),
             ),
@@ -2394,7 +2506,7 @@ class _CommentComposerState extends State<CommentComposer>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(pickerContext),
-              child: const Text('取消'),
+              child: Text(hhText(pickerContext, '取消')),
             ),
             if (identities.isEmpty)
               TextButton(
@@ -2410,7 +2522,7 @@ class _CommentComposerState extends State<CommentComposer>
                   );
                   if (current) await _identities();
                 },
-                child: const Text('身份设置'),
+                child: Text(hhText(pickerContext, '身份设置')),
               ),
           ],
         ),
@@ -2461,16 +2573,16 @@ class _CommentComposerState extends State<CommentComposer>
         final route = DialogRoute<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('恢复之前的评论？'),
-            content: const Text('恢复原内容会替换当前输入。之前的评论尚未被服务器接收。'),
+            title: Text(hhText(context, '恢复之前的评论？')),
+            content: Text(hhText(context, '恢复原内容会替换当前输入。之前的评论尚未被服务器接收。')),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('保留当前输入'),
+                child: Text(hhText(context, '保留当前输入')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('恢复原内容'),
+                child: Text(hhText(context, '恢复原内容')),
               ),
             ],
           ),
@@ -2542,7 +2654,7 @@ class _CommentComposerState extends State<CommentComposer>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                bound ? '帖内身份已固定' : '选择发言身份',
+                bound ? hhText(c, '帖内身份已固定') : hhText(c, '选择发言身份'),
                 style: Theme.of(c).textTheme.titleMedium,
               ),
               for (final i in identities.where(
@@ -2559,7 +2671,7 @@ class _CommentComposerState extends State<CommentComposer>
                   onTap: () => Navigator.pop(c, i.id),
                 ),
               ListTile(
-                title: const Text('身份设置'),
+                title: Text(hhText(c, '身份设置')),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.pop(c, 'manage'),
               ),
@@ -2592,7 +2704,7 @@ class _CommentComposerState extends State<CommentComposer>
   }
 
   Widget _docked() {
-    if (!current) return const Center(child: Text('会话已变化，请返回帖子。'));
+    if (!current) return Center(child: Text(hhText(context, '会话已变化，请返回帖子。')));
     final person = displayedIdentity;
     final canSend =
         !busy &&
@@ -2614,7 +2726,7 @@ class _CommentComposerState extends State<CommentComposer>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     IconButton(
-                      tooltip: '发言身份',
+                      tooltip: hhText(context, '发言身份'),
                       onPressed: busy ? null : _selectIdentity,
                       icon: _SpeakingAvatar(identity: person),
                     ),
@@ -2626,7 +2738,11 @@ class _CommentComposerState extends State<CommentComposer>
                           children: [
                             if (widget.replyContext != null)
                               Text(
-                                '回复 ${widget.replyContext!.nickname}',
+                                hhText(
+                                  context,
+                                  '回复 {v0}',
+                                  args: {'v0': widget.replyContext!.nickname},
+                                ),
                                 style: detailType(
                                   context,
                                   12,
@@ -2646,11 +2762,13 @@ class _CommentComposerState extends State<CommentComposer>
                                 widget.editor.body = v;
                                 setState(() {});
                               },
-                              decoration: const InputDecoration(
-                                hintText: '发布你的回复',
+                              decoration: InputDecoration(
+                                hintText: hhText(context, '发布你的回复'),
                                 border: InputBorder.none,
                                 isDense: true,
-                                contentPadding: EdgeInsets.only(bottom: 8),
+                                contentPadding: const EdgeInsets.only(
+                                  bottom: 8,
+                                ),
                               ),
                             ),
                             if (picked != null)
@@ -2670,7 +2788,7 @@ class _CommentComposerState extends State<CommentComposer>
                                     right: 0,
                                     top: 0,
                                     child: IconButton(
-                                      tooltip: '移除图片',
+                                      tooltip: hhText(context, '移除图片'),
                                       icon: const Icon(Icons.cancel),
                                       onPressed: busy
                                           ? null
@@ -2701,7 +2819,9 @@ class _CommentComposerState extends State<CommentComposer>
                       ),
                     ),
                     IconButton(
-                      tooltip: widget.expanded ? '缩小回复输入' : '展开回复输入',
+                      tooltip: widget.expanded
+                          ? hhText(context, '缩小回复输入')
+                          : hhText(context, '展开回复输入'),
                       icon: Icon(
                         widget.expanded
                             ? Icons.close_fullscreen
@@ -2712,7 +2832,7 @@ class _CommentComposerState extends State<CommentComposer>
                     ),
                     if (widget.expanded)
                       IconButton(
-                        tooltip: '收起回复',
+                        tooltip: hhText(context, '收起回复'),
                         icon: const Icon(Icons.keyboard_arrow_down),
                         onPressed: busy ? null : widget.onClose,
                       ),
@@ -2722,7 +2842,7 @@ class _CommentComposerState extends State<CommentComposer>
               Row(
                 children: [
                   IconButton(
-                    tooltip: '选择一张图片',
+                    tooltip: hhText(context, '选择一张图片'),
                     onPressed: busy ? null : _pick,
                     icon: const Icon(Icons.image_outlined, size: 21),
                   ),
@@ -2740,7 +2860,7 @@ class _CommentComposerState extends State<CommentComposer>
                       minimumSize: const Size(60, 32),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
-                    child: const Text('回复'),
+                    child: Text(hhText(context, '回复')),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -2786,13 +2906,24 @@ class _CommentComposerState extends State<CommentComposer>
                 ? '重试'
                 : (_canRestoreQuick ? '恢复未发送内容' : '前往原帖恢复'),
             identityCaption: !bound && identityConfirmed
-                ? '以 ${identities.where((i) => i.id == identity).firstOrNull?.nickname ?? '所选身份'} 回复'
+                ? hhText(
+                    context,
+                    '以 {name} 回复',
+                    args: {
+                      'name':
+                          identities
+                              .where((i) => i.id == identity)
+                              .firstOrNull
+                              ?.nickname ??
+                          hhText(context, '所选身份'),
+                    },
+                  )
                 : null,
           ),
         )
       : Scaffold(
           appBar: AppBar(
-            title: const Text('评论与回复'),
+            title: Text(hhText(context, '评论与回复')),
             actions: [
               TextButton(
                 onPressed:
@@ -2802,12 +2933,12 @@ class _CommentComposerState extends State<CommentComposer>
                         widget.runtime.core.ready
                     ? _send
                     : null,
-                child: const Text('发布'),
+                child: Text(hhText(context, '发布')),
               ),
             ],
           ),
           body: !current
-              ? const Center(child: Text('会话已变化，请返回帖子。'))
+              ? Center(child: Text(hhText(context, '会话已变化，请返回帖子。')))
               : SafeArea(
                   child: Column(
                     children: [
@@ -2839,15 +2970,18 @@ class _CommentComposerState extends State<CommentComposer>
                           expands: true,
                           minLines: null,
                           maxLines: null,
-                          decoration: const InputDecoration(
-                            hintText: '写下评论，最多 3000 字',
-                            contentPadding: EdgeInsets.all(16),
+                          decoration: InputDecoration(
+                            hintText: hhText(context, '写下评论，最多 3000 字'),
+                            contentPadding: const EdgeInsets.all(16),
                             border: InputBorder.none,
                           ),
                         ),
                       ),
                       if (error != null)
-                        Semantics(liveRegion: true, child: Text(error!)),
+                        Semantics(
+                          liveRegion: true,
+                          child: Text(hhText(context, error!)),
+                        ),
                       if (widget.editor.image != null)
                         ListTile(
                           leading: picked == null
@@ -2862,9 +2996,9 @@ class _CommentComposerState extends State<CommentComposer>
                                     cacheHeight: 128,
                                   ),
                                 ),
-                          title: const Text('已选择 1 张原图'),
+                          title: Text(hhText(context, '已选择 1 张原图')),
                           trailing: IconButton(
-                            tooltip: '移除图片',
+                            tooltip: hhText(context, '移除图片'),
                             onPressed: busy
                                 ? null
                                 : () => setState(() {
@@ -2883,12 +3017,12 @@ class _CommentComposerState extends State<CommentComposer>
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           IconButton(
-                            tooltip: '选择一张图片',
+                            tooltip: hhText(context, '选择一张图片'),
                             onPressed: busy ? null : _pick,
                             icon: const Icon(Icons.image_outlined),
                           ),
                           DropdownButton<String>(
-                            hint: const Text('选择身份'),
+                            hint: Text(hhText(context, '选择身份')),
                             value: identities.any((i) => i.id == identity)
                                 ? identity
                                 : null,
@@ -2921,7 +3055,11 @@ class _CommentComposerState extends State<CommentComposer>
                                     );
                                     if (current) await _identities();
                                   },
-                            child: Text(bound ? '帖内身份已固定' : '身份设置'),
+                            child: Text(
+                              bound
+                                  ? hhText(context, '帖内身份已固定')
+                                  : hhText(context, '身份设置'),
+                            ),
                           ),
                         ],
                       ),
@@ -3023,7 +3161,7 @@ class _CommentImageViewState extends State<CommentImageView> {
           animated: m['mimeType'] == 'image/gif',
           item: ViewerItem(
             id: m['contentVersionId'] as String,
-            semanticLabel: '评论图片',
+            semanticLabel: hhText(context, '评论图片'),
             saveAllowed: true,
             loadSource: () async => ViewerSource(
               provider: await provider(),
@@ -3158,7 +3296,9 @@ class _CommentBodyState extends State<CommentBody> {
           if (overflow)
             TextButton(
               onPressed: () => setState(() => expanded = !expanded),
-              child: Text(expanded ? '收起全文' : '展开全文'),
+              child: Text(
+                expanded ? hhText(context, '收起全文') : hhText(context, '展开全文'),
+              ),
             ),
         ],
       );

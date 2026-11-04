@@ -1,13 +1,14 @@
-import '../comments/comment_runtime.dart';
-import '../comments/comment_failure_view.dart';
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../comments/comment_failure_view.dart';
+import '../comments/comment_runtime.dart';
+import '../localization/app_localizations.dart';
 import '../posts/post_protocol.dart';
 import '../reports/report_screens.dart';
 import 'governance_controller.dart';
+import 'notification_localizations.dart';
 import 'notification_models.dart';
 
 String _date(DateTime d) =>
@@ -53,11 +54,11 @@ class _SystemNotificationsScreenState extends State<SystemNotificationsScreen> {
       return Scaffold(
         bottomNavigationBar: widget.navigation,
         appBar: AppBar(
-          title: const Text('系统通知'),
+          title: Text(hhText(context, '系统通知')),
           actions: [
             if (c.restricted)
               IconButton(
-                tooltip: '退出处理通知',
+                tooltip: hhText(context, '退出处理通知'),
                 onPressed: () async {
                   await c.restrictedAccess!.clear();
                   if (context.mounted) Navigator.pop(context);
@@ -65,14 +66,14 @@ class _SystemNotificationsScreenState extends State<SystemNotificationsScreen> {
                 icon: const Icon(Icons.logout),
               ),
             IconButton(
-              tooltip: '刷新通知',
+              tooltip: hhText(context, '刷新通知'),
               onPressed: c.available && !c.loading ? _load : null,
               icon: const Icon(Icons.refresh),
             ),
           ],
         ),
         body: !c.available
-            ? const Center(child: Text('请先恢复会话，再查看系统通知。'))
+            ? Center(child: Text(hhText(context, '请先恢复会话，再查看系统通知。')))
             : ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
@@ -80,13 +81,16 @@ class _SystemNotificationsScreenState extends State<SystemNotificationsScreen> {
                     isExpanded: true,
                     key: ValueKey(c.selectedIdentityId),
                     initialValue: c.selectedIdentityId ?? '',
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.switch_account_outlined),
-                      labelText: '切换身份',
-                      helperText: '查看不同身份的消息；账号通知始终可见',
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.switch_account_outlined),
+                      labelText: hhText(context, '切换身份'),
+                      helperText: hhText(context, '查看不同身份的消息；账号通知始终可见'),
                     ),
                     items: [
-                      const DropdownMenuItem(value: '', child: Text('账号通知')),
+                      DropdownMenuItem(
+                        value: '',
+                        child: Text(hhText(context, '账号通知')),
+                      ),
                       for (final i in c.identities)
                         DropdownMenuItem(value: i.id, child: Text(i.nickname)),
                     ],
@@ -104,7 +108,9 @@ class _SystemNotificationsScreenState extends State<SystemNotificationsScreen> {
                   if (c.loading && c.items.isEmpty)
                     const Center(child: CircularProgressIndicator()),
                   if (!c.loading && c.items.isEmpty)
-                    Text(c.error == null ? '暂无系统通知' : '通知暂时无法读取'),
+                    Text(
+                      hhText(context, c.error == null ? '暂无系统通知' : '通知暂时无法读取'),
+                    ),
                   for (final notice in c.items)
                     InkWell(
                       key: ValueKey(notice.id),
@@ -131,7 +137,7 @@ class _SystemNotificationsScreenState extends State<SystemNotificationsScreen> {
                               children: [
                                 if (notice.unread) ...[
                                   Semantics(
-                                    label: '未读',
+                                    label: hhText(context, '未读'),
                                     child: const Icon(
                                       Icons.circle,
                                       size: 8,
@@ -148,12 +154,12 @@ class _SystemNotificationsScreenState extends State<SystemNotificationsScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              notice.title,
+                              hhText(context, notice.title),
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             if (notice.body.isNotEmpty) ...[
                               const SizedBox(height: 6),
-                              Text(notice.body),
+                              Text(systemNoticeBody(context, notice)),
                             ],
                           ],
                         ),
@@ -164,10 +170,13 @@ class _SystemNotificationsScreenState extends State<SystemNotificationsScreen> {
                       onPressed: c.loading
                           ? null
                           : () => c.loadNotifications(more: true),
-                      child: const Text('加载更多'),
+                      child: Text(hhText(context, '加载更多')),
                     ),
                   if (c.error != null)
-                    Semantics(liveRegion: true, child: Text(c.error!)),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(hhText(context, c.error!)),
+                    ),
                 ],
               ),
       );
@@ -233,9 +242,9 @@ class _SystemNoticeDetailScreenState extends State<SystemNoticeDetailScreen> {
     builder: (context, _) {
       final c = widget.controller;
       return Scaffold(
-        appBar: AppBar(title: const Text('通知详情')),
+        appBar: AppBar(title: Text(hhText(context, '通知详情'))),
         body: !c.available || c.authorityVersion != _epoch
-            ? const Center(child: Text('会话已变化，请返回重新进入。'))
+            ? Center(child: Text(hhText(context, '会话已变化，请返回重新进入。')))
             : _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
@@ -248,11 +257,11 @@ class _SystemNoticeDetailScreenState extends State<SystemNoticeDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      n.title,
+                      hhText(context, n.title),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 12),
-                    Text(n.body),
+                    Text(systemNoticeBody(context, n)),
                     const SizedBox(height: 24),
                     if (n.route.name == 'COMMENT_FAILURE')
                       if (CommentScope.maybeOf(context) case final comments?)
@@ -272,11 +281,17 @@ class _SystemNoticeDetailScreenState extends State<SystemNoticeDetailScreen> {
                         onRefresh: _load,
                       ),
                   ] else
-                    const Text('暂时无法读取通知。'),
+                    Text(hhText(context, '暂时无法读取通知。')),
                   if (c.error != null)
-                    Semantics(liveRegion: true, child: Text(c.error!)),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(hhText(context, c.error!)),
+                    ),
                   if (_notice == null || _resource == null)
-                    TextButton(onPressed: _load, child: const Text('重新核对')),
+                    TextButton(
+                      onPressed: _load,
+                      child: Text(hhText(context, '重新核对')),
+                    ),
                 ],
               ),
       );
@@ -300,19 +315,26 @@ class GovernanceResourceView extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final Future<void> Function(String)? onOpenPost;
   final Future<void> Function(String postId, String commentId)? onOpenComment;
-  Widget _line(String label, Object? value) => value == null || value == ''
+  Widget _line(BuildContext context, String label, Object? value) =>
+      value == null || value == ''
       ? const SizedBox.shrink()
       : Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: Text('$label：$value'),
+          child: Text(
+            hhText(
+              context,
+              '{label}：{value}',
+              args: {'label': hhText(context, label), 'value': value},
+            ),
+          ),
         );
-  String _state(Object? state) => switch (state) {
-    'PENDING' => '待处理',
-    'PROCESSING' => '处理中',
-    'ENDED' => '已结束',
-    'ACCEPTED' => '申诉通过',
-    'REJECTED' => '申诉未通过',
-    _ => '正在核对',
+  String _state(BuildContext context, Object? state) => switch (state) {
+    'PENDING' => hhText(context, '待处理'),
+    'PROCESSING' => hhText(context, '处理中'),
+    'ENDED' => hhText(context, '已结束'),
+    'ACCEPTED' => hhText(context, '申诉通过'),
+    'REJECTED' => hhText(context, '申诉未通过'),
+    _ => hhText(context, '正在核对'),
   };
   Future<void> _form(
     BuildContext context,
@@ -326,20 +348,34 @@ class GovernanceResourceView extends StatelessWidget {
           animation: controller,
           builder: (context, _) => MaterialEvidenceForm(
             controller: controller,
-            title: supplement ? '补充材料' : '申诉',
+            title: supplement ? hhText(context, '补充材料') : hhText(context, '申诉'),
             textLimit: 500,
             imageLimit: supplement ? 3 : 6,
             summary: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('原处罚继续按期限执行，提交材料不代表申诉通过。'),
+                Text(hhText(context, '原处罚继续按期限执行，提交材料不代表申诉通过。')),
                 const SizedBox(height: 12),
-                Text('本次申诉 $ordinal/3'),
-                const Text('最多可申诉 3 次，补充材料不占次数'),
-                Text('本次最多 500 字、${supplement ? 3 : 6} 张图片'),
+                Text(
+                  hhText(
+                    context,
+                    '本次申诉 {ordinal}/3',
+                    args: {'ordinal': ordinal},
+                  ),
+                ),
+                Text(hhText(context, '最多可申诉 3 次，补充材料不占次数')),
+                Text(
+                  hhText(
+                    context,
+                    '本次最多 500 字、{count} 张图片',
+                    args: {'count': supplement ? 3 : 6},
+                  ),
+                ),
               ],
             ),
-            submitLabel: supplement ? '提交补充材料' : '提交申诉',
+            submitLabel: supplement
+                ? hhText(context, '提交补充材料')
+                : hhText(context, '提交申诉'),
             onSubmit: (text, images) => supplement
                 ? controller.supplementAppeal(target, text, images)
                 : controller.submitAppeal(target, text, images),
@@ -354,28 +390,34 @@ class GovernanceResourceView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (route.name == 'REPORT') {
       final r = resource['report'];
-      if (r is! Map<String, dynamic>) return const Text('举报提交结果仍在核对。');
+      if (r is! Map<String, dynamic>) {
+        return Text(hhText(context, '举报提交结果仍在核对。'));
+      }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _line('状态', _state(r['state'])),
-          _line('举报类别', reportReasons[r['reason']] ?? '其他'),
-          _line('举报说明', r['description']),
-          _line('处理结论', switch (r['outcome']) {
-            'UPHELD' => '违规成立',
-            'DISMISSED' => '未发现违规',
-            'TARGET_DELETED' => '内容已删除，本次举报已结束',
-            'REVERSED' => '原处理已复核纠正',
+          _line(context, hhText(context, '状态'), _state(context, r['state'])),
+          _line(
+            context,
+            hhText(context, '举报类别'),
+            hhText(context, reportReasons[r['reason']] ?? '其他'),
+          ),
+          _line(context, hhText(context, '举报说明'), r['description']),
+          _line(context, hhText(context, '处理结论'), switch (r['outcome']) {
+            'UPHELD' => hhText(context, '违规成立'),
+            'DISMISSED' => hhText(context, '未发现违规'),
+            'TARGET_DELETED' => hhText(context, '内容已删除，本次举报已结束'),
+            'REVERSED' => hhText(context, '原处理已复核纠正'),
             _ => null,
           }),
-          _line('简短说明', r['explanation']),
+          _line(context, hhText(context, '简短说明'), r['explanation']),
           if (r['commentId'] is String && onOpenComment != null)
             TextButton(
               onPressed: () => onOpenComment!(
                 PostProtocol.resourceId(r['postId'] as String),
                 PostProtocol.resourceId(r['commentId'] as String),
               ),
-              child: const Text('查看来源评论'),
+              child: Text(hhText(context, '查看来源评论')),
             )
           else if (r['postId'] is String &&
               (r['postId'] as String).isNotEmpty &&
@@ -383,7 +425,7 @@ class GovernanceResourceView extends StatelessWidget {
             TextButton(
               onPressed: () =>
                   onOpenPost!(PostProtocol.resourceId(r['postId'] as String)),
-              child: const Text('查看来源帖子'),
+              child: Text(hhText(context, '查看来源帖子')),
             ),
         ],
       );
@@ -393,32 +435,38 @@ class GovernanceResourceView extends StatelessWidget {
           count = resource['appealCount'] as int? ?? 0,
           active = resource['activeAppealId'];
       final action = switch (r['action']) {
-        'TAKEDOWN' => '下架内容',
-        'MUTE' => '账号禁言',
-        'BAN' => '账号封禁',
-        'RESET_NICKNAME' => '重置违规昵称',
-        'RESET_AVATAR' => '重置违规头像',
-        _ => '违规处理',
+        'TAKEDOWN' => hhText(context, '下架内容'),
+        'MUTE' => hhText(context, '账号禁言'),
+        'BAN' => hhText(context, '账号封禁'),
+        'RESET_NICKNAME' => hhText(context, '重置违规昵称'),
+        'RESET_AVATAR' => hhText(context, '重置违规头像'),
+        _ => hhText(context, '违规处理'),
       };
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _line('处理措施', action),
-          _line('处理原因', r['reason']),
-          _line('开始时间', _date(DateTime.parse(r['startsAt'] as String))),
+          _line(context, hhText(context, '处理措施'), action),
+          _line(context, hhText(context, '处理原因'), r['reason']),
           _line(
-            '结束时间',
+            context,
+            hhText(context, '开始时间'),
+            _date(DateTime.parse(r['startsAt'] as String)),
+          ),
+          _line(
+            context,
+            hhText(context, '结束时间'),
             r['endsAt'] == null
-                ? '无固定结束时间'
+                ? hhText(context, '无固定结束时间')
                 : _date(DateTime.parse(r['endsAt'] as String)),
           ),
           _line(
-            '撤销时间',
+            context,
+            hhText(context, '撤销时间'),
             r['revokedAt'] == null
                 ? null
                 : _date(DateTime.parse(r['revokedAt'] as String)),
           ),
-          const Text('账号级处罚对本账号全部身份生效；其他有效处罚独立执行。'),
+          Text(hhText(context, '账号级处罚对本账号全部身份生效；其他有效处罚独立执行。')),
           if (active is String)
             FilledButton(
               onPressed: () async {
@@ -440,15 +488,15 @@ class GovernanceResourceView extends StatelessWidget {
                   await onRefresh();
                 }
               },
-              child: const Text('查看待复核申诉'),
+              child: Text(hhText(context, '查看待复核申诉')),
             )
           else if (count < 3 && r['revokedAt'] == null)
             FilledButton(
               onPressed: () =>
                   _form(context, route.resourceId, ordinal: count + 1),
-              child: const Text('申诉'),
+              child: Text(hhText(context, '申诉')),
             ),
-          if (count >= 3) const Text('已使用三次独立申诉额度。'),
+          if (count >= 3) Text(hhText(context, '已使用三次独立申诉额度。')),
         ],
       );
     }
@@ -457,11 +505,17 @@ class GovernanceResourceView extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _line('状态', r['state'] == 'PENDING' ? '待复核' : _state(r['state'])),
-          _line('本次申诉', '${r['ordinal']}/3'),
-          _line('复核说明', r['reason']),
+          _line(
+            context,
+            hhText(context, '状态'),
+            r['state'] == 'PENDING'
+                ? hhText(context, '待复核')
+                : _state(context, r['state']),
+          ),
+          _line(context, hhText(context, '本次申诉'), '${r['ordinal']}/3'),
+          _line(context, hhText(context, '复核说明'), r['reason']),
           if (r['state'] == 'PENDING')
-            const Text('材料已保留，等待另一名有权限人员复核，不承诺完成时限。'),
+            Text(hhText(context, '材料已保留，等待另一名有权限人员复核，不承诺完成时限。')),
           AppealMaterialStream(
             controller: controller,
             appealId: route.resourceId,
@@ -476,12 +530,12 @@ class GovernanceResourceView extends StatelessWidget {
                 supplement: true,
                 ordinal: r['ordinal'] as int? ?? 1,
               ),
-              child: const Text('补充材料'),
+              child: Text(hhText(context, '补充材料')),
             ),
           if (r['state'] == 'REJECTED')
-            const Text('本次已结案，不再追加材料。有新材料时，可从原处罚通知在剩余额度内再次申诉。'),
+            Text(hhText(context, '本次已结案，不再追加材料。有新材料时，可从原处罚通知在剩余额度内再次申诉。')),
           if (r['state'] == 'ACCEPTED')
-            const Text('对应处罚已撤销，符合恢复条件的内容和违规记录已修正。其他有效处罚继续执行。'),
+            Text(hhText(context, '对应处罚已撤销，符合恢复条件的内容和违规记录已修正。其他有效处罚继续执行。')),
         ],
       );
     }
@@ -587,7 +641,7 @@ class _AppealMaterialStreamState extends State<AppealMaterialStream> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_current) return const Text('会话已变化，请重新进入后查看材料。');
+    if (!_current) return Text(hhText(context, '会话已变化，请重新进入后查看材料。'));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -596,11 +650,23 @@ class _AppealMaterialStreamState extends State<AppealMaterialStream> {
             const Divider(),
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: Text('提交时间：${raw['createdAt']}'),
+              child: Text(
+                hhText(
+                  context,
+                  '提交时间：{time}',
+                  args: {'time': raw['createdAt']},
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: Text('已提交材料：${raw['description']}'),
+              child: Text(
+                hhText(
+                  context,
+                  '已提交材料：{description}',
+                  args: {'description': raw['description']},
+                ),
+              ),
             ),
             if (raw['images'] is List)
               Wrap(
@@ -612,11 +678,14 @@ class _AppealMaterialStreamState extends State<AppealMaterialStream> {
                 ],
               ),
           ],
-        if (_error != null) Semantics(liveRegion: true, child: Text(_error!)),
+        if (_error != null)
+          Semantics(liveRegion: true, child: Text(hhText(context, _error!))),
         if (_cursor != null)
           TextButton(
             onPressed: _loading ? null : _load,
-            child: Text(_loading ? '读取后续材料中' : '加载后续材料'),
+            child: Text(
+              _loading ? hhText(context, '读取后续材料中') : hhText(context, '加载后续材料'),
+            ),
           ),
       ],
     );
@@ -634,10 +703,10 @@ class _EvidencePreview extends StatelessWidget {
         image.bytes,
         width: 96,
         height: 96,
-        errorBuilder: (_, _, _) => const Text('图片暂不可预览'),
+        errorBuilder: (_, _, _) => Text(hhText(context, '图片暂不可预览')),
       );
     } on Object {
-      return const Text('图片暂不可预览');
+      return Text(hhText(context, '图片暂不可预览'));
     }
   }
 }
@@ -661,9 +730,9 @@ class _ResourceScreen extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) => Scaffold(
-        appBar: AppBar(title: const Text('申诉详情')),
+        appBar: AppBar(title: Text(hhText(context, '申诉详情'))),
         body: !controller.available || controller.authorityVersion != epoch
-            ? const Center(child: Text('会话已变化'))
+            ? Center(child: Text(hhText(context, '会话已变化')))
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: GovernanceResourceView(

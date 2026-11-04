@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
@@ -54,10 +56,10 @@ class HhAppNavigation extends StatelessWidget {
                     child: IconButton(
                       key: ValueKey('destination:${destination.name}'),
                       tooltip: switch (destination) {
-                        AppDestination.home => '首页',
-                        AppDestination.messages => '消息',
-                        AppDestination.directMessages => '私信',
-                        AppDestination.personal => '我的',
+                        AppDestination.home => hhText(context, '首页'),
+                        AppDestination.messages => hhText(context, '消息'),
+                        AppDestination.directMessages => hhText(context, '私信'),
+                        AppDestination.personal => hhText(context, '我的'),
                       },
                       onPressed: () {
                         if (selected != destination) onSelected(destination);

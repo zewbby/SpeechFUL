@@ -10,6 +10,7 @@ import 'package:hnuhole_mobile/src/auth/auth_session_controller.dart';
 import 'package:hnuhole_mobile/src/auth/auth_store.dart';
 import 'package:hnuhole_mobile/src/auth/credential_management_api.dart';
 import 'package:hnuhole_mobile/src/auth/security_management_controller.dart';
+import 'package:hnuhole_mobile/src/auth/device_management_controller.dart';
 import 'package:hnuhole_mobile/src/channels/channel.dart';
 import 'package:hnuhole_mobile/src/channels/channel_repository.dart';
 import 'package:hnuhole_mobile/src/navigation/channel_directory_controller.dart';
@@ -362,32 +363,26 @@ Future<void> _prepareRotation(SecurityManagementController controller) async {
 }
 
 void main() {
-  test(
-    'device and credential data publish only after metadata is durable',
-    () async {
-      final vault = _Vault();
-      final f = await _setup(vault);
-      var published = false;
-      f.management.addListener(() {
-        if (f.management.status != SecurityManagementStatus.ready) return;
-        published = true;
-        final persisted = AuthState.parse(
-          jsonDecode(vault.value!),
-          f.store.scope,
-        );
-        expect(persisted.session!.expiresAt, _renewed);
-      });
-      await f.management.load();
-      expect(published, isTrue);
-      expect(f.management.devices!.lastReplacedAt, DateTime.utc(2026, 10, 2));
-      expect(
-        f.management.credentials!.passkeys.single.credentialId,
-        _credential,
+  test('credential data publish only after metadata is durable without reading devices', () async {
+    final vault = _Vault();
+    final f = await _setup(vault);
+    var published = false;
+    f.management.addListener(() {
+      if (f.management.status != SecurityManagementStatus.ready) return;
+      published = true;
+      final persisted = AuthState.parse(
+        jsonDecode(vault.value!),
+        f.store.scope,
       );
-      expect(f.api.deviceReads, 1);
-      expect(f.api.credentialReads, 1);
-    },
-  );
+      expect(persisted.session!.expiresAt, _renewed);
+    });
+    await f.management.load();
+    expect(published, isTrue);
+    expect(f.management.devices, isNull);
+    expect(f.management.credentials!.passkeys.single.credentialId, _credential);
+    expect(f.api.deviceReads, 0);
+    expect(f.api.credentialReads, 1);
+  });
 
   test(
     'rotation requires hidden code and full confirmation before any final send',
@@ -491,13 +486,13 @@ void main() {
   });
 
   test(
-    'metadata completion cancellation prevents a subsequent credential read',
+    'metadata completion cancellation prevents publication of credential data',
     () async {
       final f = await _setup(_Vault());
       f.sessions.afterMetadata = f.management.cancelEphemeral;
       await f.management.load();
-      expect(f.api.deviceReads, 1);
-      expect(f.api.credentialReads, 0);
+      expect(f.api.deviceReads, 0);
+      expect(f.api.credentialReads, 1);
       expect(f.management.devices, isNull);
       expect(f.management.credentials, isNull);
     },
@@ -633,7 +628,13 @@ void main() {
   test('late device reply after new login cannot publish or extend the new session', () async {
     final f = await _setup(_Vault());
     f.api.deviceWait = Completer<DeviceDirectory>();
-    final request = f.management.load();
+    final devices = DeviceManagementController(
+      api: f.api,
+      store: f.store,
+      sessions: f.sessions,
+    );
+    addTearDown(devices.dispose);
+    final request = devices.load();
     await f.api.deviceStarted.future;
     await f.sessions.login('private_user', 'password');
     f.api.deviceWait!.complete(
@@ -645,7 +646,7 @@ void main() {
     await request;
     expect(f.store.current!.session!.token, _newToken);
     expect(f.store.current!.session!.expiresAt, _expiry);
-    expect(f.management.devices, isNull);
+    expect(devices.device, isNull);
     expect(f.api.credentialReads, 0);
   });
 

@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   vector_math: ^2.1.4
   characters: 1.4.1
   crypto: 3.0.6
@@ -35,6 +37,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/welcome-shush-mark.png
+    - assets/support/alipay-receive.jpg
     - assets/fonts/LICENSE-Roboto.txt
     - assets/fonts/NOTICE-Roboto.txt
     - assets/fonts/OFL-NotoSansSC.txt
