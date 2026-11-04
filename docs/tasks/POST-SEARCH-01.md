@@ -55,3 +55,16 @@
 - P1 将内容规模相关的候选匹配与排名移出全局授权锁。交付结果、读取私有历史及写入搜索历史继续以 C Gate 最终事务为唯一授权点。最终重新核对会话和 Gate 代次、屏蔽版本、候选帖子可见性。保留字面子串、两种排序、分类分组及游标约束。需复验预检后撤权／下架与多账号并发。
 - P2 合并同一关键词、范围、排序和游标的在途重复提交。现有请求晚到隔离、显式重试、历史写入和返回语义保持。回归模拟请求在慢网期间未完成时重复提交。
 - 本轮无产品取舍待确认。选择合成账号、一次性服务与独立测试包做真机操作。验证状态在本节追加。
+
+产品复验提交为 `2976098c9a02928730d7a321eac12e3833b8b91d`。Go 文件与 `721e57dd0f95598cdd820e95faf9f26324f877ca` 一致。Flutter 与依赖文件同 `fb7d6532df181ec3f6d6182dfa4306b0fbbe81b2`。本地证据目录为 `E:/Hnuhole-env/post-search-followup-20261104`。工作期间共享 `origin/main` 更新到 `55663f0`，本次复验沿用任务基线。
+
+| 项目 | 被测版本／环境 | 结果与证据 |
+| --- | --- | --- |
+| P1 实现 | Sol `xhigh`，`721e57d`，集成于 `2976098` | 锁外扫描只返回候选键与排序元数据。最终 C Gate 重新校验同一会话／代次、屏蔽版本和有界的候选可见性，并原子提交历史及续期。最多复核 50 张卡、1 条续页候选和 7 个分组首条。候选失效可锁外重查一次。保留现有字面匹配与游标规则，未新增索引或迁移。 |
+| P1 Go 与真实 SQL／HTTPS | Go 1.22.2，WSL2 非 root，PostgreSQL 16.15／Goose 3.22.1 | PASS。 `gofmt`、`go test ./...`、`go build ./...`、`go vet ./...` 及 10 个聚焦真实数据库用例。覆盖搜索被表锁阻塞时另一账号通过 C Gate、撤权／换代、下架、删除、屏蔽 ABA 及分页补齐。日志 `E:/Hnuhole-env/post-search-perf-verification-20261104/host-721e57d.log` 和 `final-721e57d.log` 的 SQL／HTTPS 部分。首次 host 运行继承迁移变量导致缺 fixture，隔离变量后全过。 |
+| P2 Flutter | Terra `high`，执行提交 `1df2691`、`f526c70`，集成于 `fb7d653` | PASS。Flutter 3.47.5，原锁离线解析。 `flutter analyze --no-pub lib/src/posts/post_search_screen.dart test/post_search_test.dart` 与 `flutter test --no-pub --reporter expanded test/post_search_test.dart` 共 9 项。慢网按钮与键盘连点只发一笔请求并展示首个响应。自动刷新在途时，显式提交仍独立记录历史。 |
+| 搜索与普通读取并发 | `6701e84` 对 `2976098`，一次性 PostgreSQL 16.15，真实 HTTPS，3 万条合成帖子／7 分类，4 搜索账号并发，三轮每轮 40 次普通详情读取 | PASS。运行 `bash run-followup.sh <完整 SHA> load`。普通详情并发 p95 从 2.97–3.57 秒降至 675–859 毫秒。搜索 p95 从 2.96–3.56 秒降至 1.38–1.71 秒，两版均零请求错误。扫描计算仍占用数据库资源。证据 `load-6701e84.log`、`load-2976098.log`，脚本和合成 seed 同目录。 |
+| Android 实体设备 | realme RMX3366／Android 14／ARM64，APK 客户端 `fb7d653`，API `2976098` | PASS。 `build-device.ps1 -Revision <完整 SHA>` 构建并验签独立 `org.hnuhole.hnuhole_mobile.postsearchverify` 包。APK SHA-256 `1a6146aed3ec1d070d8ce366e0dd2ab76d00b00135fb62fc39e83d2e8b995763`。 `bash run-followup.sh <完整 SHA> android` 使用测试输入、原生安全存储、USB 转发、真实 HTTPS 和一次性 PostgreSQL。实测搜索、加载第二页、打开第二页帖子再返回并保持关键词与位置、复用并清空历史。日志 `android-2976098.log`。 |
+| Astra High 独立复审 | `gpt-6-astra`／`high`，审查 `6701e84 → 2976098` | PASS。确认原 P1／P2 已修复，无新增阻断。核对最终授权、撤权及屏蔽 ABA、候选可见性和分页、慢网重复提交与历史写入，并核对 Go、负载和真机证据。字面扫描仍与普通读共用数据库连接池。更大规模与连接池饱和未实测。 |
+
+复修状态为实现已完成、本地及 Android 真机验证 PASS。真机临时转发和验收包已清理，隔离库由 runner 关闭。产品 CI 和 iOS 本轮 NOT_RUN。未推送、未合并、未发布。
