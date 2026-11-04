@@ -56,10 +56,10 @@ class DmNotifications(private val activity: FlutterActivity, messenger: BinaryMe
                                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                             val pending = PendingIntent.getActivity(activity, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                             val preview = call.argument<Boolean>("preview") == true
-                            val title = if (preview) call.argument<String>("sender")!!.take(80) else "HnuHole"
+                            val title = if (preview) call.argument<String>("sender")!!.take(80) else "SpeechFUL"
                             val text = if (preview) call.argument<String>("text")!!.lineSequence().first().take(160) else "你有一条新私信"
                             val publicVersion = builder().setSmallIcon(R.drawable.ic_dm_notification)
-                                .setContentTitle("HnuHole").setContentText("你有一条新私信").build()
+                                .setContentTitle("SpeechFUL").setContentText("你有一条新私信").build()
                             manager.notify(tag, 1, builder()
                                 .setSmallIcon(R.drawable.ic_dm_notification).setContentTitle(title).setContentText(text)
                                 .setVisibility(Notification.VISIBILITY_PRIVATE).setPublicVersion(publicVersion)

@@ -870,7 +870,7 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
     return AnimatedBuilder(
       animation: _authPresentation,
       builder: (context, _) => MaterialApp(
-        title: 'Hnuhole',
+        title: 'SpeechFUL',
         debugShowCheckedModeBanner: false,
         localizationsDelegates: const [CommunityMaterialLabels.delegate],
         navigatorKey: _navigatorKey,
