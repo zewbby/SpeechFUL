@@ -219,18 +219,24 @@ func readPublicPost(ctx context.Context, tx pgx.Tx, id string) (posts.PublicPost
 		return r, 0, err
 	}
 	r.PublishedAt = r.PublishedAt.UTC()
-	switch {
-	case accountState == "CLOSED":
-		r.Author = posts.PublicAuthor{State: "ACCOUNT_CLOSED", ShortCode: short, Avatar: "inactive-v1"}
-	case deleted != nil:
-		r.Author = posts.PublicAuthor{State: "DELETED", ShortCode: short, Avatar: "inactive-v1"}
-	default:
-		if nickname == nil || avatar == nil {
-			return r, 0, ErrAuthorizationUnavailable
-		}
-		r.Author = posts.PublicAuthor{State: "ACTIVE", Nickname: *nickname, Avatar: *avatar}
+	r.Author, err = projectPublicPostAuthor(accountState, deleted, nickname, avatar, short)
+	if err != nil {
+		return r, 0, err
 	}
 	return r, ordinal, nil
+}
+
+func projectPublicPostAuthor(accountState string, deleted *time.Time, nickname, avatar *string, short string) (posts.PublicAuthor, error) {
+	switch {
+	case accountState == "CLOSED":
+		return posts.PublicAuthor{State: "ACCOUNT_CLOSED", ShortCode: short, Avatar: "inactive-v1"}, nil
+	case deleted != nil:
+		return posts.PublicAuthor{State: "DELETED", ShortCode: short, Avatar: "inactive-v1"}, nil
+	case nickname == nil || avatar == nil:
+		return posts.PublicAuthor{}, ErrAuthorizationUnavailable
+	default:
+		return posts.PublicAuthor{State: "ACTIVE", Nickname: *nickname, Avatar: *avatar}, nil
+	}
 }
 func postCard(r posts.PublicPost) posts.PublicPostCard {
 	return posts.PublicPostCard{PostID: r.PostID, ChannelID: r.ChannelID, Title: r.Title, Author: r.Author, PublishedAt: r.PublishedAt}

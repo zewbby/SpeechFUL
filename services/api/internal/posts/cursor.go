@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -19,6 +20,7 @@ const (
 	CursorFavorites = "favorites"
 	CursorTask      = "task"
 	CursorFeed      = "feed"
+	CursorSearch    = "search"
 	CursorTTL       = 30 * time.Minute
 )
 
@@ -34,6 +36,10 @@ type CursorPosition struct {
 	Limit          int       `json:"limit"`
 	ExpiresAt      time.Time `json:"expiresAt"`
 	FilterRevision int64     `json:"filterRevision,omitempty"`
+	SearchKey      string    `json:"searchKey,omitempty"`
+	SearchGroups   string    `json:"searchGroups,omitempty"`
+	SearchGroup    int       `json:"searchGroup,omitempty"`
+	SearchRank     int       `json:"searchRank,omitempty"`
 }
 
 type CursorCodec struct {
@@ -99,7 +105,7 @@ func (c *CursorCodec) Decode(token string, expected CursorPosition, trustedAt ti
 		return CursorPosition{}, ErrCursorInvalid
 	}
 	var position CursorPosition
-	if json.Unmarshal(plaintext, &position) != nil || !validPosition(position) || position.Scope != expected.Scope || position.IdentityID != expected.IdentityID || position.AccountID != expected.AccountID || position.ChannelID != expected.ChannelID || position.Limit != expected.Limit || position.FilterRevision != expected.FilterRevision || !trustedAt.Before(position.ExpiresAt) || position.ExpiresAt.After(trustedAt.Add(CursorTTL)) {
+	if json.Unmarshal(plaintext, &position) != nil || !validPosition(position) || position.Scope != expected.Scope || position.IdentityID != expected.IdentityID || position.AccountID != expected.AccountID || position.ChannelID != expected.ChannelID || position.Limit != expected.Limit || position.FilterRevision != expected.FilterRevision || position.SearchKey != expected.SearchKey || !trustedAt.Before(position.ExpiresAt) || position.ExpiresAt.After(trustedAt.Add(CursorTTL)) {
 		return CursorPosition{}, ErrCursorInvalid
 	}
 	return position, nil
@@ -113,6 +119,8 @@ func validPosition(position CursorPosition) bool {
 		return false
 	}
 	switch position.Scope {
+	case CursorSearch:
+		return validSearchPosition(position)
 	case CursorFeed:
 		return (position.ChannelID == "" || validID(position.ChannelID)) && position.FilterRevision >= 0 && position.LastOrdinal > 0 && position.LastOrdinal <= position.Ceiling && position.LastID == ""
 	case CursorChannel:
@@ -124,4 +132,28 @@ func validPosition(position CursorPosition) bool {
 	default:
 		return false
 	}
+}
+
+func validSearchPosition(position CursorPosition) bool {
+	if position.FilterRevision < 0 || position.LastOrdinal < 1 || position.LastOrdinal > position.Ceiling ||
+		position.LastID != "" || position.SearchRank < 0 || position.SearchRank > 3 {
+		return false
+	}
+	digest, err := base64.RawURLEncoding.Strict().DecodeString(position.SearchKey)
+	if err != nil || len(digest) != 32 {
+		return false
+	}
+	groups := strings.Split(position.SearchGroups, ",")
+	if len(groups) > 7 || position.SearchGroup < 1 || position.SearchGroup > len(groups) ||
+		position.ChannelID != "" && (len(groups) != 1 || groups[0] != position.ChannelID) {
+		return false
+	}
+	seen := make(map[string]bool, len(groups))
+	for _, group := range groups {
+		if !validID(group) || seen[group] {
+			return false
+		}
+		seen[group] = true
+	}
+	return true
 }

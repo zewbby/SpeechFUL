@@ -74,3 +74,41 @@ func TestScopedCursorEncryption(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchCursorFitsAllChannelsAndBindsSearchKey(t *testing.T) {
+	now := time.Date(2026, 11, 4, 1, 2, 3, 123456000, time.UTC)
+	codec, err := NewCursorCodec(bytes.Repeat([]byte{9}, 32), "development-search")
+	if err != nil {
+		t.Fatal(err)
+	}
+	position := CursorPosition{
+		Scope: CursorSearch, AccountID: testID, Ceiling: 9223372036854775807,
+		LastAt: now.Add(-time.Hour), LastOrdinal: 9223372036854775806, Limit: 50,
+		ExpiresAt: now.Add(CursorTTL), FilterRevision: 9223372036854775807,
+		SearchKey:   base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)),
+		SearchGroup: 7, SearchRank: 3,
+		SearchGroups: strings.Join([]string{
+			"00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002",
+			"00000000-0000-4000-8000-000000000003", "00000000-0000-4000-8000-000000000004",
+			"00000000-0000-4000-8000-000000000005", "00000000-0000-4000-8000-000000000006",
+			"00000000-0000-4000-8000-000000000007",
+		}, ","),
+	}
+	token, err := codec.Encode(position)
+	if err != nil || len(token) > 1024 {
+		t.Fatalf("seven-channel cursor exceeds wire limit: %v", err)
+	}
+	if got, err := codec.Decode(token, position, now); err != nil || got != position {
+		t.Fatalf("search cursor roundtrip: %v", err)
+	}
+	wrong := position
+	wrong.SearchKey = base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{2}, 32))
+	if _, err := codec.Decode(token, wrong, now); !errors.Is(err, ErrCursorInvalid) {
+		t.Fatal("cursor accepted a different query binding")
+	}
+	wrong = position
+	wrong.ChannelID = otherID
+	if _, err := codec.Encode(wrong); !errors.Is(err, ErrCursorInvalid) {
+		t.Fatal("category cursor accepted an all-category group order")
+	}
+}
