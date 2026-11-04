@@ -44,7 +44,13 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   List<PostCard> _posts = const [];
   List<String> _history = const [];
   ({String? cursor, bool recordHistory})? _retry;
-  ({String keyword, String? channelId, PostSearchSort sort, String? cursor})?
+  ({
+    String keyword,
+    String? channelId,
+    PostSearchSort sort,
+    String? cursor,
+    bool recordHistory,
+  })?
   _inFlight;
   int _searchRequest = 0, _historyRequest = 0;
   bool _searchLoading = false;
@@ -168,6 +174,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       channelId: _channelId,
       sort: _sort,
       cursor: cursor,
+      recordHistory: recordHistory,
     );
     if (_inFlight == key) return;
     _inFlight = key;

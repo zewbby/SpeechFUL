@@ -135,6 +135,47 @@ Future<void> _back(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('explicit submission records history during scope refresh', (
+    tester,
+  ) async {
+    final refresh = Completer<PostsPage<PostCard>>();
+    final submit = Completer<PostsPage<PostCard>>();
+    final api = _SearchApi();
+    api.resultFor = (query) {
+      if (query.scope == null) return PostsPage(items: [], nextCursor: null);
+      return query.record ? submit.future : refresh.future;
+    };
+    await _start(tester, api);
+    await _open(tester);
+    await _submit(tester, '自习');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(_scope));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('避雷'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('提交搜索'));
+    await tester.pump();
+    expect(api.queries, hasLength(3));
+    expect(api.queries[1].record, isFalse);
+    expect(api.queries[2].record, isTrue);
+    expect(api.queries[2].scope, feed.otherChannelId);
+
+    submit.complete(
+      PostsPage(
+        items: [
+          feed.post(id: _id(1), title: '提交结果', channel: feed.otherChannelId),
+        ],
+        nextCursor: null,
+      ),
+    );
+    await tester.pumpAndSettle();
+    refresh.complete(PostsPage(items: [], nextCursor: null));
+    await tester.pumpAndSettle();
+    expect(find.text('提交结果'), findsOneWidget);
+    expect(api.histories[feed.otherChannelId], ['自习']);
+    expect(api.historyWrites, 2);
+  });
+
   testWidgets(
     'coalesces button and keyboard submissions while search is pending',
     (tester) async {
