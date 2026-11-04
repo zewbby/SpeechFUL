@@ -17,7 +17,7 @@ func (c *Community) ReadPostSearchHistory(ctx context.Context, bearer [32]byte, 
 		}
 	}
 	return c.withPostSession(ctx, bearer, func(tx pgx.Tx, account uuid.UUID, _ AuthorizationDecision, _ restriction) (any, error) {
-		if err := requirePostSearchHistoryChannel(ctx, tx, channelID); err != nil {
+		if err := requirePostSearchChannel(ctx, tx, channelID); err != nil {
 			return nil, err
 		}
 		return readPostSearchHistory(ctx, tx, account, channelID)
@@ -46,7 +46,7 @@ func (c *Community) ChangePostSearchHistory(ctx context.Context, bearer [32]byte
 		return PostResponse{}, posts.ErrInvalidIntent
 	}
 	return c.withPostSession(ctx, bearer, func(tx pgx.Tx, account uuid.UUID, _ AuthorizationDecision, _ restriction) (any, error) {
-		if err := requirePostSearchHistoryChannel(ctx, tx, input.ChannelID); err != nil {
+		if err := requirePostSearchChannel(ctx, tx, input.ChannelID); err != nil {
 			return nil, err
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM c_posts.post_search_history
@@ -57,7 +57,7 @@ func (c *Community) ChangePostSearchHistory(ctx context.Context, bearer [32]byte
 	})
 }
 
-func requirePostSearchHistoryChannel(ctx context.Context, tx pgx.Tx, channelID string) error {
+func requirePostSearchChannel(ctx context.Context, tx pgx.Tx, channelID string) error {
 	if channelID == "" {
 		return nil
 	}

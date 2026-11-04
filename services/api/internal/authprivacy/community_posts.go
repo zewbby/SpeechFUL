@@ -118,9 +118,9 @@ func (c *Community) checkPostProtocolKeys(ctx context.Context, tx pgx.Tx) error 
 	return err
 }
 
-// 调用者账号先锁；同账号写入均串行。所有正文读取及业务效果在最终 Gate 内。
-// 不对其他作者行加锁，不通过第二连接池提交已授权业务。
-func (c *Community) withPostSession(ctx context.Context, bearer [32]byte, action func(pgx.Tx, uuid.UUID, AuthorizationDecision, restriction) (any, error)) (PostResponse, error) {
+type postSessionAction func(pgx.Tx, uuid.UUID, AuthorizationDecision, restriction) (any, error)
+
+func (c *Community) withPostSession(ctx context.Context, bearer [32]byte, action postSessionAction) (PostResponse, error) {
 	var result PostResponse
 	if !c.PostsEnabled() {
 		return result, ErrAuthorizationUnavailable
@@ -135,6 +135,13 @@ func (c *Community) withPostSession(ctx context.Context, bearer [32]byte, action
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return result, ErrAuthorizationUnavailable
 	}
+	return c.withPostSessionAt(ctx, token, account, decision, nil, action)
+}
+
+// Lock the caller before the Gate. Only the final transaction may release
+// protected results, record business effects or renew the session.
+func (c *Community) withPostSessionAt(ctx context.Context, token [32]byte, account uuid.UUID, decision AuthorizationDecision, expectedSessionGeneration *int64, action postSessionAction) (PostResponse, error) {
+	var result PostResponse
 	tx, err := begin(ctx, c.pool)
 	if err != nil {
 		return result, ErrAuthorizationUnavailable
@@ -164,6 +171,9 @@ func (c *Community) withPostSession(ctx context.Context, bearer [32]byte, action
 		}
 		if e := session.validate(a, final); e != nil {
 			return e
+		}
+		if expectedSessionGeneration != nil && session.generation != *expectedSessionGeneration {
+			return ErrSessionInvalid
 		}
 		if e := c.checkPostProtocolKeys(ctx, tx); e != nil {
 			return e
