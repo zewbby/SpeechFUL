@@ -26,6 +26,7 @@ class _SearchApi extends feed.FeedTestApi implements PostSearchApi {
   Future<List<String>>? historyWait;
   Future<void>? historyChangeWait;
   bool historyFails = false;
+  int historyWrites = 0;
 
   @override
   Future<PostResponse<PostsPage<PostCard>>> searchPosts({
@@ -49,6 +50,7 @@ class _SearchApi extends feed.FeedTestApi implements PostSearchApi {
         await (resultFor?.call(query) ??
             PostsPage<PostCard>(items: [], nextCursor: null));
     if (recordHistory) {
+      historyWrites++;
       histories[channelId] = [
         keyword,
         for (final entry in histories[channelId] ?? [])
@@ -133,6 +135,36 @@ Future<void> _back(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'coalesces button and keyboard submissions while search is pending',
+    (tester) async {
+      final pending = Completer<PostsPage<PostCard>>();
+      final api = _SearchApi()..resultFor = (_) => pending.future;
+      await _start(tester, api);
+      await _open(tester);
+      await tester.enterText(find.byKey(_input), '自习');
+      await tester.tap(find.byTooltip('提交搜索'));
+      await tester.pump();
+      await tester.tap(find.byKey(_input));
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      await tester.tap(find.byTooltip('提交搜索'));
+      await tester.pump();
+      expect(api.queries, hasLength(1));
+
+      pending.complete(
+        PostsPage(
+          items: [feed.post(id: _id(1), title: '首个响应')],
+          nextCursor: null,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('首个响应'), findsOneWidget);
+      expect(api.historyWrites, 1);
+      expect(api.histories[null], ['自习']);
+    },
+  );
+
   testWidgets(
     'recommended opens all categories and a category presets only search',
     (tester) async {

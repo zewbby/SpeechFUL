@@ -44,6 +44,8 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   List<PostCard> _posts = const [];
   List<String> _history = const [];
   ({String? cursor, bool recordHistory})? _retry;
+  ({String keyword, String? channelId, PostSearchSort sort, String? cursor})?
+  _inFlight;
   int _searchRequest = 0, _historyRequest = 0;
   bool _searchLoading = false;
   bool _historyLoading = false, _historyChanging = false, _historyError = false;
@@ -90,6 +92,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
 
   void _resetResults() {
     ++_searchRequest;
+    _inFlight = null;
     _submitted = _cursor = null;
     _posts = const [];
     _retry = null;
@@ -160,6 +163,14 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   }) async {
     final keyword = _submitted;
     if (!_current || keyword == null) return;
+    final key = (
+      keyword: keyword,
+      channelId: _channelId,
+      sort: _sort,
+      cursor: cursor,
+    );
+    if (_inFlight == key) return;
+    _inFlight = key;
     final request = ++_searchRequest;
     final channelId = _channelId;
     if (cursor == null && _scroll.hasClients) _scroll.jumpTo(0);
@@ -205,7 +216,10 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       setState(() => _retry = (cursor: cursor, recordHistory: recordHistory));
     } finally {
       if (_current && request == _searchRequest) {
-        setState(() => _searchLoading = false);
+        setState(() {
+          _inFlight = null;
+          _searchLoading = false;
+        });
       }
     }
   }
