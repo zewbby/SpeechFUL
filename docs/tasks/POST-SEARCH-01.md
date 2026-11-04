@@ -47,3 +47,11 @@
 | OpenAPI 与协作 | `ec1699a`，仓库锁定的 Python 验证环境 | PASS。 `python packages/openapi/check-specs.py`、`python tools/check-community-text-contract.py`、`python -m unittest discover -s tools/tests -p test_collaboration.py -v` 和 `git diff --check`。 |
 | 独立审查 | GPT-6 Astra `xhigh` 核对 `73992f6`／`b252338`，GPT-6.1 Terra `high` 核对 `7e2cd70` | 后端静态复核无阻断。Flutter 发现提交后立即清空会读取旧历史，修复于 `ec1699a`，新增两个回归。审查为本地只读复核。 |
 | 产品 CI／设备 | Feed backend、Feed UI | NOT_RUN。CI 定义已加入适用回归。实体设备、iOS 构建和部署验证尚未执行。 |
+
+## 性能与体验复修
+
+- 2026-11-04 用户要求修复 Astra High 审查的 P1 与 P2，在一次性 PostgreSQL 对比搜索和普通读取的并发表现，补慢网重复提交回归，并在 Android 实体设备操作搜索、翻页、详情返回和历史。最终由 Astra High 复审。本轮只本地交付。
+- 集成从 `6701e842b6d7c6a78b26a4b5c2c9385a282d19d7` 续作，原 `origin/main` 为 `663adbca992f03cd15de5bd4f4455f8db4adbabf`。此前界面联合验证为宿主环境，真机尚未验收。
+- P1 将内容规模相关的候选匹配与排名移出全局授权锁。交付结果、读取私有历史及写入搜索历史继续以 C Gate 最终事务为唯一授权点。最终重新核对会话和 Gate 代次、屏蔽版本、候选帖子可见性。保留字面子串、两种排序、分类分组及游标约束。需复验预检后撤权／下架与多账号并发。
+- P2 合并同一关键词、范围、排序和游标的在途重复提交。现有请求晚到隔离、显式重试、历史写入和返回语义保持。回归模拟请求在慢网期间未完成时重复提交。
+- 本轮无产品取舍待确认。选择合成账号、一次性服务与独立测试包做真机操作。验证状态在本节追加。
