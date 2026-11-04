@@ -24,6 +24,7 @@ class _SearchApi extends feed.FeedTestApi implements PostSearchApi {
   final histories = <String?, List<String>>{};
   FutureOr<PostsPage<PostCard>> Function(_Query)? resultFor;
   Future<List<String>>? historyWait;
+  Future<void>? historyChangeWait;
   bool historyFails = false;
 
   @override
@@ -78,6 +79,7 @@ class _SearchApi extends feed.FeedTestApi implements PostSearchApi {
     String? removeKeyword,
   }) async {
     historyChanges.add((channelId, removeKeyword));
+    await historyChangeWait;
     final entries = <String>[
       if (removeKeyword != null)
         for (final entry in histories[channelId] ?? [])
@@ -351,6 +353,90 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'clearing input waits for recorded searches in this scope and fences scope changes',
+    (tester) async {
+      final api = _SearchApi();
+      final first = Completer<PostsPage<PostCard>>();
+      final second = Completer<PostsPage<PostCard>>();
+      final beforeSwitch = Completer<PostsPage<PostCard>>();
+      api.histories[null] = ['全部旧词'];
+      api.histories[feed.otherChannelId] = ['避雷词'];
+      api.resultFor = (query) => switch (query.keyword) {
+        '第一个词' => first.future,
+        '第二个词' => second.future,
+        _ => beforeSwitch.future,
+      };
+      await _start(tester, api);
+      await _open(tester);
+
+      await _submit(tester, '第一个词');
+      await tester.tap(find.byTooltip('清空关键词'));
+      await tester.pump();
+      expect(api.historyReads, [null]);
+      expect(find.text('全部旧词'), findsNothing);
+
+      await _submit(tester, '第二个词');
+      await tester.tap(find.byTooltip('清空关键词'));
+      await tester.pump();
+      first.complete(PostsPage(items: [], nextCursor: null));
+      await tester.pump();
+      expect(api.historyReads, [null]);
+      expect(find.text('第一个词'), findsNothing);
+
+      second.completeError(const PostFailure(kind: PostFailureKind.transport));
+      await tester.pumpAndSettle();
+      expect(api.historyReads, [null, null]);
+      expect(find.text('第一个词'), findsOneWidget);
+      expect(find.text('第二个词'), findsNothing);
+
+      await _submit(tester, '切换前输入');
+      await tester.tap(find.byTooltip('清空关键词'));
+      await tester.pump();
+      await tester.tap(find.byKey(_scope));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.text('避雷'));
+      await tester.pumpAndSettle();
+      expect(find.text('避雷词'), findsOneWidget);
+
+      beforeSwitch.complete(PostsPage(items: [], nextCursor: null));
+      await tester.pumpAndSettle();
+      expect(api.historyReads, [null, null, feed.otherChannelId]);
+      expect(find.text('避雷词'), findsOneWidget);
+      expect(find.text('切换前输入'), findsNothing);
+    },
+  );
+
+  testWidgets('history read after clearing waits for an overlapping removal', (
+    tester,
+  ) async {
+    final api = _SearchApi();
+    final removal = Completer<void>();
+    api.histories[null] = ['待删词'];
+    api.historyChangeWait = removal.future;
+    await _start(tester, api);
+    await _open(tester);
+
+    await tester.tap(find.byTooltip('删除「待删词」'));
+    await tester.pump();
+    expect(api.historyChanges, [(null, '待删词')]);
+    await _submit(tester, '新词');
+    await tester.tap(find.byTooltip('清空关键词'));
+    await tester.pump();
+    expect(api.historyReads, [null]);
+    expect(find.text('待删词'), findsNothing);
+
+    removal.complete();
+    await tester.pumpAndSettle();
+    expect(api.historyReads, [null, null]);
+    expect(find.text('待删词'), findsNothing);
+    expect(find.text('新词'), findsOneWidget);
+    await tester.tap(find.byKey(_scope));
+    await tester.pumpAndSettle();
+    expect(find.text('避雷'), findsOneWidget);
+  });
 
   testWidgets('late history and search cannot appear after session loss', (
     tester,

@@ -33,6 +33,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   final _input = TextEditingController();
   final _focus = FocusNode();
   final _scroll = ScrollController();
+  final _historyWrites = <String?, Set<Future<void>>>{};
   late final int _epoch;
   late final Map<String, String> _channels = {
     for (final channel in widget.channels) channel.id: channel.name,
@@ -171,13 +172,16 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       }
     });
     try {
-      final page = await _controller.searchPosts(
+      Future<PostsPage<PostCard>> search() => _controller.searchPosts(
         keyword: keyword,
         channelId: channelId,
         sort: _sort,
         cursor: cursor,
         recordHistory: recordHistory,
       );
+      final page = await (recordHistory
+          ? _writeHistory(channelId, search)
+          : search());
       if (!_current || request != _searchRequest) return;
       final ids = _posts.map((post) => post.postId).toSet();
       if (page.items.any(
@@ -206,8 +210,25 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
     }
   }
 
+  Future<T> _writeHistory<T>(
+    String? channelId,
+    Future<T> Function() write,
+  ) async {
+    final finished = Completer<void>();
+    final writes = _historyWrites.putIfAbsent(channelId, () => {});
+    writes.add(finished.future);
+    try {
+      return await write();
+    } finally {
+      writes.remove(finished.future);
+      if (writes.isEmpty) _historyWrites.remove(channelId);
+      finished.complete();
+    }
+  }
+
   Future<void> _readHistory() async {
-    if (!_current || _historyChanging) return;
+    if (!_current) return;
+    final channelId = _channelId;
     final request = ++_historyRequest;
     setState(() {
       _historyLoading = true;
@@ -216,7 +237,15 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       _history = const [];
     });
     try {
-      final entries = await _controller.postSearchHistory(_channelId);
+      // Clearing the field can reach here before a submitted search commits.
+      // Wait for this scope's writes even when their results have been retired.
+      var writes = _historyWrites[channelId];
+      while (writes != null) {
+        await Future.wait(writes);
+        if (!_current || request != _historyRequest) return;
+        writes = _historyWrites[channelId];
+      }
+      final entries = await _controller.postSearchHistory(channelId);
       if (_current && request == _historyRequest) {
         setState(() => _history = entries);
       }
@@ -267,9 +296,12 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       _historyError = false;
     });
     try {
-      final entries = await _controller.changePostSearchHistory(
+      final entries = await _writeHistory(
         channelId,
-        removeKeyword: removeKeyword,
+        () => _controller.changePostSearchHistory(
+          channelId,
+          removeKeyword: removeKeyword,
+        ),
       );
       if (_current && request == _historyRequest) {
         setState(() => _history = entries);
@@ -282,9 +314,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
         });
       }
     } finally {
-      if (_current && request == _historyRequest) {
-        setState(() => _historyChanging = false);
-      }
+      if (_current) setState(() => _historyChanging = false);
     }
   }
 
