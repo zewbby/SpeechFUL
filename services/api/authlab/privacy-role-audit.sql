@@ -93,7 +93,7 @@ BEGIN
               'publication_attempts','attempt_contents','command_receipts','payload_cleanup'));
             allowed := allowed OR (relation.relname IN ('post_view_totals','post_daily_views','feed_preferences') AND privilege IN ('SELECT','INSERT'))
               OR (relation.relname IN ('post_daily_views','feed_preferences') AND privilege='DELETE')
-              OR (relation.relname IN ('post_likes','post_favorites','post_interaction_versions','post_reposts','post_repost_versions') AND privilege IN ('SELECT','INSERT','DELETE'));
+              OR (relation.relname IN ('post_likes','post_favorites','post_interaction_versions','post_reposts','post_repost_versions','post_search_history') AND privilege IN ('SELECT','INSERT','DELETE'));
             -- 0026 private repost archives retain only their account/post
             -- fence's version update; archive rows remain immutable.
             IF relation.relname IN ('post_interaction_versions','post_repost_versions') AND privilege='UPDATE' THEN
@@ -106,6 +106,10 @@ BEGIN
                   AND a.attnum>0 AND NOT a.attisdropped
                   AND NOT (a.attname=ANY(CASE relation.relname WHEN 'post_view_totals' THEN ARRAY['view_count'] ELSE ARRAY['blocked_channel_ids','revision'] END))
                   AND has_column_privilege(audit_role,relation.oid,a.attname,'UPDATE'));
+            END IF;
+            IF relation.relname='post_search_history' AND privilege='UPDATE' THEN
+              allowed := NOT has_table_privilege(audit_role,relation.oid,'UPDATE')
+                AND NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=relation.oid AND a.attnum>0 AND NOT a.attisdropped AND a.attname NOT IN ('keyword','sort_at') AND has_column_privilege(audit_role,relation.oid,a.attname,'UPDATE'));
             END IF;
             IF relation.relname='images' AND privilege='UPDATE' THEN
               allowed := NOT has_table_privilege(audit_role,relation.oid,'UPDATE')

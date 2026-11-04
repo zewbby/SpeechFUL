@@ -101,6 +101,14 @@ DO $$ BEGIN
  END IF;
 END $$;
 
+-- 0029: private history and account closure remain independent of post HTTP.
+DO $$ BEGIN
+ IF to_regclass('c_posts.post_search_history') IS NOT NULL THEN
+  GRANT SELECT,INSERT,DELETE ON c_posts.post_search_history TO hnuhole_c_runtime;
+  GRANT UPDATE(keyword,sort_at) ON c_posts.post_search_history TO hnuhole_c_runtime;
+ END IF;
+END $$;
+
 -- 0014's image triggers also protect text-only writes. Lifecycle cleanup
 -- must erase existing bytes/grants even when the image HTTP API is disabled.
 -- Upload insertion and verification columns remain a separate opt-in grant.

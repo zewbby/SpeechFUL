@@ -16,7 +16,7 @@ func TestFeedGooseFreshAndUpgradePostgres(t *testing.T) {
 	if tool == "" {
 		t.Skip("owned Goose fixture absent")
 	}
-	for _, mode := range []string{"fresh", "upgrade", "interactions", "versions", "reposts"} {
+	for _, mode := range []string{"fresh", "upgrade", "interactions", "versions", "reposts", "history"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx := context.Background()
 			dsn := os.Getenv("FEED_" + strings.ToUpper(mode) + "_DSN")
@@ -53,6 +53,9 @@ func TestFeedGooseFreshAndUpgradePostgres(t *testing.T) {
 				if mode == "reposts" {
 					base = "25"
 				}
+				if mode == "history" {
+					base = "28"
+				}
 				if e = run("up-to", base); e != nil {
 					t.Fatal("main schema install", e)
 				}
@@ -83,8 +86,14 @@ func TestFeedGooseFreshAndUpgradePostgres(t *testing.T) {
 			if e = run("up"); e != nil {
 				t.Fatal("latest migration failed", e)
 			}
-			if count(t, pool, `SELECT count(*) FROM public.goose_db_version WHERE is_applied`) != 29 || count(t, pool, `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`) != 28 {
+			if count(t, pool, `SELECT count(*) FROM public.goose_db_version WHERE is_applied`) != 30 || count(t, pool, `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`) != 29 {
 				t.Fatal("incomplete migration chain")
+			}
+			if e = checkPostSearchHistorySchema(ctx, pool, true); e != nil {
+				t.Fatal(e)
+			}
+			if count(t, pool, `SELECT count(*) FROM c_posts.post_search_history`) != 0 {
+				t.Fatal("migration fabricated private search history")
 			}
 			if e = checkFeedSchema(ctx, pool, true); e != nil {
 				t.Fatal(e)
@@ -126,7 +135,7 @@ func TestFeedGooseFreshAndUpgradePostgres(t *testing.T) {
 			if e = run("down"); e == nil {
 				t.Fatal("cumulative facts rolled back")
 			}
-			if count(t, pool, `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`) != 28 {
+			if count(t, pool, `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`) != 29 {
 				t.Fatal("failed Down changed ledger")
 			}
 		})
