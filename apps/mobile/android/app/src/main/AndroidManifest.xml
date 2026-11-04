@@ -5,7 +5,7 @@
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/auth_data_extraction_rules"
-        android:label="hnuhole_mobile"
+        android:label="SpeechFUL"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
