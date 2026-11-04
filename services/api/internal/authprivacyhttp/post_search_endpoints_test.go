@@ -39,7 +39,7 @@ func TestPostSearchHTTPContract(t *testing.T) {
 	community := &httpTestCommunity{}
 	backend := &searchHTTPBackend{}
 	endpoints, err := NewCommunityEndpoints(CommunityOptions{
-		Posts: backend, Backend: community, Passwords: httpTestPasswords{backend: community},
+		Posts: backend, Backend: community, Passwords: httpTestPasswords{backend: community}, Limits: httpTestLimits(),
 		InternalPeer: PeerIdentity{Environment: "lab", Service: VerifierService, Roots: pki.roots},
 	})
 	if err != nil {

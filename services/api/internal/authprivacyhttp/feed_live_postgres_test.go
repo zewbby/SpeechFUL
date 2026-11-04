@@ -19,22 +19,7 @@ func TestRealHTTPSFeedDartPostgres(t *testing.T) {
 		t.Skip("compiled feed Dart probe absent")
 	}
 	s := e2eNewServices(t)
-	certificate := mobileLabCertificate(t)
-	tlsConfig, err := PublicTLSConfig(certificate)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.cPublic = e2eServer(t, s.cPublic.Config.Handler, tlsConfig)
-	transport := s.client.Transport.(*http.Transport).Clone()
-	transport.TLSClientConfig = transport.TLSClientConfig.Clone()
-	transport.TLSClientConfig.RootCAs = transport.TLSClientConfig.RootCAs.Clone()
-	root, err := x509.ParseCertificate(certificate.Certificate[1])
-	if err != nil {
-		t.Fatal(err)
-	}
-	transport.TLSClientConfig.RootCAs.AddCert(root)
-	s.client.Transport = transport
-	t.Cleanup(transport.CloseIdleConnections)
+	rootPEM := e2eDartPublicTLS(t, s)
 	owner, _ := e2ePrivacySignup(t, s, "feed_dart_owner")
 	reader, _ := e2ePrivacySignup(t, s, "feed_dart_reader")
 	catalog := e2eJSON(t, s.client, "GET", s.cPublic.URL+"/api/v1/channels", nil, map[string]string{"Authorization": "Bearer " + owner}, 200)
@@ -56,8 +41,6 @@ func TestRealHTTPSFeedDartPostgres(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	certs := s.cPublic.TLS.Certificates[0].Certificate
-	rootPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certs[len(certs)-1]})
 	fixture := map[string]any{"url": s.cPublic.URL, "certificatePem": string(rootPEM),
 		"readerIdentityId": readerIdentity,
 		"ownerToken":       owner, "readerToken": reader, "channelId": channel, "postId": post}
@@ -70,4 +53,25 @@ func TestRealHTTPSFeedDartPostgres(t *testing.T) {
 	if total != 1 {
 		t.Fatal("Dart view total not committed exactly once")
 	}
+}
+
+func e2eDartPublicTLS(t *testing.T, s *e2eServices) []byte {
+	t.Helper()
+	certificate := mobileLabCertificate(t)
+	tlsConfig, err := PublicTLSConfig(certificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.cPublic = e2eServer(t, s.cPublic.Config.Handler, tlsConfig)
+	transport := s.client.Transport.(*http.Transport).Clone()
+	transport.TLSClientConfig = transport.TLSClientConfig.Clone()
+	transport.TLSClientConfig.RootCAs = transport.TLSClientConfig.RootCAs.Clone()
+	root, err := x509.ParseCertificate(certificate.Certificate[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport.TLSClientConfig.RootCAs.AddCert(root)
+	s.client.Transport = transport
+	t.Cleanup(transport.CloseIdleConnections)
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: root.Raw})
 }
