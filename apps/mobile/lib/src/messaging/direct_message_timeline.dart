@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
+import '../localization/app_localizations.dart';
 import 'direct_message_bubble.dart';
 import 'direct_message_models.dart';
 
@@ -223,7 +224,7 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '还没有消息',
+                    hhText(context, '还没有消息'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -232,7 +233,9 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    view.firstContact ? '打个招呼吧\n对方回复前只能发送一条文字消息' : '从这里继续你们的对话',
+                    view.firstContact
+                        ? hhText(context, '打个招呼吧\n对方回复前只能发送一条文字消息')
+                        : hhText(context, '从这里继续你们的对话'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -291,7 +294,11 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
                     failed ? Icons.refresh : Icons.expand_less,
                     size: 20,
                   ),
-                  label: Text(failed ? '历史消息加载失败，重试' : '加载更早的消息'),
+                  label: Text(
+                    failed
+                        ? hhText(context, '历史消息加载失败，重试')
+                        : hhText(context, '加载更早的消息'),
+                  ),
                 ),
               );
             }
@@ -338,7 +345,7 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Text(
-                      '以下是未读消息',
+                      hhText(context, '以下是未读消息'),
                       style: TextStyle(fontSize: 12, color: p.accent),
                     ),
                   ),
@@ -371,14 +378,20 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
             right: 8,
             bottom: 8,
             child: Semantics(
-              label: _newMessages > 0 ? '$_newMessages条新消息，回到最新消息' : '回到最新消息',
+              label: _newMessages > 0
+                  ? hhText(
+                      context,
+                      '{count}条新消息，回到最新消息',
+                      args: {'count': _newMessages},
+                    )
+                  : hhText(context, '回到最新消息'),
               button: true,
               child: Badge(
                 isLabelVisible: _newMessages > 0,
                 label: Text('$_newMessages'),
                 child: FloatingActionButton.small(
                   heroTag: null,
-                  tooltip: '回到最新消息',
+                  tooltip: hhText(context, '回到最新消息'),
                   onPressed: _latest,
                   backgroundColor: p.surface,
                   foregroundColor: p.accent,

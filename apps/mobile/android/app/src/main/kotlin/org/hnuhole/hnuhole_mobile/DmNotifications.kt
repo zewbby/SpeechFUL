@@ -20,14 +20,26 @@ class DmNotifications(private val activity: FlutterActivity, messenger: BinaryMe
     private val channel = MethodChannel(messenger, "hnuhole/dm_notifications")
     private val manager = activity.getSystemService(NotificationManager::class.java)
     private val prefs = activity.getSharedPreferences("dm-notification-targets", 0)
+    private val displayPreferences = activity.getSharedPreferences("dm-notification-display", 0)
+    private var language = displayPreferences.getString("language", "zh-Hans") ?: "zh-Hans"
     private var scope: String? = null
     private var bound = false
     private val id = "private-messages-v1"
     init {
-        if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(NotificationChannel(id, "私信", NotificationManager.IMPORTANCE_DEFAULT))
+        configureDisplayChannel()
         channel.setMethodCallHandler { call, result ->
             try {
                 when (call.method) {
+                    "setLanguage" -> {
+                        val next = call.argument<String>("language")!!
+                        require(next in setOf("zh-Hans", "zh-Hant", "en", "ja"))
+                        language = next
+                        displayPreferences.edit().putString("language", next).apply()
+                        // The channel ID is unchanged. Reusing it only renames
+                        // the channel; Android retains the user's sound/importance.
+                        configureDisplayChannel()
+                        result.success(null)
+                    }
                     "bind" -> {
                         val next = call.argument<String>("scope")
                         require(next == null || next.matches(Regex("[a-f0-9]{64}")))
@@ -57,9 +69,9 @@ class DmNotifications(private val activity: FlutterActivity, messenger: BinaryMe
                             val pending = PendingIntent.getActivity(activity, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                             val preview = call.argument<Boolean>("preview") == true
                             val title = if (preview) call.argument<String>("sender")!!.take(80) else "SpeechFUL"
-                            val text = if (preview) call.argument<String>("text")!!.lineSequence().first().take(160) else "你有一条新私信"
+                            val text = if (preview) call.argument<String>("text")!!.lineSequence().first().take(160) else privateMessageText()
                             val publicVersion = builder().setSmallIcon(R.drawable.ic_dm_notification)
-                                .setContentTitle("SpeechFUL").setContentText("你有一条新私信").build()
+                                .setContentTitle("SpeechFUL").setContentText(privateMessageText()).build()
                             manager.notify(tag, 1, builder()
                                 .setSmallIcon(R.drawable.ic_dm_notification).setContentTitle(title).setContentText(text)
                                 .setVisibility(Notification.VISIBILITY_PRIVATE).setPublicVersion(publicVersion)
@@ -88,6 +100,23 @@ class DmNotifications(private val activity: FlutterActivity, messenger: BinaryMe
                 }
             } catch (_: Exception) { result.error("DM_NOTIFICATION_FAILED", "Notification unavailable", null) }
         }
+    }
+    private fun configureDisplayChannel() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            val name = when (language) {
+                "zh-Hant" -> "私信"
+                "en" -> "Direct messages"
+                "ja" -> "ダイレクトメッセージ"
+                else -> "私信"
+            }
+            manager.createNotificationChannel(NotificationChannel(id, name, NotificationManager.IMPORTANCE_DEFAULT))
+        }
+    }
+    private fun privateMessageText() = when (language) {
+        "zh-Hant" -> "你有一條新私信"
+        "en" -> "You have a new direct message"
+        "ja" -> "新しいダイレクトメッセージがあります"
+        else -> "你有一条新私信"
     }
     @Suppress("DEPRECATION")
     private fun builder() = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(activity, id) else Notification.Builder(activity)

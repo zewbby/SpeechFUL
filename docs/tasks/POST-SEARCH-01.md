@@ -68,3 +68,10 @@
 | Astra High 独立复审 | `gpt-6-astra`／`high`，审查 `6701e84 → 2976098` | PASS。确认原 P1／P2 已修复，无新增阻断。核对最终授权、撤权及屏蔽 ABA、候选可见性和分页、慢网重复提交与历史写入，并核对 Go、负载和真机证据。字面扫描仍与普通读共用数据库连接池。更大规模与连接池饱和未实测。 |
 
 复修状态为实现已完成、本地及 Android 真机验证 PASS。真机临时转发和验收包已清理，隔离库由 runner 关闭。产品 CI 和 iOS 本轮 NOT_RUN。未推送、未合并、未发布。
+
+## PR 集成验证
+
+- 用户授权推送任务分支、创建 PR，并在相关产品 CI 通过后合并。本轮选择通过 PR Squash Merge 交付。发布未执行。[PR 与实时检查](https://github.com/zewbby/SpeechFUL/pulls?q=is%3Apr+head%3Acodex%2Ffeat%2Fpost-search)
+- 将当时最新的 `origin/main` `55663f020ff7cacad87c684544c42a3b7f8a341b` 合入任务分支 `9cbb29dfc330a327e9209de6e9245d4724f024e3`，保留双方 Feed UI 回归，为搜索入口、筛选、结果和历史接入现有四语言文案。聚焦回归发现主线注销预计完成时间的日语译文与断言不符，统一为同一表达。
+- PASS。Windows Flutter 3.47.5，`flutter pub get --offline --enforce-lockfile`、`flutter analyze --no-pub`、`flutter test --no-pub --reporter expanded test/post_search_test.dart test/feed_ui_test.dart test/feed_scroll_refresh_test.dart test/community_localization_test.dart test/app_localizations_test.dart test/login_home_navigation_test.dart test/profile_settings_flow_test.dart`，共 71 项。覆盖 Feed、搜索、分页和返回、历史、设置及语言切换。日志为复修证据目录中的 `flutter-main-integration.log`。被测代码为本节所述合并内容。
+- PASS。Windows 仓库验证环境运行 `python packages/openapi/check-specs.py`、`python tools/check-community-text-contract.py`、`python -m unittest discover -s tools/tests -p test_collaboration.py` 和 `git diff --check origin/main`。Go、SQL、权限脚本与 OpenAPI 和已通过实体设备／真实数据库验证的 `2976098` 一致。四语言整合版以本地 Flutter 回归及 PR CI 验证。

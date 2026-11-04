@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
 import '../identity/identity_avatar.dart';
+import '../localization/app_localizations.dart';
 import 'direct_message_bubble.dart';
 import 'direct_message_models.dart';
 
@@ -75,7 +76,9 @@ class HhDirectMessageComposer extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
             child: Text(
-              waiting ? '对方回复前只能发一条消息' : '对方身份已失效，无法继续发送',
+              waiting
+                  ? hhText(context, '对方回复前只能发一条消息')
+                  : hhText(context, '对方身份已失效，无法继续发送'),
               style: TextStyle(color: p.secondary, fontSize: 12, height: 1.5),
               textAlign: TextAlign.center,
             ),
@@ -112,7 +115,9 @@ class HhDirectMessageComposer extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
                   child: Text(
-                    view.selfIdentity == null ? '选择发送身份' : '更换',
+                    view.selfIdentity == null
+                        ? hhText(context, '选择发送身份')
+                        : hhText(context, '更换'),
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -139,7 +144,11 @@ class HhDirectMessageComposer extends StatelessWidget {
                         alignment: Alignment.topRight,
                         child: IconButton.filled(
                           key: ValueKey('remove-image:${images[index].id}'),
-                          tooltip: '移除第${index + 1}张图片',
+                          tooltip: hhText(
+                            context,
+                            '移除第{index}张图片',
+                            args: {'index': index + 1},
+                          ),
                           onPressed: () => onRemoveImage(images[index]),
                           icon: const Icon(Icons.close_rounded, size: 16),
                         ),
@@ -162,7 +171,7 @@ class HhDirectMessageComposer extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 4, bottom: 6, right: 8),
                   child: view.selfIdentity == null
                       ? IconButton(
-                          tooltip: '选择发送身份',
+                          tooltip: hhText(context, '选择发送身份'),
                           onPressed: view.identityLocked ? null : onIdentity,
                           icon: const Icon(Icons.person_outline),
                         )
@@ -186,7 +195,9 @@ class HhDirectMessageComposer extends StatelessWidget {
                       focusedBorder: InputBorder.none,
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      hintText: waiting ? '等待对方回复' : '输入消息',
+                      hintText: waiting
+                          ? hhText(context, '等待对方回复')
+                          : hhText(context, '输入消息'),
                       hintStyle: TextStyle(color: p.secondary),
                     ),
                   ),
@@ -194,7 +205,7 @@ class HhDirectMessageComposer extends StatelessWidget {
                 if (!textOnly)
                   IconButton(
                     key: const ValueKey('dm-attach'),
-                    tooltip: '添加图片',
+                    tooltip: hhText(context, '添加图片'),
                     onPressed: view.canSend ? onPickImages : null,
                     icon: Transform.rotate(
                       angle: -.35,
@@ -206,7 +217,7 @@ class HhDirectMessageComposer extends StatelessWidget {
                   height: 48,
                   child: IconButton.filled(
                     key: const ValueKey('dm-send'),
-                    tooltip: '发送消息',
+                    tooltip: hhText(context, '发送消息'),
                     onPressed: ready ? onSend : null,
                     style: IconButton.styleFrom(
                       backgroundColor: p.action,

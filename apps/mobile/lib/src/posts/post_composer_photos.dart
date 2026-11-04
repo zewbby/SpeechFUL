@@ -94,7 +94,10 @@ class _ComposerPhotos extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Text('图片', style: TextStyle(color: PostTheme.muted)),
+            Text(
+              hhText(context, '图片'),
+              style: const TextStyle(color: PostTheme.muted),
+            ),
             const Spacer(),
             Text(
               '${editor.images.length}/9',
@@ -124,13 +127,24 @@ class _ComposerPhotos extends StatelessWidget {
                     builder: (context, candidates, rejected) {
                       final image = editor.images[index];
                       final tile = Semantics(
-                        label: '第${index + 1}张图片${image.ready ? '' : '，无法读取'}',
+                        label: hhText(
+                          context,
+                          '第{v0}张图片{v1}',
+                          args: {
+                            'v0': index + 1,
+                            'v1': image.ready ? '' : hhText(context, '，无法读取'),
+                          },
+                        ),
                         customSemanticsActions: {
                           if (index > 0)
-                            const CustomSemanticsAction(label: '向前移动'): () =>
+                            CustomSemanticsAction(
+                              label: hhText(context, '向前移动'),
+                            ): () =>
                                 move(index, index - 1),
                           if (index + 1 < editor.images.length)
-                            const CustomSemanticsAction(label: '向后移动'): () =>
+                            CustomSemanticsAction(
+                              label: hhText(context, '向后移动'),
+                            ): () =>
                                 move(index, index + 1),
                         },
                         child: SizedBox(
@@ -161,7 +175,11 @@ class _ComposerPhotos extends StatelessWidget {
                                 else
                                   Center(
                                     child: IconButton(
-                                      tooltip: '重新选择第${index + 1}张图片',
+                                      tooltip: hhText(
+                                        context,
+                                        '重新选择第{v0}张图片',
+                                        args: {'v0': index + 1},
+                                      ),
                                       onPressed: editor.mediaBusy
                                           ? null
                                           : () => controller.pickDraftPhotos(
@@ -181,7 +199,11 @@ class _ComposerPhotos extends StatelessWidget {
                                       backgroundColor: Colors.black54,
                                       foregroundColor: Colors.white,
                                     ),
-                                    tooltip: '移除第${index + 1}张图片',
+                                    tooltip: hhText(
+                                      context,
+                                      '移除第{v0}张图片',
+                                      args: {'v0': index + 1},
+                                    ),
                                     onPressed: editor.mediaBusy
                                         ? null
                                         : () {
@@ -226,10 +248,10 @@ class _ComposerPhotos extends StatelessWidget {
                         onTap: editor.mediaBusy
                             ? null
                             : () => controller.pickDraftPhotos(editor),
-                        child: const Center(
+                        child: Center(
                           child: Tooltip(
-                            message: '添加图片',
-                            child: Icon(Icons.add, size: 32),
+                            message: hhText(context, '添加图片'),
+                            child: const Icon(Icons.add, size: 32),
                           ),
                         ),
                       ),
@@ -240,9 +262,9 @@ class _ComposerPhotos extends StatelessWidget {
           },
         ),
         if (editor.mediaBusy)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text('正在读取并保存所选图片…'),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(hhText(context, '正在读取并保存所选图片…')),
           ),
         if (editor.mediaError != null)
           Padding(
@@ -314,15 +336,31 @@ class _PostImageUploadStatus extends StatelessWidget {
         Text(
           progress?.message ??
               (progress?.busy == true
-                  ? '图片上传：${progress!.completed}/${progress.total}'
-                  : '图片上传状态会先与服务端核对。'),
+                  ? hhText(
+                      context,
+                      '图片上传：{v0}/{v1}',
+                      args: {'v0': progress!.completed, 'v1': progress.total},
+                    )
+                  : hhText(context, '图片上传状态会先与服务端核对。')),
         ),
         if (progress?.failed.isNotEmpty == true)
-          Text('待补传：${progress!.failed.map((i) => i + 1).join('、')}'),
+          Text(
+            hhText(
+              context,
+              '待补传：{v0}',
+              args: {'v0': progress!.failed.map((i) => i + 1).join('、')},
+            ),
+          ),
         if (progress?.busy != true)
           OutlinedButton(
             onPressed: () => controller.resumeImageUpload(item.id),
-            child: Text('继续上传（${progress?.completed ?? 0}/$total）'),
+            child: Text(
+              hhText(
+                context,
+                '继续上传（{v0}/{v1}）',
+                args: {'v0': progress?.completed ?? 0, 'v1': total},
+              ),
+            ),
           ),
       ],
     );

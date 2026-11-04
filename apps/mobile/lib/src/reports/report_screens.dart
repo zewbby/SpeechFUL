@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../localization/app_localizations.dart';
 import '../posts/post_photo_picker.dart';
 import '../system_notifications/governance_controller.dart';
 import '../system_notifications/notification_models.dart';
@@ -63,11 +64,11 @@ class _ReportScreenState extends State<ReportScreen> {
       final c = widget.controller;
       return MaterialEvidenceForm(
         controller: c,
-        title: '举报',
+        title: hhText(context, '举报'),
         textLimit: 200,
         imageLimit: 6,
-        descriptionLabel: '举报说明（选填）',
-        submitLabel: '提交举报',
+        descriptionLabel: hhText(context, '举报说明（选填）'),
+        submitLabel: hhText(context, '提交举报'),
         enabled: _ready && _reason != null,
         summary: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -77,10 +78,13 @@ class _ReportScreenState extends State<ReportScreen> {
             DropdownButtonFormField<String>(
               isExpanded: true,
               initialValue: _reason,
-              decoration: const InputDecoration(labelText: '举报原因'),
+              decoration: InputDecoration(labelText: hhText(context, '举报原因')),
               items: [
                 for (final entry in reportReasons.entries)
-                  DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                  DropdownMenuItem(
+                    value: entry.key,
+                    child: Text(hhText(context, entry.value)),
+                  ),
               ],
               onChanged: c.busy || c.pending != null
                   ? null
@@ -91,7 +95,9 @@ class _ReportScreenState extends State<ReportScreen> {
               DropdownButtonFormField<String>(
                 isExpanded: true,
                 initialValue: _identity,
-                decoration: const InputDecoration(labelText: '接收举报进度的身份'),
+                decoration: InputDecoration(
+                  labelText: hhText(context, '接收举报进度的身份'),
+                ),
                 items: [
                   for (final i in c.identities)
                     DropdownMenuItem(value: i.id, child: Text(i.nickname)),
@@ -102,9 +108,12 @@ class _ReportScreenState extends State<ReportScreen> {
               ),
             ],
             if (!_ready)
-              TextButton(onPressed: _load, child: const Text('重新读取身份')),
+              TextButton(
+                onPressed: _load,
+                child: Text(hhText(context, '重新读取身份')),
+              ),
             const SizedBox(height: 16),
-            const Text('举报不代表违规成立。处理进度与结果会保存在系统通知。'),
+            Text(hhText(context, '举报不代表违规成立。处理进度与结果会保存在系统通知。')),
           ],
         ),
         onSubmit: (text, images) => c.submitReport(
@@ -171,16 +180,16 @@ class _MaterialEvidenceFormState extends State<MaterialEvidenceForm> {
       final discard = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('放弃本次材料？'),
-          content: const Text('尚未提交的说明和图片会被清除。'),
+          title: Text(hhText(context, '放弃本次材料？')),
+          content: Text(hhText(context, '尚未提交的说明和图片会被清除。')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('继续填写'),
+              child: Text(hhText(context, '继续填写')),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('放弃'),
+              child: Text(hhText(context, '放弃')),
             ),
           ],
         ),
@@ -262,7 +271,7 @@ class _MaterialEvidenceFormState extends State<MaterialEvidenceForm> {
     if (!mounted || !_current) return;
     if (submitted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已提交')));
+          .showSnackBar(SnackBar(content: Text(hhText(context, '已提交'))));
     }
     setState(() => _leaving = true);
     Navigator.pop(context, submitted);
@@ -279,11 +288,11 @@ class _MaterialEvidenceFormState extends State<MaterialEvidenceForm> {
     },
     child: Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(hhText(context, widget.title)),
         leading: BackButton(onPressed: _leave),
       ),
       body: !_current
-          ? const Center(child: Text('会话已变化，请返回后重新进入。'))
+          ? Center(child: Text(hhText(context, '会话已变化，请返回后重新进入。')))
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
@@ -302,13 +311,22 @@ class _MaterialEvidenceFormState extends State<MaterialEvidenceForm> {
                     maxLines: 8,
                     enabled: !widget.controller.busy,
                     decoration: InputDecoration(
-                      labelText: widget.descriptionLabel,
+                      labelText: hhText(context, widget.descriptionLabel),
                       alignLabelWithHint: true,
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 16),
-                  Text('补充图片 ${_images.length}/${widget.imageLimit}'),
+                  Text(
+                    hhText(
+                      context,
+                      '补充图片 {count}/{limit}',
+                      args: {
+                        'count': _images.length,
+                        'limit': widget.imageLimit,
+                      },
+                    ),
+                  ),
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -323,16 +341,24 @@ class _MaterialEvidenceFormState extends State<MaterialEvidenceForm> {
                                 width: 96,
                                 height: 96,
                                 fit: BoxFit.contain,
-                                errorBuilder: (_, _, _) => const SizedBox(
+                                errorBuilder: (_, _, _) => SizedBox(
                                   height: 96,
-                                  child: Center(child: Text('图片不可预览')),
+                                  child: Center(
+                                    child: Text(hhText(context, '图片不可预览')),
+                                  ),
                                 ),
                               ),
                               TextButton(
                                 onPressed: widget.controller.busy
                                     ? null
                                     : () => setState(() => _images.removeAt(i)),
-                                child: Text('移除第${i + 1}张'),
+                                child: Text(
+                                  hhText(
+                                    context,
+                                    '移除第{index}张',
+                                    args: {'index': i + 1},
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -345,10 +371,17 @@ class _MaterialEvidenceFormState extends State<MaterialEvidenceForm> {
                           ? null
                           : _pick,
                       icon: const Icon(Icons.add_photo_alternate_outlined),
-                      label: Text(_picking ? '读取图片中' : '添加图片'),
+                      label: Text(
+                        _picking
+                            ? hhText(context, '读取图片中')
+                            : hhText(context, '添加图片'),
+                      ),
                     ),
                   if (_selectionError != null)
-                    Text(_selectionError!, semanticsLabel: _selectionError),
+                    Text(
+                      hhText(context, _selectionError!),
+                      semanticsLabel: hhText(context, _selectionError!),
+                    ),
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed:
@@ -356,7 +389,9 @@ class _MaterialEvidenceFormState extends State<MaterialEvidenceForm> {
                         ? _submit
                         : null,
                     child: Text(
-                      widget.controller.busy ? '正在确认提交结果' : widget.submitLabel,
+                      widget.controller.busy
+                          ? hhText(context, '正在确认提交结果')
+                          : hhText(context, widget.submitLabel),
                     ),
                   ),
                 ],
@@ -365,7 +400,7 @@ class _MaterialEvidenceFormState extends State<MaterialEvidenceForm> {
                     liveRegion: true,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Text(widget.controller.error!),
+                      child: Text(hhText(context, widget.controller.error!)),
                     ),
                   ),
               ],
@@ -398,26 +433,35 @@ class PendingGovernancePanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('正在确认原提交结果', style: TextStyle(fontWeight: FontWeight.bold)),
-        const Text('退出页面不会撤销平台已收到的任务。核对后才会使用原材料和原任务重试。'),
+        Text(
+          hhText(context, '正在确认原提交结果'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        Text(hhText(context, '退出页面不会撤销平台已收到的任务。核对后才会使用原材料和原任务重试。')),
         if (body['description'] is String &&
             (body['description'] as String).isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(body['description'] as String),
           ),
-        Text('已保留 ${(body['images'] as List?)?.length ?? 0} 张图片'),
+        Text(
+          hhText(
+            context,
+            '已保留 {count} 张图片',
+            args: {'count': (body['images'] as List?)?.length ?? 0},
+          ),
+        ),
         TextButton(
           onPressed: controller.busy ? null : _resolve,
-          child: const Text('核对原提交'),
+          child: Text(hhText(context, '核对原提交')),
         ),
         FilledButton(
           onPressed: controller.busy ? null : () => _resolve(retry: true),
-          child: const Text('核对后重试原任务'),
+          child: Text(hhText(context, '核对后重试原任务')),
         ),
         TextButton(
           onPressed: controller.busy ? null : () => _resolve(discard: true),
-          child: const Text('确认未提交后放弃材料'),
+          child: Text(hhText(context, '确认未提交后放弃材料')),
         ),
       ],
     );

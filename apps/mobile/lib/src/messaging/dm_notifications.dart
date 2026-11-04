@@ -1,11 +1,12 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../auth/auth_store.dart';
+import '../localization/app_localizations.dart';
 import 'dm_controller.dart';
 
 class DmNotificationTarget {
@@ -45,6 +46,7 @@ class DmNotifications {
   String? _scope;
   bool _loaded = false;
   bool _bound = false;
+  AppLanguage _language = AppLanguage.simplifiedChinese;
   final _started = Completer<void>();
   DmNotificationTarget? pending;
   VoidCallback? onTap;
@@ -55,6 +57,21 @@ class DmNotifications {
         ),
       )
       .toString();
+
+  /// Changes notification display text only; permission and preview preferences
+  /// are controlled by their existing, explicit user actions.
+  Future<void> setLanguage(String languageCode) async {
+    final language = AppLanguage.tryParse(languageCode);
+    if (language == null) {
+      throw ArgumentError.value(languageCode, 'languageCode');
+    }
+    _language = language;
+    try {
+      await channel.invokeMethod('setLanguage', {'language': language.code});
+    } catch (_) {
+      // Non-Android and unavailable native channels keep the in-app preference.
+    }
+  }
 
   Future<void> start() async {
     channel.setMethodCallHandler((call) async {
@@ -192,7 +209,9 @@ class DmNotifications {
           // Public sender name only; no recipient name or private note.
           'sender': preview(account) ? row['peerName'] : '',
           'text': preview(account)
-              ? (item['kind'] == 'IMAGE' ? '[图片]' : item['text'])
+              ? (item['kind'] == 'IMAGE'
+                    ? translateUi('[图片]', _language)
+                    : item['text'])
               : '',
         });
       } catch (_) {
@@ -226,15 +245,15 @@ class _DmNotificationSettingsState extends State<DmNotificationSettings> {
   String? _status;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('私信通知')),
+    appBar: AppBar(title: Text(hhText(context, '私信通知'))),
     body: ListView(
       children: [
-        const ListTile(
-          title: Text('默认隐藏内容与身份'),
-          subtitle: Text('通知只显示“你有一条新私信”。免打扰会话不提醒。'),
+        ListTile(
+          title: Text(hhText(context, '默认隐藏内容与身份')),
+          subtitle: Text(hhText(context, '通知只显示“你有一条新私信”。免打扰会话不提醒。')),
         ),
         SwitchListTile(
-          title: const Text('显示发件昵称和消息预览'),
+          title: Text(hhText(context, '显示发件昵称和消息预览')),
           value: widget.notifications.preview(widget.account),
           onChanged: _saving || !widget.current()
               ? null
@@ -252,8 +271,8 @@ class _DmNotificationSettingsState extends State<DmNotificationSettings> {
                 },
         ),
         ListTile(
-          title: const Text('允许系统通知'),
-          subtitle: Text(_status ?? '由 Android 系统控制通知权限'),
+          title: Text(hhText(context, '允许系统通知')),
+          subtitle: Text(hhText(context, _status ?? '由 Android 系统控制通知权限')),
           onTap: !widget.current()
               ? null
               : () async {

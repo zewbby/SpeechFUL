@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -203,7 +205,7 @@ class _FeedSmileMarkState extends State<FeedSmileMark>
     final p = HhTelegramPalette.of(context);
     final amount = (widget.pull / 100).clamp(0.0, 1.0);
     return Semantics(
-      label: widget.loading ? '正在刷新帖子' : 'SpeechFUL',
+      label: widget.loading ? hhText(context, '正在刷新帖子') : 'SpeechFUL',
       liveRegion: widget.loading,
       child: ExcludeSemantics(
         child: Transform.scale(

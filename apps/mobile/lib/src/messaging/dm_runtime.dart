@@ -5,20 +5,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hnuhole_image_viewer/image_viewer.dart';
 
-import '../auth/auth_session_controller.dart';
 import '../auth/auth_models.dart';
+import '../auth/auth_session_controller.dart';
 import '../auth/auth_store.dart';
+import '../identity/active_identity_controller.dart';
 import '../identity/identity_api.dart';
 import '../identity/identity_management_controller.dart';
-import '../identity/active_identity_controller.dart';
+import '../localization/app_localizations.dart';
 import '../posts/post_photo_picker.dart';
-import 'dm_protocol.dart';
+import '../reports/report_screens.dart';
+import 'direct_message_inbox.dart';
+import 'direct_message_models.dart';
+import 'direct_message_screen.dart';
 import 'dm_controller.dart';
 import 'dm_governance_ui.dart';
-import '../reports/report_screens.dart';
-import 'direct_message_models.dart';
-import 'direct_message_inbox.dart';
-import 'direct_message_screen.dart';
+import 'dm_protocol.dart';
+import 'messaging_ui_text.dart';
 
 part 'dm_chat_ui.dart';
 
@@ -239,7 +241,7 @@ class DmScope extends InheritedWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const ListTile(title: Text('选择本次联系使用的身份')),
+                ListTile(title: Text(hhText(context, '选择本次联系使用的身份'))),
                 for (final i in r.identities)
                   ListTile(
                     title: Text(i.name),
@@ -270,8 +272,9 @@ class DmScope extends InheritedWidget {
       );
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('暂时无法联系，请稍后重试')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(hhText(context, '暂时无法联系，请稍后重试'))),
+        );
       }
     }
   }
@@ -376,7 +379,7 @@ class _DmInboxRouteState extends State<DmInboxRoute> {
           r.identities.firstOrNull;
       if (!c.available || own == null) {
         return Scaffold(
-          appBar: AppBar(title: const Text('私信')),
+          appBar: AppBar(title: Text(hhText(context, '私信'))),
           body: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -387,32 +390,32 @@ class _DmInboxRouteState extends State<DmInboxRoute> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     spacing: 8,
                     children: [
-                      const Text('您目前还没有身份'),
+                      Text(hhText(context, '您目前还没有身份')),
                       if (widget.onManageIdentities != null)
                         TextButton(
                           onPressed: widget.onManageIdentities,
-                          child: const Text('添加身份'),
+                          child: Text(hhText(context, '添加身份')),
                         ),
                     ],
                   )
                 else if (r.identityStatus == DmIdentityStatus.loading)
-                  const SizedBox.square(
+                  SizedBox.square(
                     dimension: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      semanticsLabel: '正在加载',
+                      semanticsLabel: hhText(context, '正在加载'),
                     ),
                   )
                 else
                   Text(switch (r.identityStatus) {
-                    DmIdentityStatus.unavailable => '暂时无法加载私信',
-                    _ => c.error ?? '加载失败，请重试',
+                    DmIdentityStatus.unavailable => hhText(context, '暂时无法加载私信'),
+                    _ => messagingUiError(context, c.error ?? '加载失败，请重试'),
                   }),
                 if (r.identityStatus == DmIdentityStatus.failed ||
                     r.identityStatus == DmIdentityStatus.unavailable)
                   TextButton(
                     onPressed: r.retryIdentities,
-                    child: const Text('重试'),
+                    child: Text(hhText(context, '重试')),
                   ),
               ],
             ),
@@ -445,9 +448,19 @@ class _DmInboxRouteState extends State<DmInboxRoute> {
                   name: v['peerName'],
                   avatar: v['peerAvatar'] as String? ?? 'default-v1',
                 ),
-                preview:
+                preview: switch (v['localPreviewKind']) {
+                  'recalled' => hhText(context, '消息已撤回'),
+                  'image' => hhText(context, '[图片]'),
+                  _ =>
                     v['localPreview'] as String? ??
-                    (v['waiting'] == true ? '等待对方回复' : ''),
+                        (v['waiting'] == true ? hhText(context, '等待对方回复') : ''),
+                },
+                previewVersion: (
+                  v['localPreviewKind'],
+                  v['localPreview'],
+                  v['localOrdinal'],
+                  v['waiting'] == true,
+                ),
                 outgoingState: switch (v['localState']) {
                   'queued' => DmSendState.sending,
                   'unknown' => DmSendState.unknown,
@@ -456,7 +469,8 @@ class _DmInboxRouteState extends State<DmInboxRoute> {
                   _ => null,
                 },
                 time: '',
-                sourceTitle: v['sourceTitle'] as String? ?? '来自帖子',
+                sourceTitle:
+                    v['sourceTitle'] as String? ?? hhText(context, '来自帖子'),
                 privateNote: (v['note'] as String?)?.isNotEmpty == true
                     ? v['note']
                     : null,
@@ -645,7 +659,12 @@ class _DmChatRouteState extends State<DmChatRoute> with WidgetsBindingObserver {
         if (!restored ||
             (!_draftDirty && draftGeneration == _draftEditGeneration)) {
           final images = photos
-              .map((p) => DmImage(id: p['mediaId'], description: '待发送图片'))
+              .map(
+                (p) => DmImage(
+                  id: p['mediaId'],
+                  description: hhText(context, '待发送图片'),
+                ),
+              )
               .toList();
           final changed =
               !restored ||
@@ -690,7 +709,9 @@ class _DmChatRouteState extends State<DmChatRoute> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     if (scope != c.scope || !c.available) {
-      return const Scaffold(body: Center(child: Text('请恢复当前账号后查看私信')));
+      return Scaffold(
+        body: Center(child: Text(hhText(context, '请恢复当前账号后查看私信'))),
+      );
     }
     final directory = c.conversations
         .where(
@@ -724,7 +745,13 @@ class _DmChatRouteState extends State<DmChatRoute> with WidgetsBindingObserver {
               time: date == null
                   ? ''
                   : '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}',
-              dayLabel: date == null ? '' : '${date.month}月${date.day}日',
+              dayLabel: date == null
+                  ? ''
+                  : hhText(
+                      context,
+                      '{month}月{day}日',
+                      args: {'month': date.month, 'day': date.day},
+                    ),
               state: switch (r['_state']) {
                 'queued' => DmSendState.sending,
                 'unknown' => DmSendState.unknown,
@@ -745,7 +772,9 @@ class _DmChatRouteState extends State<DmChatRoute> with WidgetsBindingObserver {
         selfIdentity: widget.own,
         sourceTitle:
             directory?['sourceTitle'] as String? ??
-            (widget.sourcePost.isEmpty ? '匿名私信' : '来自帖子'),
+            (widget.sourcePost.isEmpty
+                ? hhText(context, '匿名私信')
+                : hhText(context, '来自帖子')),
         sourceDeleted: widget.sourcePost.isEmpty,
         messages: messages,
         draftText: draft,

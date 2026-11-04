@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
 import '../design_system/telegram_theme.dart';
+import '../localization/app_localizations.dart';
 import 'direct_message_models.dart';
 
 typedef DmImageBuilder = Widget Function(BuildContext context, DmImage image);
@@ -41,11 +42,16 @@ class HhDirectMessageBubble extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
-              message.outgoing ? '你撤回了一条消息' : '对方撤回了一条消息',
+              message.outgoing
+                  ? hhText(context, '你撤回了一条消息')
+                  : hhText(context, '对方撤回了一条消息'),
               style: TextStyle(fontSize: 12, color: palette.secondary),
             ),
             if (message.outgoing && message.reeditableText != null)
-              TextButton(onPressed: onReedit, child: const Text('重新编辑')),
+              TextButton(
+                onPressed: onReedit,
+                child: Text(hhText(context, '重新编辑')),
+              ),
           ],
         ),
       );
@@ -102,7 +108,7 @@ class HhDirectMessageBubble extends StatelessWidget {
               child: message.state == DmSendState.failed
                   ? IconButton(
                       key: ValueKey('retry:${message.id}'),
-                      tooltip: '发送失败，选择是否重发',
+                      tooltip: hhText(context, '发送失败，选择是否重发'),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 48,
@@ -116,7 +122,7 @@ class HhDirectMessageBubble extends StatelessWidget {
                       ),
                     )
                   : Semantics(
-                      label: '正在发送，结果尚未确认',
+                      label: hhText(context, '正在发送，结果尚未确认'),
                       child: Center(
                         child: MediaQuery.disableAnimationsOf(context)
                             ? Icon(
@@ -194,10 +200,17 @@ class HhDirectMessageBubble extends StatelessWidget {
     return Builder(
       builder: (anchor) => Semantics(
         excludeSemantics: true,
-        label:
-            '${message.outgoing ? '本人' : '对方'}：${message.text}，${message.time}',
+        label: hhText(
+          context,
+          '{who}：{message}，{time}',
+          args: {
+            'who': hhText(context, message.outgoing ? '本人' : '对方'),
+            'message': message.text,
+            'time': message.time,
+          },
+        ),
         customSemanticsActions: {
-          const CustomSemanticsAction(label: '消息操作'): () =>
+          CustomSemanticsAction(label: hhText(context, '消息操作')): () =>
               onMenu(null, anchor),
         },
         child: InkWell(
@@ -260,7 +273,7 @@ class HhDirectMessageBubble extends StatelessWidget {
                   label: image.description,
                   button: true,
                   customSemanticsActions: {
-                    const CustomSemanticsAction(label: '图片操作'): () =>
+                    CustomSemanticsAction(label: hhText(context, '图片操作')): () =>
                         onMenu(image.id, anchor),
                   },
                   child: Material(
@@ -277,7 +290,7 @@ class HhDirectMessageBubble extends StatelessWidget {
                               alignment: Alignment.bottomRight,
                               child: IconButton(
                                 key: ValueKey('retry-image:${image.id}'),
-                                tooltip: '此图片发送失败，查看操作',
+                                tooltip: hhText(context, '此图片发送失败，查看操作'),
                                 onPressed: () => onMenu(image.id, anchor),
                                 icon: Icon(Icons.error, color: palette.error),
                               ),

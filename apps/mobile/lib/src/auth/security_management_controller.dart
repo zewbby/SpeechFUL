@@ -79,7 +79,8 @@ class SecurityManagementController extends ChangeNotifier {
   SessionRecord? _activeRecord() {
     final state = _store.current;
     final record = state?.session;
-    if (state == null || record == null ||
+    if (state == null ||
+        record == null ||
         !_sessions.isCurrentToken(record.token)) {
       return null;
     }
@@ -94,7 +95,8 @@ class SecurityManagementController extends ChangeNotifier {
   }
 
   bool _current(int epoch, SessionRecord record) =>
-      !_disposed && epoch == _epoch &&
+      !_disposed &&
+      epoch == _epoch &&
       _activeRecord()?.token == record.token &&
       _activeRecord()?.accountId == record.accountId;
 
@@ -144,19 +146,10 @@ class SecurityManagementController extends ChangeNotifier {
 
   Future<void> _loadDirectory(int epoch, SessionRecord record) async {
     if (!_current(epoch, record)) return;
-    final devices = await _api.devices(record.token);
-    if (!await _metadata(epoch, record, devices.sessionExpiresAt)) return;
-    if (!_current(epoch, record)) return;
     final credentials = await _api.recoveryCredentials(record.token);
     if (!await _metadata(epoch, record, credentials.sessionExpiresAt)) return;
     if (!_current(epoch, record)) return;
     final expiry = _store.current!.session!.expiresAt;
-    _devices = DeviceDirectory(
-      currentSignedInAt: devices.currentSignedInAt,
-      lastReplacedSignedInAt: devices.lastReplacedSignedInAt,
-      lastReplacedAt: devices.lastReplacedAt,
-      sessionExpiresAt: expiry,
-    );
     _credentials = RecoveryCredentialSummary(
       passkeys: List<PasskeySummary>.unmodifiable(credentials.passkeys),
       sessionExpiresAt: expiry,
@@ -184,7 +177,8 @@ class SecurityManagementController extends ChangeNotifier {
   /// Showing and confirming are separate screens; the original plaintext is
   /// dropped before the input field is made available and cannot be shown twice.
   void hideRecoveryCode() {
-    if (_busy || _status != SecurityManagementStatus.rotationCodeShown ||
+    if (_busy ||
+        _status != SecurityManagementStatus.rotationCodeShown ||
         _rotation == null) {
       return;
     }
@@ -205,9 +199,11 @@ class SecurityManagementController extends ChangeNotifier {
         _requireNoPending();
         final intent = _rotation;
         if (_status != SecurityManagementStatus.rotationCodeConfirmation ||
-            intent == null || _rotationDigest == null) {
+            intent == null ||
+            _rotationDigest == null) {
           throw const AuthFailure(
-            kind: AuthFailureKind.rejected, code: 'HIDE_CODE_FIRST',
+            kind: AuthFailureKind.rejected,
+            code: 'HIDE_CODE_FIRST',
           );
         }
         if (_codeDigest(fullConfirmation) != _rotationDigest) {
@@ -217,7 +213,10 @@ class SecurityManagementController extends ChangeNotifier {
           );
         }
         final pending = await _savePending(
-          epoch, record, 'ROTATION', intent.rotationIntentId,
+          epoch,
+          record,
+          'ROTATION',
+          intent.rotationIntentId,
         );
         if (pending == null || !_current(epoch, record)) return;
         _clearEphemeral();
@@ -231,7 +230,11 @@ class SecurityManagementController extends ChangeNotifier {
           idempotencyKey: pending['key'] as String,
         );
         await _acceptResult(
-          epoch, record, pending, CredentialChangeState.committed, expiry,
+          epoch,
+          record,
+          pending,
+          CredentialChangeState.committed,
+          expiry,
         );
       });
 
@@ -239,7 +242,8 @@ class SecurityManagementController extends ChangeNotifier {
     _requireNoPending();
     _clearEphemeral();
     final options = await _api.createPasskeyCreationOptions(
-      sessionToken: record.token, password: password,
+      sessionToken: record.token,
+      password: password,
     );
     if (!await _metadata(epoch, record, options.sessionExpiresAt)) return;
     if (!_current(epoch, record)) return;
@@ -254,7 +258,10 @@ class SecurityManagementController extends ChangeNotifier {
     // no authority. Never persist or transmit a stale native result.
     if (!_current(epoch, record)) return;
     final pending = await _savePending(
-      epoch, record, 'PASSKEY_BINDING', options.challengeId,
+      epoch,
+      record,
+      'PASSKEY_BINDING',
+      options.challengeId,
     );
     if (pending == null || !_current(epoch, record)) return;
     _status = SecurityManagementStatus.pending;
@@ -267,7 +274,11 @@ class SecurityManagementController extends ChangeNotifier {
       idempotencyKey: pending['key'] as String,
     );
     await _acceptResult(
-      epoch, record, pending, CredentialChangeState.committed, expiry,
+      epoch,
+      record,
+      pending,
+      CredentialChangeState.committed,
+      expiry,
     );
   });
 
@@ -292,13 +303,18 @@ class SecurityManagementController extends ChangeNotifier {
     final intent = _removal;
     final credential = _removalCredentialId;
     if (_status != SecurityManagementStatus.removalConfirmation ||
-        intent == null || credential == null) {
+        intent == null ||
+        credential == null) {
       throw const AuthFailure(
-        kind: AuthFailureKind.rejected, code: 'REMOVAL_CONFIRMATION_REQUIRED',
+        kind: AuthFailureKind.rejected,
+        code: 'REMOVAL_CONFIRMATION_REQUIRED',
       );
     }
     final pending = await _savePending(
-      epoch, record, 'PASSKEY_REMOVAL', intent.removalIntentId,
+      epoch,
+      record,
+      'PASSKEY_REMOVAL',
+      intent.removalIntentId,
       credentialId: credential,
     );
     if (pending == null || !_current(epoch, record)) return;
@@ -313,7 +329,11 @@ class SecurityManagementController extends ChangeNotifier {
       idempotencyKey: pending['key'] as String,
     );
     await _acceptResult(
-      epoch, record, pending, CredentialChangeState.committed, expiry,
+      epoch,
+      record,
+      pending,
+      CredentialChangeState.committed,
+      expiry,
     );
   });
 
@@ -336,7 +356,9 @@ class SecurityManagementController extends ChangeNotifier {
   });
 
   Future<void> _reconcile(
-    int epoch, SessionRecord record, Map<String, dynamic> pending,
+    int epoch,
+    SessionRecord record,
+    Map<String, dynamic> pending,
   ) async {
     if (!_current(epoch, record)) return;
     _status = SecurityManagementStatus.pending;
@@ -346,12 +368,19 @@ class SecurityManagementController extends ChangeNotifier {
       idempotencyKey: pending['key'] as String,
     );
     await _acceptResult(
-      epoch, record, pending, outcome.state, outcome.sessionExpiresAt,
+      epoch,
+      record,
+      pending,
+      outcome.state,
+      outcome.sessionExpiresAt,
     );
   }
 
   Future<Map<String, dynamic>?> _savePending(
-    int epoch, SessionRecord record, String kind, String intentId, {
+    int epoch,
+    SessionRecord record,
+    String kind,
+    String intentId, {
     String? credentialId,
   }) async {
     if (!_current(epoch, record)) return null;
@@ -372,7 +401,8 @@ class SecurityManagementController extends ChangeNotifier {
       }
       if (latest.pendingCredentialChange != null) {
         throw const AuthFailure(
-          kind: AuthFailureKind.rejected, code: 'PENDING_CHECK_REQUIRED',
+          kind: AuthFailureKind.rejected,
+          code: 'PENDING_CHECK_REQUIRED',
         );
       }
       saved = true;
@@ -382,22 +412,29 @@ class SecurityManagementController extends ChangeNotifier {
   }
 
   Future<void> _acceptResult(
-    int epoch, SessionRecord record, Map<String, dynamic> pending,
-    CredentialChangeState outcome, DateTime expiry,
+    int epoch,
+    SessionRecord record,
+    Map<String, dynamic> pending,
+    CredentialChangeState outcome,
+    DateTime expiry,
   ) async {
     if (!await _metadata(epoch, record, expiry)) return;
     if (!_current(epoch, record)) return;
-    if (_store.current?.pendingCredentialChange?['key'] != pending['key']) return;
+    if (_store.current?.pendingCredentialChange?['key'] != pending['key']) {
+      return;
+    }
     if (outcome == CredentialChangeState.pending) {
       _status = SecurityManagementStatus.pending;
       return;
     }
     final next = Map<String, dynamic>.from(pending)
       ..['state'] = outcome == CredentialChangeState.committed
-          ? 'COMMITTED' : 'NOT_COMMITTED';
+          ? 'COMMITTED'
+          : 'NOT_COMMITTED';
     var saved = false;
     await _store.update((latest) {
-      if (!_current(epoch, record) || latest.session?.token != record.token ||
+      if (!_current(epoch, record) ||
+          latest.session?.token != record.token ||
           latest.pendingCredentialChange?['key'] != pending['key']) {
         return latest;
       }
@@ -411,14 +448,18 @@ class SecurityManagementController extends ChangeNotifier {
   }
 
   Future<bool> _metadata(
-    int epoch, SessionRecord record, DateTime? expiresAt,
+    int epoch,
+    SessionRecord record,
+    DateTime? expiresAt,
   ) async {
     if (!_current(epoch, record)) return false;
     if (expiresAt == null || !expiresAt.isUtc) {
       throw const AuthFailure(kind: AuthFailureKind.invalidResponse);
     }
     return _sessions.persistSessionMetadata(
-      record.token, expiresAt, () => _current(epoch, record),
+      record.token,
+      expiresAt,
+      () => _current(epoch, record),
     );
   }
 
@@ -448,14 +489,18 @@ class SecurityManagementController extends ChangeNotifier {
   });
 
   Future<void> _clearPending(
-    int epoch, SessionRecord record, Map<String, dynamic> pending,
-  ) => _store.update((latest) {
-    if (!_current(epoch, record) ||
-        latest.pendingCredentialChange?['key'] != pending['key']) {
-      return latest;
-    }
-    return latest.copyWith(clearPendingCredentialChange: true);
-  }).then<void>((_) {});
+    int epoch,
+    SessionRecord record,
+    Map<String, dynamic> pending,
+  ) => _store
+      .update((latest) {
+        if (!_current(epoch, record) ||
+            latest.pendingCredentialChange?['key'] != pending['key']) {
+          return latest;
+        }
+        return latest.copyWith(clearPendingCredentialChange: true);
+      })
+      .then<void>((_) {});
 
   void cancelEphemeral() {
     if (_disposed) return;
@@ -471,8 +516,8 @@ class SecurityManagementController extends ChangeNotifier {
         ? SecurityManagementStatus.signedOut
         : pending != null
         ? _belongs(pending, record)
-            ? _pendingStatus(pending['state'])
-            : SecurityManagementStatus.previousSessionPending
+              ? _pendingStatus(pending['state'])
+              : SecurityManagementStatus.previousSessionPending
         : SecurityManagementStatus.ready;
     _notify();
   }
@@ -489,7 +534,8 @@ class SecurityManagementController extends ChangeNotifier {
   void _requireNoPending() {
     if (_store.current?.pendingCredentialChange != null) {
       throw const AuthFailure(
-        kind: AuthFailureKind.rejected, code: 'PENDING_CHECK_REQUIRED',
+        kind: AuthFailureKind.rejected,
+        code: 'PENDING_CHECK_REQUIRED',
       );
     }
   }
@@ -498,16 +544,16 @@ class SecurityManagementController extends ChangeNotifier {
       pending['accountId'] == record.accountId &&
       pending['originalTokenDigest'] == sessionTokenDigest(record.token);
 
-  static SecurityManagementStatus _pendingStatus(Object? state) => switch (state) {
-    'COMMITTED' => SecurityManagementStatus.committed,
-    'NOT_COMMITTED' => SecurityManagementStatus.notCommitted,
-    'EXPIRED' => SecurityManagementStatus.resultExpired,
-    _ => SecurityManagementStatus.pending,
-  };
+  static SecurityManagementStatus _pendingStatus(Object? state) =>
+      switch (state) {
+        'COMMITTED' => SecurityManagementStatus.committed,
+        'NOT_COMMITTED' => SecurityManagementStatus.notCommitted,
+        'EXPIRED' => SecurityManagementStatus.resultExpired,
+        _ => SecurityManagementStatus.pending,
+      };
 
   static String _codeDigest(String code) {
-    if (code.length > 64 ||
-        !RegExp(r'^[A-Za-z2-7 -]+$').hasMatch(code)) {
+    if (code.length > 64 || !RegExp(r'^[A-Za-z2-7 -]+$').hasMatch(code)) {
       throw const AuthFailure(
         kind: AuthFailureKind.rejected,
         code: 'RECOVERY_CODE_CONFIRMATION_FAILED',
@@ -563,7 +609,8 @@ class SecurityManagementController extends ChangeNotifier {
           _sessions.sessionUnauthorized(record.token, failure.code);
         }
         _errorMessage = failure.code == 'AUTHENTICATION_FAILED'
-            ? '密码复验失败，请重新输入密码。' : '会话已失效，请重新登录。';
+            ? '密码复验失败，请重新输入密码。'
+            : '会话已失效，请重新登录。';
       } else if (failure.kind == AuthFailureKind.unavailable) {
         _clearEphemeral();
         _devices = null;
@@ -580,9 +627,9 @@ class SecurityManagementController extends ChangeNotifier {
                 latest.pendingCredentialChange?['key'] != pending['key']) {
               return latest;
             }
-            return latest.copyWith(pendingCredentialChange: {
-              ...pending, 'state': 'EXPIRED',
-            });
+            return latest.copyWith(
+              pendingCredentialChange: {...pending, 'state': 'EXPIRED'},
+            );
           });
         } on AuthStorageFailure {
           if (!_disposed && _store.current == null) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_navigation.dart';
 import 'feed_chrome.dart';
+import 'home_side_menu.dart';
 
 /// Owns the four peer destinations. Detail routes remain on the outer Navigator.
 /// A changed authority window discards every visited tab, including empty data.
@@ -11,10 +12,12 @@ class PrimaryTabs extends StatefulWidget {
     required this.window,
     required this.builders,
     required this.onSelected,
+    this.homeMenu,
   });
   final (String?, int) window;
   final Map<AppDestination, WidgetBuilder> builders;
   final ValueChanged<AppDestination> onSelected;
+  final WidgetBuilder? homeMenu;
 
   @override
   State<PrimaryTabs> createState() => PrimaryTabsState();
@@ -63,43 +66,48 @@ class PrimaryTabsState extends State<PrimaryTabs> {
     onPopInvokedWithResult: (didPop, result) {
       if (!didPop) select(AppDestination.home);
     },
-    child: Scaffold(
-      extendBody: _selected == AppDestination.home,
-      body: Builder(
-        builder: (bodyContext) => MediaQuery(
-          // extendBody adds the navigation's height to body padding. Home draws
-          // under the sliding bar and needs only the real system safe inset.
-          // Other tabs already have a shortened Scaffold body, just as before.
-          data: MediaQuery.of(bodyContext).copyWith(
-            padding: MediaQuery.paddingOf(context).copyWith(
-              bottom: _selected == AppDestination.home
-                  ? MediaQuery.paddingOf(context).bottom
-                  : 0,
+    child: HomeSideMenu(
+      key: ValueKey(widget.window),
+      enabled: _selected == AppDestination.home && widget.homeMenu != null,
+      menuBuilder: widget.homeMenu ?? (_) => const SizedBox.shrink(),
+      child: Scaffold(
+        extendBody: _selected == AppDestination.home,
+        body: Builder(
+          builder: (bodyContext) => MediaQuery(
+            // extendBody adds the navigation's height to body padding. Home draws
+            // under the sliding bar and needs only the real system safe inset.
+            // Other tabs already have a shortened Scaffold body, just as before.
+            data: MediaQuery.of(bodyContext).copyWith(
+              padding: MediaQuery.paddingOf(context).copyWith(
+                bottom: _selected == AppDestination.home
+                    ? MediaQuery.paddingOf(context).bottom
+                    : 0,
+              ),
             ),
-          ),
-          child: FeedChromeScope(
-            controller: _chrome,
-            child: IndexedStack(
-              index: _selected.index,
-              children: [
-                for (final destination in AppDestination.values)
-                  TickerMode(
-                    key: ValueKey((widget.window, destination)),
-                    enabled: destination == _selected,
-                    child: _visited.contains(destination)
-                        ? Builder(builder: widget.builders[destination]!)
-                        : const SizedBox.shrink(),
-                  ),
-              ],
+            child: FeedChromeScope(
+              controller: _chrome,
+              child: IndexedStack(
+                index: _selected.index,
+                children: [
+                  for (final destination in AppDestination.values)
+                    TickerMode(
+                      key: ValueKey((widget.window, destination)),
+                      enabled: destination == _selected,
+                      child: _visited.contains(destination)
+                          ? Builder(builder: widget.builders[destination]!)
+                          : const SizedBox.shrink(),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      bottomNavigationBar: FeedNavigation(
-        controller: _chrome,
-        selected: _selected,
-        onSelected: widget.onSelected,
-        collapseSpace: true,
+        bottomNavigationBar: FeedNavigation(
+          controller: _chrome,
+          selected: _selected,
+          onSelected: widget.onSelected,
+          collapseSpace: true,
+        ),
       ),
     ),
   );

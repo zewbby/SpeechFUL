@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../localization/app_localizations.dart';
+
 import 'auth_session_controller.dart';
 import 'auth_models.dart';
 import 'security_management_controller.dart';
@@ -102,18 +104,22 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
     child: primary
         ? FilledButton(
             onPressed: _busy ? null : () => unawaited(action()),
-            child: Text(text),
+            child: Text(hhText(context, text)),
           )
         : OutlinedButton(
             onPressed: _busy ? null : () => unawaited(action()),
-            child: Text(text),
+            child: Text(hhText(context, text)),
           ),
   );
 
-  Widget _notice(String text) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: Semantics(liveRegion: true, child: Text(text)),
-  );
+  Widget _notice(String text, {Map<String, Object?> args = const {}}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Semantics(
+          liveRegion: true,
+          child: Text(hhText(context, text, args: args)),
+        ),
+      );
 
   List<Widget> _content() {
     final controller = widget.controller;
@@ -132,11 +138,13 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
             await widget.sessions.retry();
             await controller.load();
           }),
-          _action('退出本机', widget.sessions.logout),
         ];
       case SecurityManagementStatus.rotationCodeShown:
         return [
-          Text('保存新的恢复码', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            hhText(context, '保存新的恢复码'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           _notice('仅在这次画面展示。请写下或存入你选择的安全管理器。旧码在完整确认成功前仍有效。'),
           Container(
             padding: const EdgeInsets.all(20),
@@ -158,16 +166,20 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
         ];
       case SecurityManagementStatus.rotationCodeConfirmation:
         return [
-          Text('完整重输已保存的恢复码', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            hhText(context, '完整重输已保存的恢复码'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           _notice('原码已经隐藏。确认成功后新码生效，旧码失效。密码、Passkey 和当前会话保留。'),
           TextFormField(
             controller: _confirmation,
             key: const ValueKey('rotation-confirmation'),
-            decoration: const InputDecoration(labelText: '新恢复码完整确认'),
+            decoration: InputDecoration(labelText: hhText(context, '新恢复码完整确认')),
             autocorrect: false,
             enableSuggestions: false,
             obscureText: true,
-            validator: (v) => v == null || v.isEmpty ? '请完整输入保存的恢复码' : null,
+            validator: (v) =>
+                v == null || v.isEmpty ? hhText(context, '请完整输入保存的恢复码') : null,
           ),
           _action('确认并激活新恢复码', () async {
             if (!(_form.currentState?.validate() ?? false)) return;
@@ -187,7 +199,6 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
         return [
           _notice('提交结果尚未确定。请核对原操作；应用不会自动重发新码或系统证明。'),
           _action('核对原结果', controller.reconcilePending, primary: true),
-          _action('退出本机', widget.sessions.logout),
         ];
       case SecurityManagementStatus.committed:
       case SecurityManagementStatus.notCommitted:
@@ -207,18 +218,21 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
             final confirmed = await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('结束上次结果核对'),
-                content: const Text(
-                  '上次结果仍无法确定。继续后会重新核对当前凭据，后续变更仍需重新输入密码；不会重发原提交。',
+                title: Text(hhText(context, '结束上次结果核对')),
+                content: Text(
+                  hhText(
+                    context,
+                    '上次结果仍无法确定。继续后会重新核对当前凭据，后续变更仍需重新输入密码；不会重发原提交。',
+                  ),
                 ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, false),
-                    child: const Text('保留核对记录'),
+                    child: Text(hhText(context, '保留核对记录')),
                   ),
                   FilledButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('继续'),
+                    child: Text(hhText(context, '继续')),
                   ),
                 ],
               ),
@@ -227,7 +241,7 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
           }),
         ];
       case SecurityManagementStatus.loading:
-        return [_notice('正在核对当前会话与恢复凭据。')];
+        return [_notice('正在核对恢复凭据。')];
       case SecurityManagementStatus.ready:
         return _ready();
     }
@@ -235,49 +249,25 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
 
   List<Widget> _ready() {
     final controller = widget.controller;
-    final devices = controller.devices;
     final credentials = controller.credentials;
     return [
-      Text('设备与会话', style: Theme.of(context).textTheme.titleLarge),
       if (widget.sessions.username != null)
-        _notice('私有用户名：${widget.sessions.username}'),
-      if (devices != null) ...[
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.phone_android),
-          title: const Text('当前设备'),
-          subtitle: Text(
-            '登录：${_time(devices.currentSignedInAt)}\n'
-            '会话截止：${_time(devices.sessionExpiresAt)}',
-          ),
-        ),
-        if (devices.lastReplacedAt != null)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.devices_outlined),
-            title: const Text('最近被接替的设备'),
-            subtitle: Text(
-              '登录：${_time(devices.lastReplacedSignedInAt!)}\n'
-              '接替：${_time(devices.lastReplacedAt!)}',
-            ),
-          )
-        else
-          _notice('没有最近接替记录。'),
-      ],
-      _action('刷新会话与凭据', controller.load),
-      _action('退出本机', widget.sessions.logout),
-      const Divider(height: 40),
-      Text('恢复凭据', style: Theme.of(context).textTheme.titleLarge),
+        _notice('私有用户名：{name}', args: {'name': widget.sessions.username}),
+      Text(
+        hhText(context, '恢复凭据'),
+        style: Theme.of(context).textTheme.titleLarge,
+      ),
       _notice('恢复码已设置，原码无法再次查看。每次变更都需重新输入密码。'),
       TextFormField(
         controller: _password,
         key: const ValueKey('management-password'),
-        decoration: const InputDecoration(labelText: '重新输入当前密码'),
+        decoration: InputDecoration(labelText: hhText(context, '重新输入当前密码')),
         obscureText: true,
         autocorrect: false,
         enableSuggestions: false,
         autofillHints: const [AutofillHints.password],
-        validator: (v) => v == null || v.isEmpty ? '请输入当前密码' : null,
+        validator: (v) =>
+            v == null || v.isEmpty ? hhText(context, '请输入当前密码') : null,
       ),
       _action(
         '轮换恢复码',
@@ -293,8 +283,16 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.key_outlined),
-          title: Text('创建于 ${_time(item.createdAt)}'),
-          subtitle: Text(item.backedUp ? '凭据报告已备份' : '凭据未报告已备份'),
+          title: Text(
+            hhText(
+              context,
+              '创建于 {date}',
+              args: {'date': _time(item.createdAt)},
+            ),
+          ),
+          subtitle: Text(
+            hhText(context, item.backedUp ? '凭据报告已备份' : '凭据未报告已备份'),
+          ),
         ),
         _action(
           '移除此 Passkey',
@@ -304,12 +302,13 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
           ),
         ),
       ],
+      _action('刷新恢复凭据', controller.load),
     ];
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('设备与恢复凭据')),
+    appBar: AppBar(title: Text(hhText(context, '账号与安全'))),
     body: SafeArea(
       top: false,
       child: Align(
@@ -325,7 +324,7 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
                 children: [
                   if (_busy)
                     Semantics(
-                      label: '正在核对安全操作',
+                      label: hhText(context, '正在核对安全操作'),
                       child: const LinearProgressIndicator(),
                     ),
                   if (widget.controller.errorMessage != null)
@@ -333,6 +332,19 @@ class _SecurityManagementScreenState extends State<SecurityManagementScreen>
                   if (widget.sessions.hasPendingLogout)
                     _notice('本机已退出，服务端定向撤销仍待确认。'),
                   ..._content(),
+                  if (widget.sessions.isAuthenticated ||
+                      widget.sessions.status == AuthStatus.unavailable ||
+                      widget.sessions.status == AuthStatus.storageFailure)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: OutlinedButton(
+                        key: const ValueKey('security-sign-out'),
+                        onPressed: widget.sessions.busy
+                            ? null
+                            : () => unawaited(widget.sessions.logout()),
+                        child: Text(hhText(context, '退出本机')),
+                      ),
+                    ),
                 ],
               ),
             ),

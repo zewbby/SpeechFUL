@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../auth/auth_presentation.dart';
+
 /// Match the spoken language to the Chinese interface, including numerals.
 class CommunitySpokenLocale extends StatelessWidget {
   const CommunitySpokenLocale({super.key, required this.child});
@@ -8,8 +10,12 @@ class CommunitySpokenLocale extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) =>
-      Semantics(localeForSubtree: const Locale('zh', 'CN'), child: child);
+  Widget build(BuildContext context) => Semantics(
+    localeForSubtree:
+        AuthPresentationScope.maybeOf(context)?.language.locale ??
+        const Locale('zh', 'CN'),
+    child: child,
+  );
 }
 
 /// The shipped Chinese UI uses the SDK's default Material strings. Override

@@ -17,6 +17,7 @@ import 'package:hnuhole_mobile/src/comments/comment_models.dart';
 import 'package:hnuhole_mobile/src/comments/comment_runtime.dart';
 import 'package:hnuhole_mobile/src/comments/comment_views.dart';
 import 'package:hnuhole_mobile/hnuhole_mobile.dart';
+import 'package:hnuhole_mobile/src/localization/app_localizations.dart';
 
 import 'identity_test_support.dart';
 import 'feed_ui_test.dart' as feed;
@@ -1331,6 +1332,59 @@ void detailReferenceTests() {
     });
     return r;
   }
+
+  testWidgets(
+    'reply sort sheet translates all options and keeps its route and server selection',
+    (tester) async {
+      final r = await runtime(tester);
+      final presentation = AuthPresentationController()
+        ..setLanguage(AppLanguage.english);
+      await tester.pumpWidget(
+        AnimatedBuilder(
+          animation: presentation,
+          builder: (context, _) => MaterialApp(
+            locale: presentation.language.locale,
+            supportedLocales: appSupportedLocales,
+            localizationsDelegates: appLocalizationDelegates,
+            builder: (context, child) =>
+                AuthPresentationScope(controller: presentation, child: child!),
+            home: Scaffold(
+              body: CommentPostPane(
+                runtime: r,
+                postId: post,
+                postBody: '正文',
+                continuous: true,
+                body: const Text('原文正文'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('comment-sort')));
+      await tester.pumpAndSettle();
+      final route = ModalRoute.of(tester.element(find.byType(BottomSheet)));
+      final requests = r.commentQueries.length;
+      for (final language in AppLanguage.values) {
+        presentation.setLanguage(language);
+        await tester.pumpAndSettle();
+        for (final source in ['对回复排序', '最近', '最相关', '最多点赞']) {
+          expect(find.text(translateUi(source, language)), findsOneWidget);
+        }
+        expect(
+          ModalRoute.of(tester.element(find.byType(BottomSheet))),
+          same(route),
+        );
+        expect(r.commentQueries.length, requests);
+      }
+      await tester.tap(find.text(translateUi('最近', presentation.language)));
+      await tester.pumpAndSettle();
+      expect(r.commentQueries.last, {'sort': 'recent'});
+      expect(find.text('原文正文'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      presentation.dispose();
+    },
+  );
 
   Future<void> openOptimistic(
     WidgetTester tester,

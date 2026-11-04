@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'auth_flows.dart';
 import 'auth_presentation.dart';
+import '../localization/app_localizations.dart';
 import 'auth_session_controller.dart';
 
 enum _AuthMode { login, register, recover }
@@ -213,18 +214,20 @@ class _AuthScreenState extends State<AuthScreen> {
       return showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (c) => AlertDialog(
-          title: const Text('暂时无法进入'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('重试'),
-            ),
-          ],
+        builder: (c) => _localizedDialog(
+          (c) => AlertDialog(
+            title: Text(hhText(c, '暂时无法进入')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: Text(hhText(c, '取消')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: Text(hhText(c, '重试')),
+              ),
+            ],
+          ),
         ),
       ).then((retry) => retry == true);
     }
@@ -261,30 +264,44 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
       pageBuilder: (dialogContext, animation, secondaryAnimation) =>
           themes.wrap(
-            AlertDialog(
-              key: const ValueKey('login-error-dialog'),
-              backgroundColor: _theme.colorScheme.surface,
-              surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              title: Text(
-                _text(
-                  message == '用户名或密码不正确。' ? '登录失败' : '提示',
-                  message == '用户名或密码不正确。' ? 'Sign-in failed' : 'Notice',
+            _localizedDialog(
+              (dialogContext) => AlertDialog(
+                key: const ValueKey('login-error-dialog'),
+                backgroundColor: _theme.colorScheme.surface,
+                surfaceTintColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              content: Text(_text(friendlyMessage)),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(_text('确定', 'OK')),
+                title: Text(
+                  hhText(
+                    dialogContext,
+                    message == '用户名或密码不正确。' ? '登录失败' : '提示',
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-              ],
+                content: Text(hhText(dialogContext, friendlyMessage)),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: Text(hhText(dialogContext, '确定')),
+                  ),
+                ],
+              ),
             ),
           ),
     ).then((_) => false);
+  }
+
+  Widget _localizedDialog(WidgetBuilder builder) {
+    final presentation = AuthPresentationScope.maybeOf(
+      _presentationContext ?? context,
+    );
+    return presentation == null
+        ? Builder(builder: builder)
+        : AuthPresentationScope(
+            controller: presentation,
+            child: Builder(builder: builder),
+          );
   }
 
   @override
@@ -647,10 +664,15 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
             ),
-            TextButton(
-              onPressed: _busy ? null : () => _selectMode(_AuthMode.recover),
-              style: TextButton.styleFrom(padding: EdgeInsets.zero),
-              child: Text(_text('找回账号'), style: const TextStyle(fontSize: 13)),
+            Flexible(
+              child: TextButton(
+                onPressed: _busy ? null : () => _selectMode(_AuthMode.recover),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                child: Text(
+                  _text('找回账号'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
             ),
           ],
         ),
@@ -1077,11 +1099,12 @@ class _AuthScreenState extends State<AuthScreen> {
       Semantics(
         liveRegion: true,
         child: Text(
-          _copyFeedback ??
-              _text(
-                '恢复码只展示一次。请记下或存入你信任的密码管理器。',
-                'Shown once. Write it down or store it in your password manager.',
-              ),
+          _copyFeedback != null
+              ? _text(_copyFeedback!)
+              : _text(
+                  '恢复码只展示一次。请记下或存入你信任的密码管理器。',
+                  'Shown once. Write it down or store it in your password manager.',
+                ),
           style: TextStyle(
             fontSize: 13,
             height: 1.7,
@@ -1152,12 +1175,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             widget.flows.recoveryCode != code) {
                           return;
                         }
-                        setState(
-                          () => _copyFeedback = _text(
-                            '恢复码已复制，请妥善保存。原码只展示一次。',
-                            'Recovery code copied. Store it safely. It is shown only once.',
-                          ),
-                        );
+                        setState(() => _copyFeedback = '恢复码已复制，请妥善保存。原码只展示一次。');
                       } catch (_) {
                         if (!mounted ||
                             widget.flows.status !=
@@ -1165,20 +1183,12 @@ class _AuthScreenState extends State<AuthScreen> {
                             widget.flows.recoveryCode != code) {
                           return;
                         }
-                        setState(
-                          () => _copyFeedback = _text(
-                            '复制未成功，请手动记下恢复码并妥善保存。',
-                            'Copy failed. Write down the code and keep it safe.',
-                          ),
-                        );
+                        setState(() => _copyFeedback = '复制未成功，请手动记下恢复码并妥善保存。');
                       }
                     },
               color: _theme.colorScheme.primary,
               icon: Icon(
-                _copyFeedback?.startsWith(
-                          _text('恢复码已复制', 'Recovery code copied'),
-                        ) ==
-                        true
+                _copyFeedback?.startsWith('恢复码已复制') == true
                     ? Icons.check_rounded
                     : Icons.copy_outlined,
                 size: 19,
@@ -1341,37 +1351,8 @@ class _AuthScreenState extends State<AuthScreen> {
       const SizedBox(height: 16),
     ],
     if (widget.onManageSecurity != null)
-      _secondary('设备与恢复凭据', () async => widget.onManageSecurity!()),
+      _secondary('恢复凭据与 Passkey', () async => widget.onManageSecurity!()),
     _button('退出本机', widget.sessions.logout),
-    const Divider(height: 40),
-    const _Title('申请注销账号', '七天缓冲期内主动登录会撤销申请。申请后退出全部设备，尚未公开的发送任务将取消，已公开内容仍保留。'),
-    _field('重新输入密码', _closurePassword, key: 'closure-password', password: true),
-    _secondary('查看并确认注销申请', () async {
-      if (!(_formKey.currentState?.validate() ?? false)) return;
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const _AuthText('申请七天后注销'),
-          content: const _AuthText(
-            '预计完成时间由服务端受理时确定。期间登录会撤销申请；尚未公开的发送任务将取消，公开内容仍保留。',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const _AuthText('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const _AuthText('申请注销'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed == true && mounted) {
-        await widget.flows.requestClosure(_closurePassword.text);
-        _closurePassword.clear();
-      }
-    }),
   ];
 
   bool _isClosureStatus(AuthFlowStatus status) => {
@@ -1543,7 +1524,9 @@ class _AuthScreenState extends State<AuthScreen> {
       validator: (value) {
         final input = value ?? '';
         if (otp && !_validateOtp) return null;
-        if (input.isEmpty) return '${_text('请输入', 'Enter ')}${_text(label)}';
+        if (input.isEmpty) {
+          return hhText(context, '请输入{field}', args: {'field': _text(label)});
+        }
         if (email &&
             (RegExp(r'\s').hasMatch(input) ||
                 input.startsWith('@') ||

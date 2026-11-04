@@ -68,9 +68,21 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('身份管理'));
-      await tester.tap(find.text('设备与恢复凭据'));
-      await tester.tap(find.text('账号与安全'));
+      for (final key in ['identity', 'devices', 'account']) {
+        final scrollable = find.descendant(
+          of: find.byKey(const ValueKey('settings-list')),
+          matching: find.byType(Scrollable),
+        );
+        tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.byKey(ValueKey('settings-$key')),
+          100,
+          scrollable: scrollable,
+        );
+        await tester.tap(find.byKey(ValueKey('settings-$key')));
+        await tester.pumpAndSettle();
+      }
       expect(identity, 1);
       expect(security, 1);
       expect(account, 1);
@@ -173,7 +185,9 @@ void main() {
       await _show(tester, f);
       expect(
         tester
-            .widget<TextButton>(find.widgetWithText(TextButton, '最后一个身份不能删除'))
+            .widget<IconButton>(
+              find.byKey(const ValueKey('identity-delete:$identityTestId')),
+            )
             .onPressed,
         isNull,
       );
@@ -204,7 +218,10 @@ void main() {
       f.api.createdCount = 3;
       f.api.nextCreateAt = DateTime.utc(2027, 3, 12, 16);
       await _show(tester, f);
-      await _tap(tester, find.text('删除此身份').first);
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('identity-delete:$identityTestId')),
+      );
       expect(find.byType(IdentityAvatar), findsWidgets);
       expect(find.textContaining('旧帖子和评论仍保留'), findsOneWidget);
       expect(find.textContaining('私人备注'), findsOneWidget);
@@ -227,7 +244,10 @@ void main() {
       ];
       f.api.createdCount = 2;
       await _show(tester, f);
-      await _tap(tester, find.text('删除此身份').first);
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('identity-delete:$identityTestId')),
+      );
       await f.sessions.logout();
       await tester.pumpAndSettle();
       expect(find.text('删除身份'), findsNothing);

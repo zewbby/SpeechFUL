@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
@@ -32,7 +34,7 @@ Future<void> showFeedChannelPicker(
               if (isCurrent()) onSelected(code);
             },
           )
-        : const Center(child: Text('请重新登录')),
+        : Center(child: Text(hhText(context, '请重新登录'))),
   ),
 );
 
@@ -61,7 +63,7 @@ Future<void> showFeedBlockFilter(
             error: error(),
             onChanged: onChanged,
           )
-        : const Center(child: Text('请重新登录')),
+        : Center(child: Text(hhText(context, '请重新登录'))),
   ),
 );
 
@@ -116,13 +118,13 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(height: 28),
           Text(
-            title,
+            hhText(context, title),
             style: _style(context, 22, bold: true),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 5),
           Text(
-            subtitle,
+            hhText(context, subtitle),
             style: _style(context, 14, color: p.secondary),
             textAlign: TextAlign.center,
           ),
@@ -183,7 +185,7 @@ class _ChannelPicker extends StatelessWidget {
                             vertical: 17,
                           ),
                           child: Text(
-                            item.$2,
+                            hhText(context, item.$2),
                             style: _style(
                               context,
                               18,
@@ -286,7 +288,11 @@ class _BlockFilterState extends State<_BlockFilter> {
                         ),
                         const SizedBox(width: 8),
                         Semantics(
-                          label: '屏蔽${channel.title}',
+                          label: hhText(
+                            context,
+                            '屏蔽{v0}',
+                            args: {'v0': channel.title},
+                          ),
                           child: Switch(
                             key: ValueKey('block-channel:${channel.code}'),
                             value: active,
@@ -317,12 +323,15 @@ class _BlockFilterState extends State<_BlockFilter> {
           if (widget.error != null)
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Text(widget.error!, style: TextStyle(color: p.error)),
+              child: Text(
+                hhText(context, widget.error!),
+                style: TextStyle(color: p.error),
+              ),
             ),
           if (widget.error != null)
             TextButton(
               onPressed: widget.saving ? null : widget.onRetry,
-              child: const Text('重新核对设置'),
+              child: Text(hhText(context, '重新核对设置')),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 22),
@@ -334,7 +343,7 @@ class _BlockFilterState extends State<_BlockFilter> {
                     ? null
                     : () => widget.onChanged({}),
                 child: Text(
-                  '重置',
+                  hhText(context, '重置'),
                   style: _style(context, 18, bold: true, color: p.onAccent),
                 ),
               ),

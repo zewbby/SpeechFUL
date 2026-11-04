@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../channels/channel.dart';
 import '../design_system/detail_components.dart';
+import '../localization/app_localizations.dart';
 import 'post_api.dart';
 import 'post_controller.dart';
 import 'post_models.dart';
@@ -63,7 +64,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       mounted &&
       _controller.available &&
       _controller.authorityVersion == _epoch;
-  String get _scopeName => _channels[_channelId] ?? '全部分类';
+  String get _scopeName => hhText(context, _channels[_channelId] ?? '全部分类');
 
   @override
   void initState() {
@@ -288,17 +289,19 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('清空搜索历史？'),
-          content: Text('将清空「$_scopeName」的搜索历史。'),
+          title: Text(hhText(context, '清空搜索历史？')),
+          content: Text(
+            hhText(context, '将清空「{scope}」的搜索历史。', args: {'scope': _scopeName}),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
+              child: Text(hhText(context, '取消')),
             ),
             TextButton(
               key: const ValueKey('post-search-confirm-clear'),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('清空'),
+              child: Text(hhText(context, '清空')),
             ),
           ],
         ),
@@ -341,14 +344,14 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('搜索帖子')),
+    appBar: AppBar(title: Text(hhText(context, '搜索帖子'))),
     body: SafeArea(
       top: false,
       child: !_current
           ? Center(
               child: TextButton(
                 onPressed: widget.onAuthenticationRequired,
-                child: const Text('登录或核对会话'),
+                child: Text(hhText(context, '登录或核对会话')),
               ),
             )
           : Column(
@@ -365,18 +368,20 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                     onChanged: _edit,
                     onSubmitted: _submit,
                     decoration: InputDecoration(
-                      hintText: '搜索标题或正文',
-                      errorText: _inputError,
+                      hintText: hhText(context, '搜索标题或正文'),
+                      errorText: _inputError == null
+                          ? null
+                          : hhText(context, _inputError!),
                       border: const OutlineInputBorder(),
                       prefixIcon: IconButton(
-                        tooltip: '提交搜索',
+                        tooltip: hhText(context, '提交搜索'),
                         onPressed: () => _submit(_input.text),
                         icon: const Icon(Icons.search),
                       ),
                       suffixIcon: _input.text.isEmpty
                           ? null
                           : IconButton(
-                              tooltip: '清空关键词',
+                              tooltip: hhText(context, '清空关键词'),
                               onPressed: _clearInput,
                               icon: const Icon(Icons.close),
                             ),
@@ -393,16 +398,19 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                       PopupMenuButton<String>(
                         key: const ValueKey('post-search-scope'),
                         enabled: !_historyChanging,
-                        tooltip: '搜索分类',
+                        tooltip: hhText(context, '搜索分类'),
                         initialValue: _channelId ?? '',
                         onSelected: (value) =>
                             _selectScope(value.isEmpty ? null : value),
                         itemBuilder: (context) => [
-                          const PopupMenuItem(value: '', child: Text('全部分类')),
+                          PopupMenuItem(
+                            value: '',
+                            child: Text(hhText(context, '全部分类')),
+                          ),
                           for (final channel in widget.channels)
                             PopupMenuItem(
                               value: channel.id,
-                              child: Text(channel.name),
+                              child: Text(hhText(context, channel.name)),
                             ),
                         ],
                         child: Padding(
@@ -421,7 +429,10 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                           ChoiceChip(
                             key: ValueKey('post-search-sort:${sort.name}'),
                             label: Text(
-                              sort == PostSearchSort.relevance ? '相关度' : '最新',
+                              hhText(
+                                context,
+                                sort == PostSearchSort.relevance ? '相关度' : '最新',
+                              ),
                             ),
                             selected: _sort == sort,
                             onSelected: (_) => _selectSort(sort),
@@ -435,7 +446,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                       ? _buildResults()
                       : trimPostSearchKeyword(_input.text).isEmpty
                       ? _buildHistory()
-                      : const Center(child: Text('提交关键词以搜索帖子')),
+                      : Center(child: Text(hhText(context, '提交关键词以搜索帖子'))),
                 ),
               ],
             ),
@@ -469,7 +480,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       footer = TextButton(
         key: const ValueKey('post-search-more'),
         onPressed: () => _loadResults(cursor: _cursor),
-        child: const Text('加载更多'),
+        child: Text(hhText(context, '加载更多')),
       );
     } else {
       footer = null;
@@ -480,12 +491,12 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('暂无相关帖子'),
+            Text(hhText(context, '暂无相关帖子')),
             if (_channelId != null)
               TextButton(
                 key: const ValueKey('post-search-all'),
                 onPressed: () => _selectScope(null),
-                child: const Text('搜索全部分类'),
+                child: Text(hhText(context, '搜索全部分类')),
               ),
           ],
         ),
@@ -513,7 +524,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                 child: Semantics(
                   header: true,
                   child: Text(
-                    _channels[post.channelId]!,
+                    hhText(context, _channels[post.channelId]!),
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
@@ -530,7 +541,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
               subtitle: Text(
-                '${post.author.displayName} · ${published.month}月${published.day}日',
+                '${post.author.displayName} · ${MaterialLocalizations.of(context).formatShortMonthDay(published)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -557,7 +568,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
     if (_historyError) {
       return Center(child: _retryNotice('暂时无法核对搜索历史', _readHistory));
     }
-    if (_history.isEmpty) return const Center(child: Text('暂无搜索历史'));
+    if (_history.isEmpty) return Center(child: Text(hhText(context, '暂无搜索历史')));
     return ListView(
       key: const ValueKey('post-search-history'),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -567,14 +578,14 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
           children: [
             Expanded(
               child: Text(
-                '搜索历史',
+                hhText(context, '搜索历史'),
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
             TextButton(
               key: const ValueKey('post-search-history-clear'),
               onPressed: _historyChanging ? null : () => _changeHistory(),
-              child: const Text('清空'),
+              child: Text(hhText(context, '清空')),
             ),
           ],
         ),
@@ -634,7 +645,11 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                               ? null
                               : () =>
                                     _changeHistory(removeKeyword: _history[i]),
-                          deleteButtonTooltipMessage: '删除「${_history[i]}」',
+                          deleteButtonTooltipMessage: hhText(
+                            context,
+                            '删除「{keyword}」',
+                            args: {'keyword': _history[i]},
+                          ),
                         ),
                       ),
                   ],
@@ -644,7 +659,9 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                     key: const ValueKey('post-search-history-expand'),
                     onPressed: () =>
                         setState(() => _historyExpanded = !_historyExpanded),
-                    child: Text(_historyExpanded ? '收起' : '展开'),
+                    child: Text(
+                      hhText(context, _historyExpanded ? '收起' : '展开'),
+                    ),
                   ),
               ],
             );
@@ -658,8 +675,8 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
     mainAxisSize: MainAxisSize.min,
     children: [
       const SizedBox(height: 16),
-      Text(message),
-      TextButton(onPressed: onRetry, child: const Text('重试')),
+      Text(hhText(context, message)),
+      TextButton(onPressed: onRetry, child: Text(hhText(context, '重试'))),
     ],
   );
 }

@@ -12,6 +12,11 @@ import 'src/comments/comment_http.dart';
 import 'src/comments/comment_journal.dart';
 import 'src/development/app_transport.dart';
 import 'src/navigation/primary_tabs.dart';
+import 'src/localization/app_localizations.dart';
+import 'src/auth/device_management_controller.dart';
+import 'src/auth/device_management_screen.dart';
+import 'src/auth/account_closure_screen.dart';
+import 'src/navigation/home_side_menu.dart';
 import 'src/navigation/community_material_labels.dart';
 import 'src/navigation/app_navigation.dart';
 import 'src/messaging/direct_messages_unavailable.dart';
@@ -85,6 +90,9 @@ class _StartupWelcomeApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     themeMode: presentation.themeMode,
+    locale: presentation.language.locale,
+    supportedLocales: appSupportedLocales,
+    localizationsDelegates: appLocalizationDelegates,
     builder: (context, child) => AuthPresentationScope(
       controller: presentation,
       child: child ?? const SizedBox.shrink(),
@@ -390,7 +398,7 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
   final _navigatorKey = GlobalKey<NavigatorState>();
   bool _authRouteOpen = false;
   bool _securityRouteOpen = false;
-  bool _settingsRouteOpen = false;
+  bool _devicesRouteOpen = false, _closureRouteOpen = false;
   bool _identityRouteOpen = false;
   final _primaryTabs = GlobalKey<PrimaryTabsState>();
   late final _avatars = IdentityAvatarRepository(
@@ -591,6 +599,8 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _authPresentation.addListener(_syncNotificationLanguage);
+    _syncNotificationLanguage();
     _activeIdentity = ActiveIdentityController(widget.identities);
     widget.posts.bindActiveIdentity(_activeIdentity);
     widget.governance?.bindActiveIdentity(_activeIdentity);
@@ -607,6 +617,15 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
     unawaited(
       widget.dmNotifications?.start().then((_) => _scheduleDmNotification()),
     );
+  }
+
+  String? _notificationLanguage;
+  void _syncNotificationLanguage() {
+    final language = _authPresentation.language.code;
+    if (_notificationLanguage == language) return;
+    _notificationLanguage = language;
+    final notifications = widget.dmNotifications;
+    if (notifications != null) unawaited(notifications.setLanguage(language));
   }
 
   void _postWindowChanged() {
@@ -698,52 +717,77 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
         .whenComplete(() => _securityRouteOpen = false);
   }
 
-  void _openSettings() {
+  void _openDevices() {
     final navigator = _navigatorKey.currentState;
-    if (navigator == null || _settingsRouteOpen) return;
+    if (navigator == null || _devicesRouteOpen) return;
     if (!widget.sessions.isAuthenticated) {
       _openAuth();
       return;
     }
-    _settingsRouteOpen = true;
+    _devicesRouteOpen = true;
+    final controller = DeviceManagementController(
+      api: widget.api,
+      store: widget.store,
+      sessions: widget.sessions,
+    );
+    final route = MaterialPageRoute<void>(
+      builder: (context) => DeviceManagementScreen(
+        controller: controller,
+        sessions: widget.sessions,
+        onAuthenticationRequired: () {
+          Navigator.of(context).pop();
+          _openAuth();
+        },
+      ),
+    );
+    navigator.push(route).whenComplete(() async {
+      await route.completed;
+      controller.dispose();
+      _devicesRouteOpen = false;
+    });
+  }
+
+  void _openClosure() {
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null || _closureRouteOpen) return;
+    if (!widget.sessions.isAuthenticated) {
+      _openAuth();
+      return;
+    }
+    _closureRouteOpen = true;
     navigator
         .push(
           MaterialPageRoute<void>(
-            builder: (context) => SettingsScreen(
-              onManageIdentity: _openIdentity,
-              onManageSecurity: _openSecurity,
-              onManageAccount: _openAuth,
-              onBlacklist: widget.dm == null
-                  ? null
-                  : () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => DmBlacklistScreen(
-                          controller: widget.dm!.controller,
-                        ),
-                      ),
-                    ),
-              onDmNotifications:
-                  widget.dmNotifications == null ||
-                      widget.dm?.controller.accountId == null
-                  ? null
-                  : () {
-                      final account = widget.dm!.controller.accountId!;
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => DmNotificationSettings(
-                            notifications: widget.dmNotifications!,
-                            account: account,
-                            current: () =>
-                                widget.dm!.controller.available &&
-                                widget.dm!.controller.accountId == account,
-                          ),
-                        ),
-                      );
-                    },
+            builder: (context) => AccountClosureScreen(
+              sessions: widget.sessions,
+              flows: widget.flows,
+              onAuthenticationRequired: () {
+                Navigator.of(context).pop();
+                _openAuth();
+              },
             ),
           ),
         )
-        .whenComplete(() => _settingsRouteOpen = false);
+        .whenComplete(() => _closureRouteOpen = false);
+  }
+
+  Widget _settingsScreen(BuildContext context) {
+    if (!widget.sessions.isAuthenticated) return const SizedBox.shrink();
+    return SettingsScreen(
+      onClose: () => HomeSideMenuScope.maybeOf(context)?.close(),
+      onManageIdentity: _openIdentity,
+      onManageSecurity: _openDevices,
+      onManageAccount: _openSecurity,
+      onCloseAccount: _openClosure,
+      onBlacklist: widget.dm == null
+          ? null
+          : () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    DmBlacklistScreen(controller: widget.dm!.controller),
+              ),
+            ),
+    );
   }
 
   Future<void> _openIdentity({bool initialCreate = false}) async {
@@ -811,7 +855,6 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
       },
       onManageIdentities: _openIdentity,
       onAuthenticationRequired: _openAuth,
-      onOpenSettings: _openSettings,
       onChooseChannel: () =>
           _primaryTabs.currentState?.select(AppDestination.home),
       onPublishedToChannel: (channelId) {
@@ -840,6 +883,7 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
     widget.dm?.controller.removeListener(_scheduleDmNotification);
     widget.dmNotifications?.dispose();
     widget.dm?.dispose();
+    _authPresentation.removeListener(_syncNotificationLanguage);
     _authPresentation.dispose();
     WidgetsBinding.instance.removeObserver(this);
     widget.comments?.dispose();
@@ -872,7 +916,9 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
       builder: (context, _) => MaterialApp(
         title: 'SpeechFUL',
         debugShowCheckedModeBanner: false,
-        localizationsDelegates: const [CommunityMaterialLabels.delegate],
+        locale: _authPresentation.language.locale,
+        supportedLocales: appSupportedLocales,
+        localizationsDelegates: appLocalizationDelegates,
         navigatorKey: _navigatorKey,
         themeMode: _authPresentation.themeMode,
         builder: (context, child) => IdentityAvatarScope(
@@ -924,6 +970,7 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
                   key: _primaryTabs,
                   window: _postWindow.value,
                   onSelected: _selectPrimary,
+                  homeMenu: _settingsScreen,
                   builders: {
                     AppDestination.home: (_) => FeedScreen(
                       // New authorization owns fresh protected data. Its channel
@@ -944,7 +991,7 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
                       onAuthenticationRequired: _openAuth,
                     ),
                     AppDestination.messages: (_) => widget.governance == null
-                        ? const Center(child: Text('系统通知暂时不可用'))
+                        ? Center(child: Text(hhText(context, '系统通知暂时不可用')))
                         : _notificationsScreen(),
                     AppDestination.directMessages: (_) => widget.dm != null
                         ? DmInboxRoute(

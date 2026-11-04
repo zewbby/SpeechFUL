@@ -132,7 +132,10 @@ class HomeTestFixture {
   late AuthSessionController sessions;
   late PostController posts;
 
-  Future<app.HnuholeApp> create({bool signedIn = true}) async {
+  Future<app.HnuholeApp> create({
+    bool signedIn = true,
+    AuthPresentationController? presentation,
+  }) async {
     if (signedIn) {
       await store.update(
         (s) => s.copyWith(
@@ -163,6 +166,7 @@ class HomeTestFixture {
       verifierBaseUri: Uri.parse('https://verifier.invalid'),
     );
     return app.HnuholeApp(
+      presentation: presentation,
       directory: directory,
       repository: HttpChannelRepository(
         baseUri: Uri.parse('https://unused.invalid'),
@@ -202,12 +206,29 @@ class HomeTestFixture {
     bool directoryPending = false,
     String? expectedChannelId,
   }) async {
-    await tester.tap(find.byTooltip('设置'));
+    await tester.tap(find.byKey(const ValueKey('destination:home')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('账号与安全'));
+    await tester.tap(find.byKey(const ValueKey('feed-account')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('settings-account')),
+      100,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('settings-list')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('settings-account')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('退出本机'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('退出本机'));
     await tester.pumpAndSettle();
+    // Account security now has its own signed-out state and explicit login.
+    if (find.byType(SecurityManagementScreen).evaluate().isNotEmpty) {
+      await tester.tap(find.text('前往登录'));
+      await tester.pumpAndSettle();
+    }
     // Logout must leave the auth route on its login form, not pop it as if a
     // fresh login had happened. B is not entered until this assertion passes.
     expect(find.byType(AuthScreen), findsOneWidget);
@@ -236,7 +257,7 @@ class HomeTestFixture {
     expect(find.byType(FeedScreen), findsOneWidget);
     expect(posts.timelineChannelId, expectedChannelId);
     if (openPersonal) {
-      await tester.tap(find.byKey(const ValueKey('feed-account')));
+      await tester.tap(find.byKey(const ValueKey('destination:personal')));
       await tester.pumpAndSettle();
     }
   }

@@ -1,3 +1,4 @@
+import '../localization/app_localizations.dart';
 import '../rate_limit_notice.dart';
 import '../design_system/detail_components.dart';
 import 'x_feed.dart';
@@ -186,9 +187,9 @@ class _ChannelPostsScreenState extends State<ChannelPostsScreen> {
                                   widget.controller.loadFeed(widget.channel.id),
                                 );
                               },
-                        child: const Text(
-                          '最新',
-                          style: TextStyle(
+                        child: Text(
+                          hhText(context, '最新'),
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
@@ -218,14 +219,14 @@ class _ChannelPostsScreenState extends State<ChannelPostsScreen> {
                                   color: PostTheme.accent,
                                   borderRadius: BorderRadius.circular(8),
                                   elevation: 2,
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
                                       horizontal: 24,
                                       vertical: 12,
                                     ),
                                     child: Text(
-                                      '发布成功！',
-                                      style: TextStyle(
+                                      hhText(context, '发布成功！'),
+                                      style: const TextStyle(
                                         color: PostTheme.surface,
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
@@ -254,24 +255,34 @@ class _ChannelPostsScreenState extends State<ChannelPostsScreen> {
                 Expanded(
                   child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Column(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: [Icon(Icons.home_outlined), Text('首页')],
+                      children: [
+                        const Icon(Icons.home_outlined),
+                        Text(hhText(context, '首页')),
+                      ],
                     ),
                   ),
                 ),
                 FilledButton(
                   onPressed: _authority.current ? _compose : null,
-                  child: const Icon(Icons.add, semanticLabel: '新建帖子', size: 30),
+                  child: Icon(
+                    Icons.add,
+                    semanticLabel: hhText(context, '新建帖子'),
+                    size: 30,
+                  ),
                 ),
                 Expanded(
                   child: TextButton(
                     onPressed: _authority.current
                         ? widget.onOpenPersonal
                         : null,
-                    child: const Column(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: [Icon(Icons.person_outline), Text('我的')],
+                      children: [
+                        const Icon(Icons.person_outline),
+                        Text(hhText(context, '我的')),
+                      ],
                     ),
                   ),
                 ),
@@ -286,21 +297,26 @@ class _ChannelPostsScreenState extends State<ChannelPostsScreen> {
     final c = widget.controller;
     if (c.currentChannelId != widget.channel.id ||
         c.feedLoading && c.feedItems.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(semanticsLabel: '正在加载帖子'),
+      return Center(
+        child: CircularProgressIndicator(
+          semanticsLabel: hhText(context, '正在加载帖子'),
+        ),
       );
     }
     if (c.feedItems.isEmpty && c.feedError != null) {
       return _PageState(
-        title: '暂时无法加载帖子',
+        title: hhText(context, '暂时无法加载帖子'),
         announceTitle: true,
-        message: '请稍后重试',
+        message: hhText(context, '请稍后重试'),
         action: '重新加载',
         onAction: () => c.loadFeed(widget.channel.id),
       );
     }
     if (c.feedItems.isEmpty) {
-      return const _PageState(title: '这里还没有帖子', message: '点下方「＋」，发布第一篇帖子。');
+      return _PageState(
+        title: hhText(context, '这里还没有帖子'),
+        message: hhText(context, '点下方「＋」，发布第一篇帖子。'),
+      );
     }
     return RefreshIndicator(
       onRefresh: () => c.loadFeed(widget.channel.id),
@@ -377,7 +393,10 @@ class _ChannelPostsScreenState extends State<ChannelPostsScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text(c.feedError!, textAlign: TextAlign.center),
+                    child: Text(
+                      hhText(context, c.feedError!),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               SliverToBoxAdapter(
@@ -577,17 +596,17 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              '草稿保存失败',
+                            Text(
+                              hhText(context, '草稿保存失败'),
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                             const SizedBox(height: 12),
-                            const Text(
-                              '内容还在当前页面。\n放弃将丢失未保存的修改。',
+                            Text(
+                              hhText(context, '内容还在当前页面。\n放弃将丢失未保存的修改。'),
                               textAlign: TextAlign.center,
                               style: PostTheme.dialogBody,
                             ),
@@ -598,7 +617,7 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                   child: OutlinedButton(
                                     onPressed: () =>
                                         Navigator.of(context).pop(false),
-                                    child: const Text('放弃'),
+                                    child: Text(hhText(context, '放弃')),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -606,14 +625,14 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                   child: FilledButton(
                                     onPressed: () =>
                                         Navigator.of(context).pop(true),
-                                    child: const Text('重试'),
+                                    child: Text(hhText(context, '重试')),
                                   ),
                                 ),
                               ],
                             ),
                           ],
                         )
-                      : const Text('会话已变化，请重新登录。'),
+                      : Text(hhText(context, '会话已变化，请重新登录。')),
                 ),
               ),
             ),
@@ -656,7 +675,7 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
           appBar: AppBar(
             toolbarHeight: 56 + MediaQuery.textScalerOf(context).scale(13),
             leading: IconButton(
-              tooltip: '返回',
+              tooltip: hhText(context, '返回'),
               onPressed: _leave,
               icon: const Icon(Icons.arrow_back_ios_new_rounded),
             ),
@@ -664,7 +683,9 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  widget.editor.isRetry ? '编辑草稿' : '写帖子',
+                  widget.editor.isRetry
+                      ? hhText(context, '编辑草稿')
+                      : hhText(context, '写帖子'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -688,7 +709,7 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                             !widget.editor.mediaBusy
                         ? _next
                         : null,
-                    child: const Text('下一步'),
+                    child: Text(hhText(context, '下一步')),
                   ),
                 ),
             ],
@@ -706,19 +727,19 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               if (widget.editor.isRetry)
-                                const Padding(
-                                  padding: EdgeInsets.only(bottom: 20),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 20),
                                   child: Row(
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.error,
                                         color: PostTheme.failure,
                                       ),
-                                      SizedBox(width: 8),
+                                      const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          '上次发布未成功，内容已保留。',
-                                          style: TextStyle(
+                                          hhText(context, '上次发布未成功，内容已保留。'),
+                                          style: const TextStyle(
                                             color: PostTheme.muted,
                                           ),
                                         ),
@@ -726,9 +747,9 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                     ],
                                   ),
                                 ),
-                              const Text(
-                                '标题',
-                                style: TextStyle(
+                              Text(
+                                hhText(context, '标题'),
+                                style: const TextStyle(
                                   fontSize: 14,
                                   color: PostTheme.muted,
                                 ),
@@ -744,8 +765,8 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                   fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                 ),
-                                decoration: const InputDecoration(
-                                  hintText: '写一个标题',
+                                decoration: InputDecoration(
+                                  hintText: hhText(context, '写一个标题'),
                                   border: InputBorder.none,
                                 ),
                               ),
@@ -763,9 +784,9 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                 padding: EdgeInsets.symmetric(vertical: 16),
                                 child: Divider(),
                               ),
-                              const Text(
-                                '正文',
-                                style: TextStyle(
+                              Text(
+                                hhText(context, '正文'),
+                                style: const TextStyle(
                                   fontSize: 14,
                                   color: PostTheme.muted,
                                 ),
@@ -781,8 +802,8 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                   fontSize: 17,
                                   height: 1.7,
                                 ),
-                                decoration: const InputDecoration(
-                                  hintText: '想说的话，写在这里',
+                                decoration: InputDecoration(
+                                  hintText: hhText(context, '想说的话，写在这里'),
                                   border: InputBorder.none,
                                 ),
                               ),
@@ -804,9 +825,11 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                               if (widget.editor.isRetry) ...[
                                 const Divider(),
                                 const SizedBox(height: 20),
-                                const Text(
-                                  '发言身份',
-                                  style: TextStyle(color: PostTheme.muted),
+                                Text(
+                                  hhText(context, '发言身份'),
+                                  style: const TextStyle(
+                                    color: PostTheme.muted,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
@@ -815,7 +838,8 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
-                                        _retryIdentity?.nickname ?? '原发送身份',
+                                        _retryIdentity?.nickname ??
+                                            hhText(context, '原发送身份'),
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w600,
@@ -828,9 +852,11 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                 const SizedBox(height: 20),
                                 const Divider(),
                                 const SizedBox(height: 20),
-                                const Text(
-                                  '通道',
-                                  style: TextStyle(color: PostTheme.muted),
+                                Text(
+                                  hhText(context, '通道'),
+                                  style: const TextStyle(
+                                    color: PostTheme.muted,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
@@ -848,9 +874,11 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
-                                  '身份和通道保持不变',
-                                  style: TextStyle(color: PostTheme.muted),
+                                Text(
+                                  hhText(context, '身份和通道保持不变'),
+                                  style: const TextStyle(
+                                    color: PostTheme.muted,
+                                  ),
                                 ),
                               ],
                               if (_validation != null)
@@ -878,10 +906,10 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             widget.editor.saving
-                                ? '正在保存草稿'
+                                ? hhText(context, '正在保存草稿')
                                 : widget.editor.saved
-                                ? '草稿已保存'
-                                : '尚有未保存修改',
+                                ? hhText(context, '草稿已保存')
+                                : hhText(context, '尚有未保存修改'),
                             style: const TextStyle(color: PostTheme.muted),
                           ),
                         ),
@@ -907,7 +935,11 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                       !_retryPreparing
                                   ? _next
                                   : null,
-                              child: Text(_leaving ? '正在保存发布操作' : '确认重试'),
+                              child: Text(
+                                _leaving
+                                    ? hhText(context, '正在保存发布操作')
+                                    : hhText(context, '确认重试'),
+                              ),
                             ),
                           ),
                         ),
@@ -1000,17 +1032,17 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
                         children: [
                           Row(
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: Text(
-                                  '选择发言身份',
-                                  style: TextStyle(
+                                  hhText(context, '选择发言身份'),
+                                  style: const TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
                               IconButton(
-                                tooltip: '关闭身份选择',
+                                tooltip: hhText(context, '关闭身份选择'),
                                 onPressed: () => Navigator.of(context).pop(),
                                 icon: const Icon(Icons.close),
                               ),
@@ -1039,16 +1071,16 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
                           TextButton(
                             onPressed: () =>
                                 Navigator.of(context).pop('manage'),
-                            child: const Text('管理身份'),
+                            child: Text(hhText(context, '管理身份')),
                           ),
                         ],
                       ),
                     ),
                   ),
                 )
-              : const SizedBox(
+              : SizedBox(
                   height: 120,
-                  child: Center(child: Text('会话已变化，请重新登录。')),
+                  child: Center(child: Text(hhText(context, '会话已变化，请重新登录。'))),
                 ),
         ),
       ),
@@ -1111,7 +1143,7 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
             title: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('发布确认'),
+                Text(hhText(context, '发布确认')),
                 Text(
                   widget.channelName,
                   maxLines: 1,
@@ -1131,9 +1163,9 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
                         child: ListView(
                           padding: const EdgeInsets.all(20),
                           children: [
-                            const Text(
-                              '标题',
-                              style: TextStyle(color: PostTheme.muted),
+                            Text(
+                              hhText(context, '标题'),
+                              style: const TextStyle(color: PostTheme.muted),
                             ),
                             const SizedBox(height: 10),
                             Text(
@@ -1146,9 +1178,9 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
                             const SizedBox(height: 28),
                             const Divider(),
                             const SizedBox(height: 24),
-                            const Text(
-                              '发言身份',
-                              style: TextStyle(color: PostTheme.muted),
+                            Text(
+                              hhText(context, '发言身份'),
+                              style: const TextStyle(color: PostTheme.muted),
                             ),
                             if (_loading)
                               const Padding(
@@ -1162,14 +1194,14 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
                                 title: Text(
                                   selected?.nickname ??
                                       (widget.editor.isRetry
-                                          ? '原发送身份'
+                                          ? hhText(context, '原发送身份')
                                           : _identities.isEmpty
-                                          ? '先设置一个身份'
-                                          : '请选择身份'),
+                                          ? hhText(context, '先设置一个身份')
+                                          : hhText(context, '请选择身份')),
                                 ),
                                 subtitle: widget.editor.isRetry
-                                    ? const Text('重试保留原身份和通道')
-                                    : const Text('用于本次发布'),
+                                    ? Text(hhText(context, '重试保留原身份和通道'))
+                                    : Text(hhText(context, '用于本次发布')),
                                 trailing: widget.editor.isRetry
                                     ? null
                                     : const Icon(Icons.expand_more),
@@ -1181,7 +1213,7 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
                                 !widget.editor.isRetry)
                               TextButton(
                                 onPressed: _manage,
-                                child: const Text('设置身份'),
+                                child: Text(hhText(context, '设置身份')),
                               ),
                             if (widget.editor.error != null)
                               Text(
@@ -1204,7 +1236,11 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
                                     widget.editor.identityId != null
                                 ? _publish
                                 : null,
-                            child: Text(_publishing ? '正在保存发布操作' : '确认发布'),
+                            child: Text(
+                              _publishing
+                                  ? hhText(context, '正在保存发布操作')
+                                  : hhText(context, '确认发布'),
+                            ),
                           ),
                         ),
                       ),
@@ -1226,7 +1262,6 @@ class PersonalPostsScreen extends StatefulWidget {
     required this.channelNames,
     required this.onManageIdentities,
     required this.onAuthenticationRequired,
-    this.onOpenSettings,
     this.onPublishedToChannel,
     this.onChooseChannel,
     this.loadImages,
@@ -1237,7 +1272,6 @@ class PersonalPostsScreen extends StatefulWidget {
   final Map<String, String> channelNames;
   final Future<void> Function() onManageIdentities;
   final VoidCallback onAuthenticationRequired;
-  final VoidCallback? onOpenSettings;
   final ValueChanged<String>? onPublishedToChannel;
   final VoidCallback? onChooseChannel;
   final PostImagesLoader? loadImages;
@@ -1427,12 +1461,12 @@ class _PersonalCard extends StatelessWidget {
     final failed = !unknown && item.task?.state == PostTaskState.failed;
     final pending = !unknown && item.task?.state == PostTaskState.accepted;
     final label = unknown
-        ? _localPostState(item.state)
+        ? hhText(context, _localPostState(item.state))
         : pending
         ? '发布中'
         : failed
         ? '发布未成功'
-        : _localPostState(item.state);
+        : hhText(context, _localPostState(item.state));
     return Material(
       color: pending || failed
           ? HhTelegramPalette.of(context).raised
@@ -1448,7 +1482,7 @@ class _PersonalCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                item.title.isEmpty ? '未命名草稿' : item.title,
+                item.title.isEmpty ? hhText(context, '未命名草稿') : item.title,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -1469,7 +1503,7 @@ class _PersonalCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
-                        '草稿',
+                        hhText(context, '草稿'),
                         style: TextStyle(
                           color: HhTelegramPalette.of(context).onAccent,
                           fontSize: 12,
@@ -1481,7 +1515,7 @@ class _PersonalCard extends StatelessWidget {
                       Icon(
                         Icons.error,
                         color: HhTelegramPalette.of(context).error,
-                        semanticLabel: '发布未成功',
+                        semanticLabel: hhText(context, '发布未成功'),
                       ),
                     ],
                   ],
@@ -1490,7 +1524,7 @@ class _PersonalCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      '发布未成功',
+                      hhText(context, '发布未成功'),
                       style: TextStyle(
                         color: HhTelegramPalette.of(context).accent,
                       ),
@@ -1499,12 +1533,12 @@ class _PersonalCard extends StatelessWidget {
               ] else if (pending)
                 Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        semanticsLabel: '发布中',
+                        semanticsLabel: hhText(context, '发布中'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1527,7 +1561,7 @@ class _PersonalCard extends StatelessWidget {
                 ),
               const SizedBox(height: 12),
               Text(
-                '$channelName · ${_postDate(item.sortAt)}',
+                '$channelName · ${_postDate(context, item.sortAt)}',
                 style: TextStyle(
                   color: HhTelegramPalette.of(context).secondary,
                   fontSize: 12,
@@ -1538,7 +1572,9 @@ class _PersonalCard extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerRight,
                   child: IconButton(
-                    tooltip: onDeleteDraft != null ? '删除草稿' : '删除失败入口',
+                    tooltip: onDeleteDraft != null
+                        ? hhText(context, '删除草稿')
+                        : hhText(context, '删除失败入口'),
                     onPressed: onDeleteDraft ?? onDeleteTask,
                     icon: const Icon(Icons.delete_outline, size: 20),
                   ),
@@ -1662,11 +1698,14 @@ class _PostTaskScreenState extends State<_PostTaskScreen> {
       data: PostTheme.of(context),
       child: Builder(
         builder: (context) => Scaffold(
-          appBar: AppBar(title: const Text('发布任务')),
+          appBar: AppBar(title: Text(hhText(context, '发布任务'))),
           body: !_authority.current
               ? _AccessClosed(onAuthenticate: widget.onAuthenticationRequired)
               : item == null
-              ? const _PageState(title: '此任务已从列表移除', message: '返回自己的帖子查看当前结果。')
+              ? _PageState(
+                  title: hhText(context, '此任务已从列表移除'),
+                  message: hhText(context, '返回自己的帖子查看当前结果。'),
+                )
               : SafeArea(
                   top: false,
                   child: ListView(
@@ -1682,12 +1721,21 @@ class _PostTaskScreenState extends State<_PostTaskScreen> {
                       const SizedBox(height: 16),
                       Text(
                         task == null || resultUnknown
-                            ? _localPostState(item.state)
+                            ? hhText(context, _localPostState(item.state))
                             : switch (task.state) {
-                                PostTaskState.failed => '发布失败',
-                                PostTaskState.accepted => '处理中',
-                                PostTaskState.published => '已发布',
-                                PostTaskState.cancelled => '已取消',
+                                PostTaskState.failed => hhText(context, '发布失败'),
+                                PostTaskState.accepted => hhText(
+                                  context,
+                                  '处理中',
+                                ),
+                                PostTaskState.published => hhText(
+                                  context,
+                                  '已发布',
+                                ),
+                                PostTaskState.cancelled => hhText(
+                                  context,
+                                  '已取消',
+                                ),
                               },
                         style: const TextStyle(color: PostTheme.muted),
                       ),
@@ -1705,20 +1753,20 @@ class _PostTaskScreenState extends State<_PostTaskScreen> {
                       if (task == null || resultUnknown)
                         Text(
                           item.state == 'RESULT_EXPIRED'
-                              ? '原结果已无法完整核对，请停止重复发布。'
+                              ? hhText(context, '原结果已无法完整核对，请停止重复发布。')
                               : {
                                   'REJECTED',
                                   'NOT_ACCEPTED',
                                 }.contains(item.state)
-                              ? '服务端已明确拒绝原操作，未产生新发布效果。'
-                              : '原操作尚未得到权威结果，请先核对。',
+                              ? hhText(context, '服务端已明确拒绝原操作，未产生新发布效果。')
+                              : hhText(context, '原操作尚未得到权威结果，请先核对。'),
                         ),
                       const SizedBox(height: 24),
                       FilledButton(
                         onPressed: widget.controller.busy
                             ? null
                             : () => widget.controller.reconcile(item.id),
-                        child: const Text('核对原操作'),
+                        child: Text(hhText(context, '核对原操作')),
                       ),
                       if (item.rateLimitedDraft) ...[
                         RateLimitDraftNotice(
@@ -1735,7 +1783,7 @@ class _PostTaskScreenState extends State<_PostTaskScreen> {
                           onPressed: widget.controller.busy
                               ? null
                               : () => widget.controller.seal(item.id),
-                          child: const Text('停止尚未受理的原操作'),
+                          child: Text(hhText(context, '停止尚未受理的原操作')),
                         ),
                       if (task == null &&
                           {'REJECTED', 'NOT_ACCEPTED'}.contains(item.state) &&
@@ -1746,13 +1794,13 @@ class _PostTaskScreenState extends State<_PostTaskScreen> {
                           onPressed: widget.controller.busy
                               ? null
                               : () => _recover(item),
-                          child: const Text('恢复为新草稿'),
+                          child: Text(hhText(context, '恢复为新草稿')),
                         ),
                         TextButton(
                           onPressed: widget.controller.busy
                               ? null
                               : () => _discardUnaccepted(item),
-                          child: const Text('放弃未受理文字'),
+                          child: Text(hhText(context, '放弃未受理文字')),
                         ),
                       ],
                       if (!resultUnknown && task?.canCancel == true)
@@ -1761,7 +1809,7 @@ class _PostTaskScreenState extends State<_PostTaskScreen> {
                               ? null
                               : () =>
                                     widget.controller.cancelTask(task!.taskId),
-                          child: const Text('取消本次发布'),
+                          child: Text(hhText(context, '取消本次发布')),
                         ),
                       if (!resultUnknown &&
                           item.local?.data['images'] is List &&
@@ -1776,19 +1824,21 @@ class _PostTaskScreenState extends State<_PostTaskScreen> {
                           onPressed: widget.controller.busy
                               ? null
                               : () => _retry(task!),
-                          child: const Text('修改文字重试'),
+                          child: Text(hhText(context, '修改文字重试')),
                         ),
                       if (!resultUnknown && task?.canHide == true)
                         TextButton(
                           onPressed: widget.controller.busy
                               ? null
                               : () => _hide(task!),
-                          child: const Text('删除失败入口'),
+                          child: Text(hhText(context, '删除失败入口')),
                         ),
                       if (widget.controller.errorMessage != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 12),
-                          child: Text(widget.controller.errorMessage!),
+                          child: Text(
+                            hhText(context, widget.controller.errorMessage!),
+                          ),
                         ),
                     ],
                   ),
@@ -1956,7 +2006,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         appBar: AppBar(
           centerTitle: false,
           title: Text(
-            '帖子',
+            hhText(context, '帖子'),
             style: detailType(context, 20, weight: FontWeight.w500),
           ),
           leading: BackButton(onPressed: () => Navigator.maybePop(context)),
@@ -1967,8 +2017,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ? const SizedBox.shrink()
             : !_loading && _post == null
             ? _PageState(
-                title: '帖子不存在或暂时无法读取',
-                message: '暂时无法读取，请重试。',
+                title: hhText(context, '帖子不存在或暂时无法读取'),
+                message: hhText(context, '暂时无法读取，请重试。'),
                 action: '重新核对',
                 onAction: _load,
               )
@@ -2009,9 +2059,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       ),
     ),
   );
-  Widget _loadingBody() => const SizedBox(
+  Widget _loadingBody() => SizedBox(
     height: 240,
-    child: Center(child: CircularProgressIndicator(semanticsLabel: '正在加载帖子')),
+    child: Center(
+      child: CircularProgressIndicator(
+        semanticsLabel: hhText(context, '正在加载帖子'),
+      ),
+    ),
   );
   Widget _postMenu() =>
       !_authority.current ||
@@ -2019,7 +2073,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           !(_canDelete || GovernanceScope.maybeOf(context) != null)
       ? const SizedBox(width: 48)
       : PopupMenuButton<String>(
-          tooltip: '帖子操作',
+          tooltip: hhText(context, '帖子操作'),
           enabled: !_deleting,
           icon: const DetailChromeIcon(
             DetailChrome.more,
@@ -2029,9 +2083,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           itemBuilder: (context) => [
             if (_post != null &&
                 GovernanceScope.maybeOf(context)?.available == true)
-              const PopupMenuItem(value: 'report', child: Text('举报帖子')),
+              PopupMenuItem(
+                value: 'report',
+                child: Builder(
+                  builder: (context) => Text(hhText(context, '举报帖子')),
+                ),
+              ),
             if (_canDelete)
-              const PopupMenuItem(value: 'delete', child: Text('删除帖子')),
+              PopupMenuItem(
+                value: 'delete',
+                child: Builder(
+                  builder: (context) => Text(hhText(context, '删除帖子')),
+                ),
+              ),
           ],
           onSelected: (action) {
             if (action == 'delete') {
@@ -2070,7 +2134,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               GestureDetector(
                 onTap: () => unawaited(DmScope.contact(context, widget.postId)),
                 child: DetailAvatar(
-                  name: post.author.displayName,
+                  name: localizedPostAuthor(context, post.author),
                   avatar: post.author.avatar,
                 ),
               ),
@@ -2088,12 +2152,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               if (!_authority.current) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(post.author.inactiveMessage!),
+                                  content: Text(
+                                    hhText(
+                                      context,
+                                      post.author.inactiveMessage!,
+                                    ),
+                                  ),
                                 ),
                               );
                             },
                       child: Text(
-                        post.author.displayName,
+                        localizedPostAuthor(context, post.author),
                         style: detailType(context, 17, weight: FontWeight.w500),
                       ),
                     ),
@@ -2138,7 +2207,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               TextSpan(
                 children: [
                   TextSpan(
-                    text: '${_postDate(post.publishedAt)} · ',
+                    text: '${_postDate(context, post.publishedAt)} · ',
                     style: detailType(context, 13.5, color: PostTheme.muted),
                   ),
                   TextSpan(
@@ -2147,14 +2216,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     style: detailType(context, 13.5, weight: FontWeight.w500),
                   ),
                   TextSpan(
-                    text: ' 次浏览',
+                    text: hhText(context, ' 次浏览'),
                     style: detailType(context, 13.5, color: PostTheme.muted),
                   ),
                 ],
               ),
             ),
           ),
-          if (_deleteError != null) Text(_deleteError!),
+          if (_deleteError != null) Text(hhText(context, _deleteError!)),
           if (widget.controller.supportsInteractions) _interactionBar(),
         ],
       ),
@@ -2197,7 +2266,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               Builder(
                 builder: (context) => DetailAction(
                   action: FeedAction.comment,
-                  label: '评论',
+                  label: hhText(context, '评论'),
                   count: '${_commentCount ?? state.value?.commentCount ?? '—'}',
                   onPressed: CommentScope.maybeOf(context) == null
                       ? null
@@ -2207,7 +2276,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               DetailAction(
                 buttonKey: ValueKey('detail-like:${widget.postId}'),
                 action: FeedAction.like,
-                label: state.liked ? '取消点赞' : '点赞',
+                label: state.liked
+                    ? hhText(context, '取消点赞')
+                    : hhText(context, '点赞'),
                 selected: state.liked,
                 count: '${state.likes ?? '—'}',
                 onPressed: state.canChange
@@ -2217,7 +2288,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               DetailAction(
                 buttonKey: ValueKey('detail-favorite:${widget.postId}'),
                 action: FeedAction.bookmark,
-                label: state.favorited ? '取消收藏' : '收藏',
+                label: state.favorited
+                    ? hhText(context, '取消收藏')
+                    : hhText(context, '收藏'),
                 selected: state.favorited,
                 count: '${favorites ?? '—'}',
                 onPressed: state.canChange
@@ -2225,7 +2298,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     : null,
               ),
               PostRepostButton(controller: c, postId: widget.postId),
-              const DetailAction(action: FeedAction.share, label: '分享（暂未开放）'),
+              DetailAction(
+                action: FeedAction.share,
+                label: hhText(context, '分享（暂未开放）'),
+              ),
             ];
             if (MediaQuery.textScalerOf(context).scale(14) > 21 ||
                 constraints.maxWidth < 300) {
@@ -2250,7 +2326,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(error),
+                Text(hhText(context, error)),
                 TextButton(
                   onPressed: state.sending
                       ? null
@@ -2264,7 +2340,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             );
                           }
                         },
-                  child: Text(notice.$2 ? '重试' : '重新读取'),
+                  child: Text(
+                    notice.$2 ? hhText(context, '重试') : hhText(context, '重新读取'),
+                  ),
                 ),
               ],
             ),
@@ -2310,7 +2388,7 @@ class _PostCardWidget extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 40),
                   child: Text(
-                    _postDate(post.publishedAt),
+                    _postDate(context, post.publishedAt),
                     style: const TextStyle(
                       fontSize: 12,
                       color: PostTheme.muted,
@@ -2334,8 +2412,9 @@ class _AuthorWidget extends StatelessWidget {
   Widget build(BuildContext context) => InkWell(
     onTap: author.inactiveMessage == null
         ? null
-        : () => ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(author.inactiveMessage!))),
+        : () => ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(hhText(context, author.inactiveMessage!))),
+          ),
     child: ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48),
       child: Row(
@@ -2345,7 +2424,7 @@ class _AuthorWidget extends StatelessWidget {
           const SizedBox(width: 8),
           Flexible(
             child: Text(
-              author.displayName,
+              localizedPostAuthor(context, author),
               style: const TextStyle(fontSize: 13, color: PostTheme.muted),
             ),
           ),
@@ -2393,7 +2472,7 @@ class _PageState extends StatelessWidget {
           Semantics(
             liveRegion: announceTitle,
             child: Text(
-              title,
+              hhText(context, title),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
             ),
@@ -2401,7 +2480,7 @@ class _PageState extends StatelessWidget {
           if (message != null) ...[
             const SizedBox(height: 12),
             Text(
-              message!,
+              hhText(context, message!),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 16,
@@ -2414,7 +2493,7 @@ class _PageState extends StatelessWidget {
             const SizedBox(height: 20),
             if (actionIcon != null)
               IconButton(
-                tooltip: action,
+                tooltip: hhText(context, action!),
                 onPressed: onAction,
                 icon: Icon(
                   actionIcon,
@@ -2423,7 +2502,10 @@ class _PageState extends StatelessWidget {
                 ),
               )
             else
-              FilledButton(onPressed: onAction, child: Text(action!)),
+              FilledButton(
+                onPressed: onAction,
+                child: Text(hhText(context, action!)),
+              ),
           ],
         ],
       ),
@@ -2446,8 +2528,14 @@ class _LoadMore extends StatelessWidget {
       child: loading
           ? const CircularProgressIndicator()
           : hasMore
-          ? TextButton(onPressed: onPressed, child: const Text('加载更多'))
-          : const Text('已显示当前内容', style: TextStyle(color: PostTheme.muted)),
+          ? TextButton(
+              onPressed: onPressed,
+              child: Text(hhText(context, '加载更多')),
+            )
+          : Text(
+              hhText(context, '已显示当前内容'),
+              style: const TextStyle(color: PostTheme.muted),
+            ),
     ),
   );
 }
@@ -2457,8 +2545,8 @@ class _AccessClosed extends StatelessWidget {
   final VoidCallback? onAuthenticate;
   @override
   Widget build(BuildContext context) => _PageState(
-    title: '请重新核对登录状态',
-    message: '原账号的草稿和发布任务保留，登录后继续核对。',
+    title: hhText(context, '请重新核对登录状态'),
+    message: hhText(context, '原账号的草稿和发布任务保留，登录后继续核对。'),
     action: onAuthenticate == null ? null : '登录或恢复',
     onAction: onAuthenticate,
   );
@@ -2518,7 +2606,7 @@ Future<bool?> _confirmScoped(
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             child: Text(
-                              title,
+                              hhText(context, title),
                               textAlign: TextAlign.center,
                               style: PostTheme.dialogQuestion.copyWith(
                                 color: dialogTheme.colorScheme.onSurface,
@@ -2529,7 +2617,7 @@ Future<bool?> _confirmScoped(
                             Padding(
                               padding: const EdgeInsets.only(bottom: 16),
                               child: Text(
-                                message,
+                                hhText(context, message),
                                 textAlign: TextAlign.center,
                                 style: theme == null
                                     ? PostTheme.dialogBody
@@ -2547,13 +2635,13 @@ Future<bool?> _confirmScoped(
                                 child: OutlinedButton(
                                   onPressed: () =>
                                       Navigator.of(context).pop(false),
-                                  child: const Text('取消'),
+                                  child: Text(hhText(context, '取消')),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Semantics(
-                                  label: action,
+                                  label: hhText(context, action),
                                   child: FilledButton(
                                     key: const ValueKey(
                                       'scoped-confirm-action',
@@ -2567,7 +2655,7 @@ Future<bool?> _confirmScoped(
                                     ),
                                     onPressed: () =>
                                         Navigator.of(context).pop(true),
-                                    child: const Text('确认'),
+                                    child: Text(hhText(context, '确认')),
                                   ),
                                 ),
                               ),
@@ -2575,7 +2663,10 @@ Future<bool?> _confirmScoped(
                           ),
                         ],
                       )
-                    : const Text('会话已变化，请重新登录。', textAlign: TextAlign.center),
+                    : Text(
+                        hhText(context, '会话已变化，请重新登录。'),
+                        textAlign: TextAlign.center,
+                      ),
               ),
             ),
           ),
@@ -2585,9 +2676,10 @@ Future<bool?> _confirmScoped(
   );
 }
 
-String _postDate(DateTime date) {
+String _postDate(BuildContext context, DateTime date) {
   final local = date.toLocal();
-  return '${local.month}月${local.day}日 ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  final labels = MaterialLocalizations.of(context);
+  return '${labels.formatMediumDate(local)} ${labels.formatTimeOfDay(TimeOfDay.fromDateTime(local), alwaysUse24HourFormat: true)}';
 }
 
 String _localPostState(String state) => switch (state) {

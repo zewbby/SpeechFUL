@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:hnuhole_mobile/src/design_system/telegram_theme.dart';
 import 'package:hnuhole_mobile/src/identity/identity_avatar.dart';
@@ -14,6 +15,31 @@ import 'login_home_test_support.dart';
 import 'feed_ui_test.dart' as feed;
 
 import 'package:hnuhole_mobile/hnuhole_mobile.dart';
+
+Finder profileTab(int index) => find.byKey(ValueKey('profile-tab-$index'));
+
+void expectProfileSelection(WidgetTester tester, int selected) {
+  const labels = ['帖子', '回复', '转帖', '喜欢', '收藏'];
+  final palette = HhTelegramPalette.of(tester.element(profileTab(selected)));
+  for (var i = 0; i < labels.length; i++) {
+    expect(find.text(labels[i]), i == selected ? findsOneWidget : findsNothing);
+    final node = tester.getSemantics(profileTab(i));
+    final data = node.getSemanticsData();
+    expect(data.label, contains(labels[i]));
+    expect(data.flagsCollection.isSelected.toBoolOrNull(), i == selected);
+    expect(data.hasAction(SemanticsAction.tap), isTrue);
+  }
+  expect(
+    tester.widget<Text>(find.text(labels[selected])).style!.color,
+    palette.accent,
+  );
+  expect(
+    tester
+        .widget<ColoredBox>(find.byKey(const ValueKey('profile-tab-indicator')))
+        .color,
+    palette.accent,
+  );
+}
 
 void main() {
   testWidgets(
@@ -35,7 +61,7 @@ void main() {
         find.descendant(of: account, matching: find.byType(IdentityAvatar)),
       );
       expect(avatar().avatar, firstAvatar);
-      await tester.tap(account);
+      await tester.tap(find.byKey(const ValueKey('destination:personal')));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('切换身份'));
       await tester.pumpAndSettle();
@@ -84,7 +110,7 @@ void main() {
         final palette = HhTelegramPalette.of(
           tester.element(find.byType(HhXPostFeed)),
         );
-        await tester.tap(find.byKey(const ValueKey('feed-account')));
+        await tester.tap(find.byKey(const ValueKey('destination:personal')));
         await tester.pumpAndSettle();
         final profile = find.byType(PersonalPostsScreen);
         final scaffold = find
@@ -101,6 +127,12 @@ void main() {
               .color,
           palette.action,
         );
+        expect(find.byTooltip('搜索我的帖子'), findsNothing);
+        expect(find.byTooltip('设置'), findsNothing);
+        expect(find.byType(TextField), findsNothing);
+        final semantics = tester.ensureSemantics();
+        expectProfileSelection(tester, 0);
+        semantics.dispose();
         final body = find.text('主题一致的帖子');
         expect(Theme.of(tester.element(body)).brightness, brightness);
         expect(
@@ -135,12 +167,15 @@ void main() {
   }
 
   testWidgets(
-    'five labels animate on narrow screen; identities isolate posts but share collections',
+    'only the selected tab label animates in blue on narrow screens; collection ownership stays intact',
     (tester) async {
       tester.view.physicalSize = const Size(393, 852);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final semantics = tester.ensureSemantics();
       final f = HomeTestFixture();
       await tester.pumpWidget(await f.create());
       await tester.pumpAndSettle();
@@ -162,13 +197,11 @@ void main() {
       f.postApi.items = [firstPost, secondPost];
       f.postApi.likedItems = [firstPost];
       f.postApi.favoriteItems = [secondPost];
-      await tester.tap(find.byKey(const ValueKey('feed-account')));
+      await tester.tap(find.byKey(const ValueKey('destination:personal')));
       await tester.pumpAndSettle();
       tester.view.physicalSize = const Size(320, 740);
       await tester.pumpAndSettle();
-      for (final label in ['帖子', '回复', '转帖', '喜欢', '收藏']) {
-        expect(find.text(label), findsOneWidget);
-      }
+      expectProfileSelection(tester, 0);
       expect(find.byKey(const ValueKey('profile-title')), findsOneWidget);
       expect(find.byIcon(Icons.swap_horiz), findsNothing);
       final chip = find.byKey(const ValueKey('personal-profile'));
@@ -180,26 +213,41 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('第一身份的帖子'), findsOneWidget);
-      final small = tester.widget<Text>(find.text('喜欢')).style!.fontSize!;
-      await tester.tap(find.text('喜欢'));
+      final small = tester
+          .widget<Icon>(
+            find
+                .descendant(of: profileTab(3), matching: find.byType(Icon))
+                .first,
+          )
+          .size!;
+      await tester.tap(profileTab(3));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 60));
-      final middle = tester.widget<Text>(find.text('喜欢')).style!.fontSize!;
+      final middle = tester
+          .widget<Icon>(
+            find
+                .descendant(of: profileTab(3), matching: find.byType(Icon))
+                .first,
+          )
+          .size!;
       expect(middle, greaterThan(small));
-      expect(middle, lessThan(14));
+      expect(middle, lessThan(21));
       await tester.pumpAndSettle();
       expect(tester.widget<Text>(find.text('喜欢')).style!.fontSize, 14);
+      expectProfileSelection(tester, 3);
       await tester.tap(find.byTooltip('切换身份'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-identity-$second')));
       await tester.pumpAndSettle();
       expect(find.text('身份二'), findsOneWidget);
       expect(find.text('第一身份的帖子'), findsOneWidget); // account-shared likes
-      await tester.tap(find.text('收藏'));
+      await tester.tap(profileTab(4));
       await tester.pumpAndSettle();
+      expectProfileSelection(tester, 4);
       expect(find.text('第二身份的帖子'), findsOneWidget);
-      await tester.tap(find.text('帖子'));
+      await tester.tap(profileTab(0));
       await tester.pumpAndSettle();
+      expectProfileSelection(tester, 0);
       expect(find.text('第一身份的帖子'), findsNothing);
       expect(find.text('第二身份的帖子'), findsOneWidget);
       // Complete the older identity response after switching back: it cannot overwrite.
@@ -225,10 +273,16 @@ void main() {
       f.postApi.identityWaits.clear();
       await f.posts.selectPersonalIdentity(identityTestId);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('收藏'));
+      await tester.tap(profileTab(4));
       await tester.pumpAndSettle();
       expect(find.text('第二身份的帖子'), findsOneWidget); // account-shared favorites
+      for (final tab in [1, 2]) {
+        await tester.tap(profileTab(tab));
+        await tester.pumpAndSettle();
+        expectProfileSelection(tester, tab);
+      }
       expect(tester.takeException(), isNull);
+      semantics.dispose();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     },
@@ -253,7 +307,7 @@ void main() {
       f.postApi.ownItems = posts
           .map((p) => OwnPostCard(post: p, serverSortAt: p.publishedAt))
           .toList();
-      await tester.tap(find.byKey(const ValueKey('feed-account')));
+      await tester.tap(find.byKey(const ValueKey('destination:personal')));
       await tester.pumpAndSettle();
       expect(find.byType(HhXPostItem), findsWidgets);
       await tester.drag(

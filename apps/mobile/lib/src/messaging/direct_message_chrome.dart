@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../design_system/telegram_theme.dart';
+import '../localization/app_localizations.dart';
 import 'direct_message_composer.dart';
 import 'direct_message_models.dart';
 
@@ -33,7 +34,7 @@ class HhDmHeader extends StatelessWidget {
             color: p.surface.withValues(alpha: .94),
             shape: const CircleBorder(),
             child: IconButton(
-              tooltip: '返回',
+              tooltip: hhText(context, '返回'),
               onPressed: onBack,
               style: IconButton.styleFrom(
                 fixedSize: const Size(52, 52),
@@ -74,7 +75,7 @@ class HhDmHeader extends StatelessWidget {
                             ),
                             Text(
                               view.privateNote == null
-                                  ? '私密会话'
+                                  ? hhText(context, '私密会话')
                                   : view.recipient.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -98,7 +99,7 @@ class HhDmHeader extends StatelessWidget {
             shape: const CircleBorder(),
             child: PopupMenuButton<int>(
               key: const ValueKey('dm-conversation-menu'),
-              tooltip: '会话选项',
+              tooltip: hhText(context, '会话选项'),
               requestFocus: false,
               constraints: const BoxConstraints(minWidth: 210, maxWidth: 280),
               shape: RoundedRectangleBorder(
@@ -115,35 +116,41 @@ class HhDmHeader extends StatelessWidget {
               },
               itemBuilder: (_) => [
                 if (onManage != null)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 2,
-                    child: Row(
-                      children: [
-                        Icon(Icons.tune, size: 22),
-                        SizedBox(width: 18),
-                        Text('会话管理'),
-                      ],
+                    child: Builder(
+                      builder: (context) => Row(
+                        children: [
+                          const Icon(Icons.tune, size: 22),
+                          const SizedBox(width: 18),
+                          Flexible(child: Text(hhText(context, '会话管理'))),
+                        ],
+                      ),
                     ),
                   ),
                 PopupMenuItem(
                   value: 0,
                   enabled: !view.sourceDeleted,
-                  child: const Row(
-                    children: [
-                      Icon(Icons.article_outlined, size: 22),
-                      SizedBox(width: 18),
-                      Flexible(child: Text('查看来源帖')),
-                    ],
+                  child: Builder(
+                    builder: (context) => Row(
+                      children: [
+                        const Icon(Icons.article_outlined, size: 22),
+                        const SizedBox(width: 18),
+                        Flexible(child: Text(hhText(context, '查看来源帖'))),
+                      ],
+                    ),
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 1,
-                  child: Row(
-                    children: [
-                      Icon(Icons.copy_outlined, size: 22),
-                      SizedBox(width: 18),
-                      Flexible(child: Text('复制昵称')),
-                    ],
+                  child: Builder(
+                    builder: (context) => Row(
+                      children: [
+                        const Icon(Icons.copy_outlined, size: 22),
+                        const SizedBox(width: 18),
+                        Flexible(child: Text(hhText(context, '复制昵称'))),
+                      ],
+                    ),
                   ),
                 ),
               ],

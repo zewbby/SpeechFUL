@@ -21,30 +21,34 @@ Future<void> showDmManagement(
                   ? directory['note']
                   : directory['peerName'],
             ),
-            subtitle: const Text('仅管理本人这段会话'),
+            subtitle: Text(hhText(context, '仅管理本人这段会话')),
           ),
           for (final option in [
             (
               'pin',
-              directory['pinned'] == true ? '取消置顶' : '置顶',
+              directory['pinned'] == true
+                  ? hhText(context, '取消置顶')
+                  : hhText(context, '置顶'),
               Icons.push_pin_outlined,
             ),
             (
               'mute',
-              directory['muted'] == true ? '取消免打扰' : '免打扰',
+              directory['muted'] == true
+                  ? hhText(context, '取消免打扰')
+                  : hhText(context, '免打扰'),
               Icons.notifications_off_outlined,
             ),
-            ('note', '私人备注', Icons.edit_note),
-            ('hide', '不显示', Icons.visibility_off_outlined),
-            ('delete', '删除聊天', Icons.delete_outline),
+            ('note', hhText(context, '私人备注'), Icons.edit_note),
+            ('hide', hhText(context, '不显示'), Icons.visibility_off_outlined),
+            ('delete', hhText(context, '删除聊天'), Icons.delete_outline),
             (
               'block',
               (directory['ownBlockId'] as String?)?.isNotEmpty == true
-                  ? '解除拉黑'
-                  : '拉黑',
+                  ? hhText(context, '解除拉黑')
+                  : hhText(context, '拉黑'),
               Icons.block_outlined,
             ),
-            ('report', '举报', Icons.flag_outlined),
+            ('report', hhText(context, '举报'), Icons.flag_outlined),
           ])
             ListTile(
               key: ValueKey('dm-manage-${option.$1}'),
@@ -54,7 +58,7 @@ Future<void> showDmManagement(
             ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(hhText(context, '取消')),
           ),
         ],
       ),
@@ -70,21 +74,21 @@ Future<void> showDmManagement(
     final value = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('私人备注'),
+        title: Text(hhText(context, '私人备注')),
         content: TextField(
           key: const ValueKey('dm-note-input'),
           controller: text,
           maxLength: 100,
-          decoration: const InputDecoration(hintText: '仅本人可见，留空清除'),
+          decoration: InputDecoration(hintText: hhText(context, '仅本人可见，留空清除')),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(hhText(context, '取消')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, text.text),
-            child: const Text('保存'),
+            child: Text(hhText(context, '保存')),
           ),
         ],
       ),
@@ -116,23 +120,29 @@ Future<void> showDmManagement(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              action == 'hide' ? '不显示这段会话？' : '删除本人聊天记录？',
+              action == 'hide'
+                  ? hhText(context, '不显示这段会话？')
+                  : hhText(context, '删除本人聊天记录？'),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
             Text(
               action == 'hide'
-                  ? '记录和备注保留，新消息或搜索打开后恢复显示。'
-                  : '清除本人当前已看到的历史和草稿，保留备注；对方记录不受影响。',
+                  ? hhText(context, '记录和备注保留，新消息或搜索打开后恢复显示。')
+                  : hhText(context, '清除本人当前已看到的历史和草稿，保留备注；对方记录不受影响。'),
             ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(action == 'hide' ? '不显示' : '删除聊天'),
+              child: Text(
+                action == 'hide'
+                    ? hhText(context, '不显示')
+                    : hhText(context, '删除聊天'),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
+              child: Text(hhText(context, '取消')),
             ),
           ],
         ),
@@ -175,13 +185,15 @@ extension _ChatPhotoUi on _DmChatRouteState {
           inspected.bytes,
         );
         if (!mounted || c.scope != expected) break;
-        final image = DmImage(id: id, description: '待发送图片');
+        final image = DmImage(id: id, description: hhText(context, '待发送图片'));
         _draftImages.add(image);
         selected.add(image);
       } catch (_) {
         if (mounted && c.scope == expected) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('部分图片无法保存或超过格式/大小限制，请重选或移除')),
+            SnackBar(
+              content: Text(hhText(context, '部分图片无法保存或超过格式/大小限制，请重选或移除')),
+            ),
           );
         }
       }
@@ -216,30 +228,33 @@ extension _ChatPhotoUi on _DmChatRouteState {
         return bytes;
       });
 
-  Widget _photoWidget(
-    BuildContext context,
-    DmImage image,
-  ) => FutureBuilder<Uint8List>(
-    future: _photoBytes(image.id),
-    builder: (context, snapshot) {
-      if (snapshot.hasError) {
-        return const Center(
-          child: Icon(Icons.broken_image_outlined, semanticLabel: '本地图片暂时不可用'),
-        );
-      }
-      final data = snapshot.data;
-      if (data == null) return const Center(child: CircularProgressIndicator());
-      final provider = _photoProviders.putIfAbsent(
-        image.id,
-        () => MemoryImage(data),
+  Widget _photoWidget(BuildContext context, DmImage image) =>
+      FutureBuilder<Uint8List>(
+        future: _photoBytes(image.id),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Icon(
+                Icons.broken_image_outlined,
+                semanticLabel: hhText(context, '本地图片暂时不可用'),
+              ),
+            );
+          }
+          final data = snapshot.data;
+          if (data == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final provider = _photoProviders.putIfAbsent(
+            image.id,
+            () => MemoryImage(data),
+          );
+          return Image(
+            image: provider,
+            fit: BoxFit.cover,
+            excludeFromSemantics: true,
+          );
+        },
       );
-      return Image(
-        image: provider,
-        fit: BoxFit.cover,
-        excludeFromSemantics: true,
-      );
-    },
-  );
 
   void _releasePhotos() {
     _viewer?.invalidateAccess();
@@ -393,8 +408,18 @@ extension _ChatPhotoUi on _DmChatRouteState {
               for (final image in group)
                 DmImage(
                   id: image['_id'],
-                  description:
-                      '第${((image['outgoing'] == true ? (image['intent'] as Map)['position'] : image['position']) as int) + 1}张图片',
+                  description: hhText(
+                    context,
+                    '第{index}张图片',
+                    args: {
+                      'index':
+                          ((image['outgoing'] == true
+                                  ? (image['intent'] as Map)['position']
+                                  : image['position'])
+                              as int) +
+                          1,
+                    },
+                  ),
                   state: _sendState(image['_state']),
                   canRecall: recall(image),
                 ),
@@ -419,7 +444,13 @@ extension _ChatPhotoUi on _DmChatRouteState {
           time: date == null
               ? ''
               : '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}',
-          dayLabel: date == null ? '' : '${date.month}月${date.day}日',
+          dayLabel: date == null
+              ? ''
+              : hhText(
+                  context,
+                  '{month}月{day}日',
+                  args: {'month': date.month, 'day': date.day},
+                ),
           visibleMessageIds: group.map((v) => v['_id'] as String).toList(),
         ),
       );

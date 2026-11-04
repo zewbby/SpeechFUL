@@ -103,12 +103,22 @@ const _feed = ValueKey('production-feed');
 String _id(int index) =>
     '00000000-0000-4000-8000-${index.toString().padLeft(12, '0')}';
 
-Future<feed.FeedFixture> _start(WidgetTester tester, _SearchApi api) async {
-  await tester.binding.setSurfaceSize(const Size(390, 760));
+Future<feed.FeedFixture> _start(
+  WidgetTester tester,
+  _SearchApi api, {
+  AuthPresentationController? presentation,
+  Size size = const Size(390, 760),
+}) async {
+  await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   final fixture = feed.FeedFixture(await IdentityTestFixture.create(), api);
   addTearDown(fixture.dispose);
-  await tester.pumpWidget(feed.screen(fixture));
+  final screen = feed.screen(fixture);
+  await tester.pumpWidget(
+    presentation == null
+        ? screen
+        : AuthPresentationScope(controller: presentation, child: screen),
+  );
   await tester.pumpAndSettle();
   return fixture;
 }
@@ -135,6 +145,36 @@ Future<void> _back(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'search labels follow the app language and keep keywords verbatim',
+    (tester) async {
+      final presentation = AuthPresentationController();
+      addTearDown(presentation.dispose);
+      presentation.setLanguage(AppLanguage.english);
+      await _start(
+        tester,
+        _SearchApi(),
+        presentation: presentation,
+        size: const Size(760, 760),
+      );
+      expect(find.byTooltip('Search posts'), findsOneWidget);
+      await _open(tester);
+      expect(find.text('All categories'), findsOneWidget);
+      expect(find.text('No search history'), findsOneWidget);
+
+      await _submit(tester, '自习');
+      await tester.pumpAndSettle();
+      expect(find.text('No matching posts'), findsOneWidget);
+      presentation.setLanguage(AppLanguage.japanese);
+      await tester.pumpAndSettle();
+      expect(find.text('一致する投稿がありません'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byKey(_input)).controller!.text,
+        '自习',
+      );
+    },
+  );
+
   testWidgets('explicit submission records history during scope refresh', (
     tester,
   ) async {

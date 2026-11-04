@@ -1,3 +1,5 @@
+import '../localization/app_localizations.dart';
+
 import 'dart:async';
 
 import '../design_system/detail_components.dart';
@@ -165,8 +167,9 @@ class _FeedScreenState extends State<FeedScreen> {
     if (!current || _replyOpen || c.isPostDeleted(post.postId)) return;
     final runtime = _comments;
     if (runtime == null || !runtime.available) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('评论暂时不可用，请稍后重试。')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(hhText(context, '评论暂时不可用，请稍后重试。'))),
+      );
       return;
     }
     if (_replyEditors[post.postId]?.active == false) {
@@ -199,8 +202,9 @@ class _FeedScreenState extends State<FeedScreen> {
             if (!current) return;
             _replyEditors.remove(post.postId);
             editor.leave();
-            ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('正在发送回复')));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(hhText(context, '正在发送回复'))));
           },
         ),
       );
@@ -345,7 +349,7 @@ class _FeedScreenState extends State<FeedScreen> {
             body: Center(
               child: TextButton(
                 onPressed: widget.onAuthenticationRequired,
-                child: const Text('登录或核对会话'),
+                child: Text(hhText(context, '登录或核对会话')),
               ),
             ),
           );
@@ -424,11 +428,11 @@ class _FeedScreenState extends State<FeedScreen> {
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
-                          Text(c.timelineError!),
+                          Text(hhText(context, c.timelineError!)),
                           TextButton(
                             onPressed: () =>
                                 c.loadTimeline(channelId: c.timelineChannelId),
-                            child: const Text('重新加载'),
+                            child: Text(hhText(context, '重新加载')),
                           ),
                         ],
                       ),
@@ -445,11 +449,11 @@ class _FeedScreenState extends State<FeedScreen> {
                       ),
                       child: Column(
                         children: [
-                          const Text('暂无可显示的帖子'),
+                          Text(hhText(context, '暂无可显示的帖子')),
                           if (c.blockedChannelIds.isNotEmpty)
                             TextButton(
                               onPressed: () => _filter(context),
-                              child: const Text('调整屏蔽设置'),
+                              child: Text(hhText(context, '调整屏蔽设置')),
                             ),
                         ],
                       ),
@@ -463,9 +467,9 @@ class _FeedScreenState extends State<FeedScreen> {
                       post: FeedPostView(
                         id: post.postId,
                         authorId: '',
-                        authorName: post.author.displayName,
-                        elapsed:
-                            '${post.publishedAt.toLocal().month}月${post.publishedAt.toLocal().day}日',
+                        authorName: localizedPostAuthor(context, post.author),
+                        elapsed: MaterialLocalizations.of(context)
+                            .formatShortDate(post.publishedAt.toLocal()),
                         title: post.title,
                         body: post.body,
                         views: c.postViewCount(post.postId),
@@ -497,7 +501,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         },
                       ),
                       avatarBuilder: (_, _) => DetailAvatar(
-                        name: post.author.displayName,
+                        name: localizedPostAuthor(context, post.author),
                         avatar: post.author.avatar,
                         radius: 20,
                       ),
@@ -566,7 +570,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           padding: const EdgeInsets.only(left: 64, right: 16),
                           child: Row(
                             children: [
-                              Expanded(child: Text(error)),
+                              Expanded(child: Text(hhText(context, error))),
                               TextButton(
                                 key: ValueKey(
                                   'interaction-${notice.$2 ? '' : 'read-'}retry:${post.postId}',
@@ -587,7 +591,11 @@ class _FeedScreenState extends State<FeedScreen> {
                                           );
                                         }
                                       },
-                                child: Text(notice.$2 ? '重试' : '重新读取'),
+                                child: Text(
+                                  notice.$2
+                                      ? hhText(context, '重试')
+                                      : hhText(context, '重新读取'),
+                                ),
                               ),
                             ],
                           ),
@@ -600,7 +608,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         channelId: c.timelineChannelId,
                         more: true,
                       ),
-                      child: const Text('加载更多'),
+                      child: Text(hhText(context, '加载更多')),
                     ),
                 ],
               ),
@@ -612,12 +620,12 @@ class _FeedScreenState extends State<FeedScreen> {
                   child: Material(
                     color: HhTelegramPalette.of(context).action,
                     borderRadius: const BorderRadius.all(Radius.circular(8)),
-                    child: const Padding(
-                      padding: EdgeInsets.all(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
                       child: Text(
-                        '发布成功！',
+                        hhText(context, '发布成功！'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.white),
                       ),
                     ),
                   ),
@@ -660,7 +668,7 @@ class FeedStartupScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: '正在准备首页',
+    label: hhText(context, '正在准备首页'),
     child: ExcludeSemantics(
       child: ExcludeFocus(
         child: IgnorePointer(
@@ -712,7 +720,7 @@ class FeedLoadingPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: '正在加载帖子',
+    label: hhText(context, '正在加载帖子'),
     child: ExcludeSemantics(
       child: Column(
         children: [

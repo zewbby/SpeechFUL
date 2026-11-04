@@ -299,6 +299,8 @@ void main() {
         tester.widget<Text>(find.text('私信')).style!.color,
         HhTelegramPalette.of(tester.element(find.text('私信'))).action,
       );
+      final dmTitleSize = tester.widget<Text>(find.text('私信')).style!.fontSize;
+      expect(dmTitleSize, 22);
       await tester.pumpWidget(
         MaterialApp(
           theme: HhTelegramTheme.create(Brightness.light),
@@ -306,6 +308,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.text('通知')).style!.fontSize, dmTitleSize);
+      expect(
+        tester.widget<Text>(find.text('通知')).style!.fontWeight,
+        FontWeight.w700,
+      );
       expect(
         tester.getSize(find.byKey(const ValueKey('notification-identity'))),
         oldSize,
