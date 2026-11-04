@@ -7,17 +7,17 @@ import (
 )
 
 const (
-	SearchRelevance = "relevance"
-	SearchLatest = "latest"
+	SearchRelevance    = "relevance"
+	SearchLatest       = "latest"
 	SearchHistoryLimit = 20
 )
 
 type SearchQuery struct {
-	Keyword string
-	ChannelID string
-	Sort string
-	Cursor string
-	Limit int
+	Keyword       string
+	ChannelID     string
+	Sort          string
+	Cursor        string
+	Limit         int
 	RecordHistory bool
 }
 
@@ -26,9 +26,9 @@ type SearchHistory struct {
 }
 
 type SearchHistoryChange struct {
-	Action string
+	Action    string
 	ChannelID string
-	Keyword string
+	Keyword   string
 }
 
 func NormalizeSearchKeyword(keyword string) (string, error) {

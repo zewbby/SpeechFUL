@@ -121,7 +121,12 @@ def check_contract(spec, vectors, media_vectors):
                 if status.startswith("2"):
                     for name in ("Session-Expires-At", "Server-Time"):
                         assert resolve(spec, response["headers"][name])["required"] is True
-    assert len(operations) == len(set(operations)) == 16
+    assert len(operations) == len(set(operations)) == 19
+    for path, methods in (
+        ("/api/v1/post-search", {"post": "searchPosts"}),
+        ("/api/v1/me/post-search-history", {"get": "listPostSearchHistory", "post": "changePostSearchHistory"}),
+    ):
+        assert {method: op["operationId"] for method, op in spec["paths"][path].items()} == methods
     for path, method in (("/api/v1/post-commands/{commandId}", "put"), ("/api/v1/me/post-tasks/{taskId}/retry", "post")):
         assert spec["paths"][path][method]["requestBody"]["x-max-bytes"] == 262144
     schemas = spec["components"]["schemas"]

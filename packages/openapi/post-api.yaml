@@ -536,6 +536,112 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/post-search:
+    post:
+      operationId: searchPosts
+      summary: Search visible posts by title and body
+      description: >
+        A keyword is a case-insensitive literal substring. The optional channelId
+        limits results to one channel. With no channelId, results are contiguous by
+        channel, with each group ordered by its leading match. The relatedness order
+        is exact title, substring in title, then substring in body, with newer
+        publications first within each rank. Latest orders by publication time.
+        Both orders break timestamp ties by descending publication sequence.
+        A cursor keeps the initial publication ceiling and group order and binds the
+        keyword, sort, scope, account, page size and feed preference revision.
+        Removed, moderated and blocked-channel content is excluded. A submitted
+        keyword may be recorded in the account history in the same transaction,
+        including a successful search with zero matches. Search keywords belong in
+        the request body and must not be logged.
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        x-max-bytes: 4096
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostSearchInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/FeedRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/me/post-search-history:
+    get:
+      operationId: listPostSearchHistory
+      summary: List this account's recent searches for one scope
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: channelId
+        in: query
+        description: Omit for the distinct all-channels history.
+        schema:
+          $ref: '#/components/schemas/ResourceID'
+      responses:
+        '200':
+          $ref: '#/components/responses/PostSearchHistoryRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      operationId: changePostSearchHistory
+      summary: Remove one keyword or clear this account's history for one scope
+      description: >
+        Each operation returns the current server-authoritative history for the same
+        scope. Removing an already absent word or clearing an empty scope succeeds.
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        x-max-bytes: 2048
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostSearchHistoryChange'
+      responses:
+        '200':
+          $ref: '#/components/responses/PostSearchHistoryRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -629,6 +735,77 @@ components:
       schema:
         $ref: '#/components/schemas/UTCDateTime'
   schemas:
+    PostSearchKeyword:
+      type: string
+      minLength: 1
+      maxLength: 100
+      description: Literal keyword, trimmed and without control characters.
+    PostSearchInput:
+      type: object
+      additionalProperties: false
+      required: [keyword]
+      properties:
+        keyword:
+          $ref: '#/components/schemas/PostSearchKeyword'
+        channelId:
+          $ref: '#/components/schemas/ResourceID'
+        sort:
+          type: string
+          enum: [relevance, latest]
+          default: relevance
+        cursor:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          pattern: ^[A-Za-z0-9_-]+$
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+        recordHistory:
+          type: boolean
+          default: false
+          description: Explicit first-page submission only.
+      not:
+        required: [cursor, recordHistory]
+        properties:
+          recordHistory:
+            enum: [true]
+    PostSearchHistoryChange:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [remove, clear]
+        channelId:
+          $ref: '#/components/schemas/ResourceID'
+        keyword:
+          $ref: '#/components/schemas/PostSearchKeyword'
+      oneOf:
+      - required: [keyword]
+        properties:
+          action:
+            enum: [remove]
+      - not:
+          required: [keyword]
+        properties:
+          action:
+            enum: [clear]
+    PostSearchHistory:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          description: Newest submitted keyword first, unique without regard to case.
+          items:
+            $ref: '#/components/schemas/PostSearchKeyword'
     ResourceID:
       type: string
       format: uuid
@@ -1386,6 +1563,21 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/OwnTaskDetail'
+    PostSearchHistoryRead:
+      description: Current private recent searches for the requested scope.
+      headers:
+        Session-Expires-At:
+          $ref: '#/components/headers/SessionExpiresAt'
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Server-Time:
+          $ref: '#/components/headers/ServerTime'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PostSearchHistory'
     FeedRead:
       description: Final-authorized visible title cards; no body excerpt or viewer/owner metadata.
       headers:

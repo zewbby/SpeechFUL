@@ -55,7 +55,7 @@ func (route postRoute) allows(method string) bool {
 }
 
 func isPostPath(path string) bool {
-	if path == "/api/v1/me/reposts" {
+	if path == postSearchPath || path == postSearchHistoryPath || path == "/api/v1/me/reposts" {
 		return true
 	}
 	for _, prefix := range []string{"/api/v1/post-commands", "/api/v1/me/post-tasks", "/api/v1/me/posts", "/api/v1/me/post-composer-context", "/api/v1/posts", "/api/v1/feed", "/api/v1/me/feed-preferences", "/api/v1/me/liked-posts", "/api/v1/me/favorite-posts"} {
@@ -67,6 +67,12 @@ func isPostPath(path string) bool {
 }
 
 func parsePostRoute(path string) (postRoute, error) {
+	switch path {
+	case postSearchPath:
+		return postRoute{kind: postSearchRoute, methods: "POST"}, nil
+	case postSearchHistoryPath:
+		return postRoute{kind: postSearchHistoryRoute, methods: "GET, POST"}, nil
+	}
 	if path == "/api/v1/me/reposts" {
 		return postRoute{kind: authprivacy.PostRepostList, methods: "GET"}, nil
 	}
@@ -184,7 +190,7 @@ func postListKind(kind authprivacy.PostReadKind) bool {
 
 func allowsPostListQuery(r *http.Request) bool {
 	route, err := parsePostRoute(r.URL.Path)
-	return err == nil && r.Method == http.MethodGet && postListKind(route.kind)
+	return err == nil && r.Method == http.MethodGet && (postListKind(route.kind) || route.kind == postSearchHistoryRoute)
 }
 
 func (b *boundary) communityPostsPublic(w http.ResponseWriter, r *http.Request, backend PostBackend) {
@@ -225,7 +231,7 @@ func (b *boundary) communityPostsPublic(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	command := ""
-	if route.command || route.seal || r.Method == http.MethodGet || route.kind == authprivacy.PostViewRecord || route.kind == authprivacy.PostFeedPreferences || isPostInteractionKind(route.kind) || isRepostKind(route.kind) {
+	if route.command || route.seal || r.Method == http.MethodGet || isPostSearchKind(route.kind) || route.kind == authprivacy.PostViewRecord || route.kind == authprivacy.PostFeedPreferences || isPostInteractionKind(route.kind) || isRepostKind(route.kind) {
 		if hasHeader(r.Header, "Idempotency-Key") {
 			b.postBad(w, errMalformed)
 			return
@@ -243,6 +249,10 @@ func (b *boundary) communityPostsPublic(w http.ResponseWriter, r *http.Request, 
 	}
 	if backend == nil {
 		b.postFail(w, 503, "SERVICE_UNAVAILABLE", 0)
+		return
+	}
+	if isPostSearchKind(route.kind) {
+		b.communityPostSearch(w, r, backend, bearer, route)
 		return
 	}
 	if isRepostKind(route.kind) {
@@ -841,7 +851,9 @@ func strictPostValue(value any, route postRoute) (any, error) {
 			}
 		}
 		return result, nil
-	case authprivacy.PostChannelFeed, authprivacy.PostLikedList, authprivacy.PostFavoriteList:
+	case postSearchHistoryRoute:
+		return strictPostSearchHistory(value)
+	case postSearchRoute, authprivacy.PostChannelFeed, authprivacy.PostLikedList, authprivacy.PostFavoriteList:
 		result, ok := value.(posts.FeedPage)
 		if p, yes := value.(*posts.FeedPage); yes && p != nil {
 			result, ok = *p, true
@@ -849,8 +861,11 @@ func strictPostValue(value any, route postRoute) (any, error) {
 		if !ok || result.Items == nil || !validPostPageSize(len(result.Items), route.limit) || !validNullablePostCursor(result.NextCursor) {
 			return nil, errMalformed
 		}
+		if route.kind == postSearchRoute && len(result.Items) == 0 && result.NextCursor != nil {
+			return nil, errMalformed
+		}
 		for _, post := range result.Items {
-			if route.kind == authprivacy.PostChannelFeed && post.ChannelID != route.id || !validPublicPostCard(post) {
+			if (route.kind == authprivacy.PostChannelFeed || route.kind == postSearchRoute && route.id != "") && post.ChannelID != route.id || !validPublicPostCard(post) {
 				return nil, errMalformed
 			}
 		}
