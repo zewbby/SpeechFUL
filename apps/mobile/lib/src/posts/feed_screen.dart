@@ -24,6 +24,7 @@ import 'post_controller.dart';
 import 'post_reposts_widgets.dart';
 import 'post_images.dart';
 import 'post_screens.dart';
+import 'post_search_screen.dart';
 import 'x_feed.dart';
 import 'x_feed_controls.dart';
 
@@ -69,6 +70,7 @@ class _FeedScreenState extends State<FeedScreen> {
   CommentRuntime? _comments;
   bool _replyOpen = false;
   bool _composeOpen = false;
+  bool _searchOpen = false;
   PostController get c => widget.controller;
   bool get current => mounted && c.available && c.authorityVersion == _epoch;
   List<FeedChannelView> get channels => [
@@ -288,6 +290,30 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
+  Future<void> _search(BuildContext context) async {
+    if (!current || _searchOpen || !c.supportsPostSearch) return;
+    _searchOpen = true;
+    final initialChannel = _starting
+        ? widget.initialChannelId
+        : c.timelineChannelId;
+    try {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => PostSearchScreen(
+            controller: c,
+            channels: widget.channels,
+            initialChannelId: initialChannel,
+            onOpenPost: (context, post) =>
+                _open(context, post.postId, post.channelId),
+            onAuthenticationRequired: widget.onAuthenticationRequired,
+          ),
+        ),
+      );
+    } finally {
+      _searchOpen = false;
+    }
+  }
+
   void _open(BuildContext context, String id, String channelId) {
     if (!current) return;
     Navigator.of(context).push<void>(
@@ -362,9 +388,7 @@ class _FeedScreenState extends State<FeedScreen> {
           onMedia: (_, _) {},
           onMenu: (_) {},
           onBack: () => _pick(context),
-          onSearch: () =>
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('搜索功能待开放'))),
+          onSearch: c.supportsPostSearch ? () => _search(context) : null,
           onFilter: () => _filter(context),
           onCompose: () => _compose(context),
           onDestination: (destination) {

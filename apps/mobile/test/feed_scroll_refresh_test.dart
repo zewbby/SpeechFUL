@@ -460,7 +460,8 @@ void main() {
       final tabs = GlobalKey<PrimaryTabsState>();
       await tester.pumpWidget(_screen(f, tabsKey: tabs));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('feed-search')));
+      ScaffoldMessenger.of(tester.element(find.byType(FeedScreen)))
+          .showSnackBar(const SnackBar(content: Text('操作提示')));
       await tester.pumpAndSettle();
       final nav = find.byType(HhAppNavigation);
       expect(

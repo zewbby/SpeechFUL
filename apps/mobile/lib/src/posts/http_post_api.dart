@@ -13,6 +13,7 @@ import 'post_api.dart';
 import 'feed_api.dart';
 import 'post_interactions_api.dart';
 import 'post_reposts_api.dart';
+import 'post_search_api.dart';
 import 'post_models.dart';
 import 'post_media_api.dart';
 import 'post_protocol.dart';
@@ -35,6 +36,7 @@ class HttpPostApi
         FeedApi,
         PostInteractionsApi,
         PostRepostsApi,
+        PostSearchApi,
         DmApi {
   HttpPostApi({
     required this.communityBaseUri,
@@ -683,6 +685,106 @@ class HttpPostApi
       return result;
     },
   );
+
+  @override
+  Future<PostResponse<PostsPage<PostCard>>> searchPosts({
+    required String sessionToken,
+    required String keyword,
+    String? channelId,
+    PostSearchSort sort = PostSearchSort.relevance,
+    String? cursor,
+    int limit = 20,
+    bool recordHistory = false,
+  }) => _input(() {
+    _pageQuery(cursor, limit);
+    if (cursor != null && recordHistory) {
+      throw const FormatException('Continuation cannot record history');
+    }
+    return _send(
+      sessionToken,
+      'POST',
+      '/api/v1/post-search',
+      body: {
+        'keyword': normalizePostSearchKeyword(keyword),
+        if (channelId != null) 'channelId': PostProtocol.resourceId(channelId),
+        'sort': sort.name,
+        if (cursor != null) 'cursor': cursor,
+        'limit': limit,
+        if (recordHistory) 'recordHistory': true,
+      },
+      maxRequestBytes: 2048,
+      maxResponseBytes: 384 * 1024,
+      decode: (raw) {
+        final page = PostsPage.fromJson(raw, PostCard.fromJson);
+        final ids = <String>{};
+        if (page.items.length > limit ||
+            page.items.isEmpty && page.nextCursor != null ||
+            cursor != null && page.nextCursor == cursor ||
+            page.items.any(
+              (post) =>
+                  !ids.add(post.postId) ||
+                  channelId != null && post.channelId != channelId,
+            )) {
+          throw const FormatException('Invalid post search page');
+        }
+        return page;
+      },
+    );
+  });
+
+  @override
+  Future<PostResponse<List<String>>> postSearchHistory({
+    required String sessionToken,
+    String? channelId,
+  }) => _input(
+    () => _send(
+      sessionToken,
+      'GET',
+      '/api/v1/me/post-search-history',
+      query: channelId == null
+          ? null
+          : {'channelId': PostProtocol.resourceId(channelId)},
+      decode: _searchHistoryFromJson,
+    ),
+  );
+
+  @override
+  Future<PostResponse<List<String>>> changePostSearchHistory({
+    required String sessionToken,
+    String? channelId,
+    String? removeKeyword,
+  }) => _input(
+    () => _send(
+      sessionToken,
+      'POST',
+      '/api/v1/me/post-search-history',
+      body: {
+        'action': removeKeyword == null ? 'clear' : 'remove',
+        if (channelId != null) 'channelId': PostProtocol.resourceId(channelId),
+        if (removeKeyword != null)
+          'keyword': normalizePostSearchKeyword(removeKeyword),
+      },
+      decode: _searchHistoryFromJson,
+    ),
+  );
+
+  static List<String> _searchHistoryFromJson(Object? raw) {
+    final values = PostJson.record(raw, {'items'})['items'];
+    if (values is! List || values.length > 20) {
+      throw const FormatException('Invalid post search history');
+    }
+    final seen = <String>{};
+    return List.unmodifiable(
+      values.map((value) {
+        if (value is! String ||
+            normalizePostSearchKeyword(value) != value ||
+            !seen.add(value)) {
+          throw const FormatException('Invalid post search history entry');
+        }
+        return value;
+      }),
+    );
+  }
 
   static Map<String, String> _pageQuery(String? cursor, int limit) {
     if (limit < 1 || limit > 50) {

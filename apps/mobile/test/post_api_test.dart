@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hnuhole_mobile/src/auth/auth_crypto.dart';
 import 'package:hnuhole_mobile/src/posts/http_post_api.dart';
 import 'package:hnuhole_mobile/src/posts/post_api.dart';
+import 'package:hnuhole_mobile/src/posts/post_search_api.dart';
 import 'package:hnuhole_mobile/src/posts/post_models.dart';
 import 'package:hnuhole_mobile/src/posts/post_media_api.dart';
 import 'package:hnuhole_mobile/src/posts/post_controller.dart';
@@ -437,6 +438,132 @@ void main() {
       throwsA(isA<PostFailure>()),
     );
   });
+  test(
+    'post search keeps the keyword in JSON and uses scoped history routes',
+    () async {
+      final cursor = AuthCrypto.encode(List.filled(24, 2));
+      endpoint.respond = (request) => _json(
+        request,
+        200,
+        request.uri.path == '/api/v1/post-search'
+            ? {
+                'items': [_card()],
+                'nextCursor': cursor,
+              }
+            : {
+                'items': ['自习', '招聘'],
+              },
+      );
+      final result = await api.searchPosts(
+        sessionToken: _token,
+        keyword: ' 自习 ',
+        channelId: _id,
+        sort: PostSearchSort.latest,
+        recordHistory: true,
+        limit: 2,
+      );
+      expect(result.value.items.single.channelId, _id);
+      expect(result.value.nextCursor, cursor);
+      expect(result.sessionExpiresAt, DateTime.parse(_expiry));
+      var sent = endpoint.requests.last;
+      expect(sent.method, 'POST');
+      expect(sent.uri.toString(), '/api/v1/post-search');
+      expect(sent.headers['authorization'], ['Bearer $_token']);
+      expect(jsonDecode(sent.body), {
+        'keyword': '自习',
+        'channelId': _id,
+        'sort': 'latest',
+        'limit': 2,
+        'recordHistory': true,
+      });
+
+      endpoint.respond = (request) =>
+          _json(request, 200, {'items': [], 'nextCursor': null});
+      await api.searchPosts(
+        sessionToken: _token,
+        keyword: '自习',
+        cursor: cursor,
+      );
+      sent = endpoint.requests.last;
+      expect(jsonDecode(sent.body), {
+        'keyword': '自习',
+        'sort': 'relevance',
+        'limit': 20,
+        'cursor': cursor,
+      });
+
+      endpoint.respond = (request) => _json(request, 200, {
+        'items': ['自习', '招聘'],
+      });
+      final history = await api.postSearchHistory(
+        sessionToken: _token,
+        channelId: _id,
+      );
+      sent = endpoint.requests.last;
+      expect(sent.method, 'GET');
+      expect(sent.uri.path, '/api/v1/me/post-search-history');
+      expect(sent.uri.queryParameters, {'channelId': _id});
+      expect(sent.body, isEmpty);
+      expect(history.value, ['自习', '招聘']);
+      await api.changePostSearchHistory(
+        sessionToken: _token,
+        channelId: _id,
+        removeKeyword: '自习',
+      );
+      sent = endpoint.requests.last;
+      expect(sent.method, 'POST');
+      expect(sent.uri.toString(), '/api/v1/me/post-search-history');
+      expect(jsonDecode(sent.body), {
+        'action': 'remove',
+        'channelId': _id,
+        'keyword': '自习',
+      });
+      await api.changePostSearchHistory(sessionToken: _token);
+      expect(jsonDecode(endpoint.requests.last.body), {'action': 'clear'});
+    },
+  );
+
+  test('search rejects malformed scopes and history without publishing protected DTOs', () async {
+    await expectLater(
+      api.searchPosts(
+        sessionToken: _token,
+        keyword: '自习',
+        cursor: AuthCrypto.encode(List.filled(24, 2)),
+        recordHistory: true,
+      ),
+      throwsA(_failure(PostFailureKind.rejected, code: 'CLIENT_INPUT_INVALID')),
+    );
+    expect(endpoint.requests, isEmpty);
+    for (final items in [
+      [
+        {..._card(), 'channelId': _other},
+      ],
+      [_card(), _card()],
+      [
+        {..._card(), 'body': 'unexpected projection'},
+      ],
+    ]) {
+      endpoint.respond = (request) =>
+          _json(request, 200, {'items': items, 'nextCursor': null});
+      await expectLater(
+        api.searchPosts(sessionToken: _token, keyword: '自习', channelId: _id),
+        throwsA(_failure(PostFailureKind.invalidResponse, status: 200)),
+      );
+    }
+    for (final items in [
+      ['Library', 'Library'],
+      [' leading space'],
+      List.generate(21, (i) => '$i'),
+      [null],
+    ]) {
+      endpoint.respond = (request) => _json(request, 200, {'items': items});
+      await expectLater(
+        api.postSearchHistory(sessionToken: _token),
+        throwsA(_failure(PostFailureKind.invalidResponse, status: 200)),
+      );
+    }
+  });
+
   test('feed preserves CURSOR_INVALID, 401 and 503 classifications', () async {
     for (final entry in [
       (400, 'CURSOR_INVALID', PostFailureKind.rejected),

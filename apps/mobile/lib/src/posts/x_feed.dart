@@ -141,7 +141,8 @@ class HhXPostFeed extends StatelessWidget {
   final ValueChanged<String> onAuthor;
   final void Function(FeedPostView, FeedAction) onAction;
   final void Function(FeedPostView, int) onMedia;
-  final VoidCallback onBack, onSearch, onFilter, onCompose;
+  final VoidCallback onBack, onFilter, onCompose;
+  final VoidCallback? onSearch;
   final ValueChanged<FeedDestination> onDestination;
 
   @override
@@ -208,7 +209,7 @@ class HhXPostFeed extends StatelessWidget {
                         right: 12,
                         child: IconButton(
                           key: const ValueKey('feed-search'),
-                          tooltip: '搜索当前通道',
+                          tooltip: '搜索帖子',
                           onPressed: onSearch,
                           icon: Icon(
                             Icons.search_rounded,
