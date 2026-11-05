@@ -92,6 +92,7 @@ type Config struct {
 	Gate                    *GateConfig       `json:"gate,omitempty"`
 	Posts                   *PostsConfig      `json:"posts,omitempty"`
 	Comments                *CommentsConfig   `json:"comments,omitempty"`
+	Rankings                *RankingsConfig   `json:"rankings,omitempty"`
 	DirectMessages          bool              `json:"directMessages,omitempty"`
 	Moderation              bool              `json:"moderation,omitempty"`
 	AdminDirectory          string            `json:"adminDirectory,omitempty"`
@@ -167,6 +168,9 @@ func (c Config) Path(path string) string {
 }
 
 func (c Config) Validate(service authprivacyhttp.Service) error {
+	if err := c.validateRankings(service); err != nil {
+		return err
+	}
 	if c.SharedRateLimit != nil {
 		shared := c.SharedRateLimit
 		if shared.Policy.ValidateFor(string(service)) != nil || shared.Policy.Namespace != string(service)+"_"+c.Environment || shared.Policy.Username != string(service)+"_ratelimit" || shared.KeyFile == "" || shared.PasswordFile == "" || len(shared.TrustedProxies) > 64 {

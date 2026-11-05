@@ -310,6 +310,7 @@ func Run(ctx context.Context, c Config, service authprivacyhttp.Service) error {
 	if err != nil {
 		return err
 	}
+	var runRankings func(context.Context)
 	if service == authprivacyhttp.CommunityService {
 		request, err := c.Key32(c.RequestKeyFile)
 		if err != nil {
@@ -432,6 +433,22 @@ func Run(ctx context.Context, c Config, service authprivacyhttp.Service) error {
 				return err
 			}
 			shared.Resolver = community
+		}
+		if c.Rankings != nil {
+			cache, rankingPool, weights, e := c.openRankingRuntime(ctx, poolConfig)
+			if e != nil {
+				return e
+			}
+			defer cache.Close()
+			defer rankingPool.Close()
+			community, err = community.WithRankings(ctx, cache)
+			if err != nil {
+				return err
+			}
+			rankingCommunity := community
+			runRankings = func(ctx context.Context) {
+				rankingCommunity.RunRankings(ctx, rankingPool, weights)
+			}
 		}
 		origins := c.AllowedOrigins
 		adminDirectory := ""
@@ -590,6 +607,10 @@ func Run(ctx context.Context, c Config, service authprivacyhttp.Service) error {
 	}
 	wg.Add(1)
 	go func() { defer wg.Done(); fail <- worker.Run(runCtx) }()
+	if runRankings != nil {
+		wg.Add(1)
+		go func() { defer wg.Done(); runRankings(runCtx) }()
+	}
 	slog.Info("development runtime listening", "service", service, "public", c.PublicListen, "internal", c.InternalListen, "worker_batch", workerConfig.BatchSize, "worker_concurrency", workerConfig.Concurrency, "worker_task_seconds", workerConfig.TaskTimeout.Seconds(), "receipt_lease_seconds", workerConfig.ReceiptLease.Seconds())
 	var result error
 	select {

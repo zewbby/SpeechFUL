@@ -15,6 +15,7 @@ import 'feed_api.dart';
 import 'post_interactions_api.dart';
 import 'post_reposts_api.dart';
 import 'post_search_api.dart';
+import 'post_ranking_api.dart';
 import 'post_models.dart';
 import 'post_media_api.dart';
 import 'post_protocol.dart';
@@ -39,6 +40,7 @@ class HttpPostApi
         PostInteractionsApi,
         PostRepostsApi,
         PostSearchApi,
+        PostRankingApi,
         DmApi {
   HttpPostApi({
     required this.communityBaseUri,
@@ -868,6 +870,31 @@ class HttpPostApi
     ),
   );
 
+  @override
+  Future<PostResponse<PostRanking>> hotPosts({
+    required String sessionToken,
+    required String channelId,
+  }) => _input(
+    () => _send(
+      sessionToken,
+      'GET',
+      '/api/v1/channels/${PostProtocol.resourceId(channelId)}/hot-posts',
+      requestTimeout: const Duration(seconds: 4),
+      decode: (raw) => PostRanking.fromJson(raw, channelId),
+    ),
+  );
+
+  @override
+  Future<PostResponse<List<String>>> channelOrder({
+    required String sessionToken,
+  }) => _send(
+    sessionToken,
+    'GET',
+    '/api/v1/feed/channel-order',
+    requestTimeout: const Duration(seconds: 2),
+    decode: channelOrderFromJson,
+  );
+
   static List<String> _searchHistoryFromJson(Object? raw) {
     final values = PostJson.record(raw, {'items'})['items'];
     if (values is! List || values.length > 20) {
@@ -921,6 +948,7 @@ class HttpPostApi
     T Function(T, DateTime)? withEditedAt,
     Uint8List? uploadBytes,
     String? uploadMime,
+    Duration? requestTimeout,
   }) async {
     AuthCrypto.decode(token, bytes: 32);
     final bytes = body == null ? uploadBytes : utf8.encode(jsonEncode(body));
@@ -1034,7 +1062,7 @@ class HttpPostApi
           statusCode: status!,
           interactionVersion: interactionVersion,
         );
-      })().timeout(timeout);
+      })().timeout(requestTimeout ?? timeout);
     } on PostFailure {
       rethrow;
     } on TimeoutException {
@@ -1117,6 +1145,7 @@ class HttpPostApi
       429 => {'RATE_LIMITED'},
       422 => {'MEDIA_INVALID'},
       503 => {
+        'RANKINGS_UNAVAILABLE',
         'SHARED_RATE_UNAVAILABLE',
         'SERVICE_UNAVAILABLE',
         'AUTHORIZATION_UNAVAILABLE',

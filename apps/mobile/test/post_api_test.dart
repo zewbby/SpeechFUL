@@ -616,6 +616,79 @@ void main() {
     },
   );
 
+  test(
+    'rankings use protected GET routes and closed scoped projections',
+    () async {
+      endpoint.respond = (request) => _json(request, 200, {
+        'asOf': _time,
+        'channelId': _id,
+        'items': [
+          {'postId': _other, 'title': '大家在看这篇帖子', 'viewCount': 42},
+        ],
+      });
+      final hot = await api.hotPosts(sessionToken: _token, channelId: _id);
+      expect(hot.value.items.single.postId, _other);
+      expect(hot.value.items.single.viewCount, 42);
+      final sent = endpoint.requests.last;
+      expect(sent.method, 'GET');
+      expect(sent.uri.toString(), '/api/v1/channels/$_id/hot-posts');
+      expect(sent.headers['authorization'], ['Bearer $_token']);
+      expect(sent.body, isEmpty);
+      for (final items in [
+        [
+          {'postId': _other, 'title': '标题', 'viewCount': 1, 'accountId': _id},
+        ],
+        List.filled(2, {'postId': _other, 'title': '重复', 'viewCount': 1}),
+        List.generate(
+          21,
+          (_) => {'postId': _other, 'title': '超长榜单', 'viewCount': 1},
+        ),
+      ]) {
+        endpoint.respond = (request) => _json(request, 200, {
+          'asOf': _time,
+          'channelId': _id,
+          'items': items,
+        });
+        await expectLater(
+          api.hotPosts(sessionToken: _token, channelId: _id),
+          throwsA(_failure(PostFailureKind.invalidResponse, status: 200)),
+        );
+      }
+      endpoint.respond = (request) => _json(request, 200, {
+        'asOf': _time,
+        'channelIds': [_other, _id],
+      });
+      expect((await api.channelOrder(sessionToken: _token)).value, [
+        _other,
+        _id,
+      ]);
+      expect(
+        endpoint.requests.last.uri.toString(),
+        '/api/v1/feed/channel-order',
+      );
+      endpoint.respond = (request) => _json(request, 200, {
+        'asOf': _time,
+        'channelIds': [_id, _id],
+      });
+      await expectLater(
+        api.channelOrder(sessionToken: _token),
+        throwsA(_failure(PostFailureKind.invalidResponse, status: 200)),
+      );
+      endpoint.respond = (request) =>
+          _json(request, 503, _error('RANKINGS_UNAVAILABLE'), success: false);
+      await expectLater(
+        api.hotPosts(sessionToken: _token, channelId: _id),
+        throwsA(
+          _failure(
+            PostFailureKind.unavailable,
+            status: 503,
+            code: 'RANKINGS_UNAVAILABLE',
+          ),
+        ),
+      );
+    },
+  );
+
   test('search rejects malformed scopes and history without publishing protected DTOs', () async {
     await expectLater(
       api.searchPosts(

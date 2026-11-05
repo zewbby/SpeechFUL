@@ -27,7 +27,7 @@ jobs:
       - name: Install PostgreSQL and pinned migration runner
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 python3-venv
+          sudo apt-get install -y postgresql-16 python3-venv redis-server
           go install github.com/pressly/goose/v3/cmd/goose@v3.22.1
       - uses: actions/setup-python@v5
         with:
@@ -50,11 +50,13 @@ jobs:
           test -z "$(gofmt -l internal/posts internal/authprivacy/community_feed*.go internal/authprivacy/community_post_interactions*.go internal/authprivacy/community_posts_read.go internal/authprivacy/community_post_search*.go internal/authprivacyhttp/feed*.go internal/authprivacyhttp/post_interactions*.go internal/authprivacyhttp/post_search*.go)"
           go test -mod=readonly ./...
           test -z "$(gofmt -l internal/authprivacy/community_post_reposts*.go internal/authprivacyhttp/post_reposts*.go internal/posts/reposts.go)"
+          test -z "$(gofmt -l internal/rankings internal/authprivacy/community_rank*.go internal/authprivacyhttp/rankings*.go internal/authprivacyruntime/rankings*.go)"
           go build -mod=readonly ./...
           go vet -mod=readonly ./...
       - name: Real SQL, migration upgrade, least privilege and TLS HTTP regression
         env:
           PGPORT: '55439'
+          FEED_RANKINGS_REDIS: '1'
         run: |
           export PATH="$(pg_config --bindir):$PATH"
           export FEED_GOOSE="$(go env GOPATH)/bin/goose"

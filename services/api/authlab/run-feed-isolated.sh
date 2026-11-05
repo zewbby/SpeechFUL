@@ -16,6 +16,10 @@ case "$feed_dir" in *[!A-Za-z0-9_./-]*) echo 'Unsupported private fixture path' 
 mkdir "$feed_dir/socket"
 feed_cleanup() {
     feed_status=$?
+    if [ -n "${feed_redis_pid:-}" ]; then
+        kill "$feed_redis_pid" 2>/dev/null || true
+        wait "$feed_redis_pid" 2>/dev/null || true
+    fi
     pg_ctl -D "$feed_dir/data" -m fast -w stop >/dev/null 2>&1 || true
     rm -rf "$feed_dir"
     exit "$feed_status"
@@ -23,6 +27,19 @@ feed_cleanup() {
 trap feed_cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
+if [ "${FEED_RANKINGS_REDIS:-0}" = 1 ]; then
+    RANKING_REDIS_SOCKET="$feed_dir/rankings.sock"
+    export RANKING_REDIS_SOCKET
+    "${FEED_REDIS_BIN:-redis-server}" --port 0 --unixsocket "$RANKING_REDIS_SOCKET" --unixsocketperm 700 \
+        --dir "$feed_dir" --save "" --appendonly no >"$feed_dir/redis.log" 2>&1 &
+    feed_redis_pid=$!
+    for retry in 1 2 3 4 5 6 7 8 9 10; do
+        [ ! -S "$RANKING_REDIS_SOCKET" ] || break
+        kill -0 "$feed_redis_pid" 2>/dev/null || break
+        sleep 1
+    done
+    [ -S "$RANKING_REDIS_SOCKET" ] || { echo 'Dedicated Redis fixture failed to start' >&2; cat "$feed_dir/redis.log" >&2; exit 1; }
+fi
 initdb -D "$feed_dir/data" -U feed_admin -A trust --no-locale -E UTF8 >"$feed_dir/init.log" 2>&1
 pg_ctl -D "$feed_dir/data" -l "$feed_dir/postgres.log" -w start \
     -o "-p $feed_port -c listen_addresses='' -c unix_socket_directories='$feed_dir/socket' -c unix_socket_permissions=0700 -c shared_memory_type=mmap -c dynamic_shared_memory_type=mmap -c shared_buffers=16MB -c max_connections=40 -c log_statement=none -c log_min_messages=panic -c log_min_error_statement=panic -c log_error_verbosity=terse -c log_parameter_max_length=0 -c log_parameter_max_length_on_error=0 -c log_min_duration_statement=-1 -c log_min_duration_sample=-1 -c log_transaction_sample_rate=0 -c log_duration=off" >/dev/null
@@ -63,5 +80,5 @@ AUTHLAB_ALLOW_SCHEMA_RESET=1
 export AUTHLAB_RUNTIME_TAG AUTHLAB_C_DSN AUTHLAB_V_DSN AUTHLAB_POSTS_RUNTIME_DSN AUTHLAB_ALLOW_SCHEMA_RESET FEED_FRESH_DSN FEED_UPGRADE_DSN FEED_INTERACTIONS_DSN FEED_VERSIONS_DSN
 feed_script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$feed_script_dir/.."
-go test -race -count=1 -p 1 ./internal/authprivacy ./internal/authprivacyhttp ./internal/authprivacyruntime \
-    -run "${FEED_TEST_PATTERN:-^(TestFeed|TestRealHTTPSFeed(Views|Interactions)|TestRealHTTPSPostSearchHistoryPostgres|TestPostSchema|TestPostAtomic|TestPostCeiling|TestPostGate|TestPostFormalClosure|TestRealHTTPSPost(Acceptance|Stops)|TestModerationLifecycleCommonCStartup|TestCommentText(Transactions|FailureRetryAbandon|FrozenGate|RuntimeAndSQLGuards|UnavailablePost|ClosureCleanupWithFeatureDisabled|HTTPS|NullableBoundary)|TestCommentBusiness(MediaDeleteLikesNotices|HTTPS))}" -v
+go test -race -count=1 -p 1 ./internal/authprivacy ./internal/authprivacyhttp ./internal/authprivacyruntime ./internal/rankings \
+    -run "${FEED_TEST_PATTERN:-^(TestFeed|TestRealHTTPSFeed(Views|Interactions|Rankings)|TestRealHTTPSPostSearchHistoryPostgres|TestPostSchema|TestPostAtomic|TestPostCeiling|TestPostGate|TestPostFormalClosure|TestRealHTTPSPost(Acceptance|Stops)|TestModerationLifecycleCommonCStartup|TestCommentText(Transactions|FailureRetryAbandon|FrozenGate|RuntimeAndSQLGuards|UnavailablePost|ClosureCleanupWithFeatureDisabled|HTTPS|NullableBoundary)|TestCommentBusiness(MediaDeleteLikesNotices|HTTPS))}" -v

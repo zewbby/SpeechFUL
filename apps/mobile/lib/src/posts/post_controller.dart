@@ -19,6 +19,7 @@ import 'feed_api.dart';
 import 'post_interactions_api.dart';
 import 'post_reposts_api.dart';
 import 'post_search_api.dart';
+import 'post_ranking_api.dart';
 import 'post_models.dart';
 import 'post_media_api.dart';
 

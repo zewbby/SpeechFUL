@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hnuhole_mobile/hnuhole_mobile.dart';
+import 'package:hnuhole_mobile/src/design_system/telegram_theme.dart';
 import 'package:hnuhole_mobile/src/posts/post_search_api.dart';
+import 'package:hnuhole_mobile/src/posts/post_ranking_api.dart';
 import 'package:hnuhole_mobile/src/posts/post_search_screen.dart';
 
 import 'feed_ui_test.dart' as feed;
@@ -144,7 +146,285 @@ Future<void> _back(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+class _RankingApi extends _SearchApi implements PostRankingApi {
+  final reads = <String>[];
+  late Future<PostRanking> Function(String) rankingFor;
+  List<String> order = feed.channels.reversed.map((c) => c.id).toList();
+
+  @override
+  Future<PostResponse<List<String>>> channelOrder({
+    required String sessionToken,
+  }) async => feed.reply(order);
+
+  @override
+  Future<PostResponse<PostRanking>> hotPosts({
+    required String sessionToken,
+    required String channelId,
+  }) async {
+    reads.add(channelId);
+    return feed.reply(await rankingFor(channelId));
+  }
+}
+
+Future<void> _pickChannel(WidgetTester tester, String id) async {
+  await tester.tap(find.byKey(const ValueKey('feed-channel-picker')));
+  await tester.pumpAndSettle();
+  final choice = find.byKey(ValueKey('choose-channel:$id'));
+  await tester.scrollUntilVisible(
+    choice,
+    180,
+    scrollable: find.descendant(
+      of: find.byKey(const ValueKey('channel-options')),
+      matching: find.byType(Scrollable),
+    ),
+  );
+  await tester.tap(choice);
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  testWidgets(
+    'channel ranking keeps recommended first; hot posts load alongside history',
+    (tester) async {
+      final channel = feed.channels.last;
+      final wait = Completer<PostRanking>();
+      final api = _RankingApi()..rankingFor = (_) => wait.future;
+      api.histories[channel.id] = ['我搜过的关键词'];
+      await _start(tester, api);
+      await tester.tap(find.byKey(const ValueKey('feed-channel-picker')));
+      await tester.pumpAndSettle();
+      final recommended = find.byKey(
+        const ValueKey('choose-channel:recommended'),
+      );
+      final hottest = find.byKey(ValueKey('choose-channel:${channel.id}'));
+      final next = find.byKey(
+        ValueKey('choose-channel:${feed.channels[5].id}'),
+      );
+      expect(
+        tester.getTopLeft(recommended).dy,
+        lessThan(tester.getTopLeft(hottest).dy),
+      );
+      expect(
+        tester.getTopLeft(hottest).dy,
+        lessThan(tester.getTopLeft(next).dy),
+      );
+      await tester.tap(hottest);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('feed-search')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 450));
+      expect(find.text('我搜过的关键词'), findsOneWidget);
+      expect(find.text('大家都在看'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byKey(_input)).focusNode!.hasFocus,
+        isTrue,
+      );
+      wait.complete(PostRanking(channel.id, [RankedPost(_id(1), '热门帖子', 42)]));
+      await tester.pumpAndSettle();
+      expect(find.text('热门帖子'), findsOneWidget);
+      expect(find.text('浏览量 42'), findsOneWidget);
+    },
+  );
+
+  testWidgets('a late hot list cannot replace search results', (tester) async {
+    final first = feed.channels.last;
+    final wait = Completer<PostRanking>();
+    final api = _RankingApi()..rankingFor = (_) => wait.future;
+    api.resultFor = (_) =>
+        PostsPage(items: [feed.post(title: '即时搜索结果')], nextCursor: null);
+    await _start(tester, api);
+    await _pickChannel(tester, first.id);
+    await tester.tap(find.byKey(const ValueKey('feed-search')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byKey(_input), '关键词');
+    await tester.pump(const Duration(milliseconds: 350));
+    wait.complete(PostRanking(first.id, [RankedPost(_id(2), '迟到热榜', 6)]));
+    await tester.pumpAndSettle();
+    expect(find.text('即时搜索结果'), findsOneWidget);
+    expect(find.text('迟到热榜'), findsNothing);
+    expect(find.byKey(const ValueKey('post-search-hot-posts')), findsNothing);
+  });
+
+  testWidgets(
+    'blocking the current category removes an already visible hot list',
+    (tester) async {
+      final channel = feed.channels.last;
+      final api = _RankingApi()
+        ..rankingFor = (scope) async =>
+            PostRanking(scope, [RankedPost(_id(8), '当前可见的榜单', 8)]);
+      final fixture = await _start(tester, api);
+      await _pickChannel(tester, channel.id);
+      await _open(tester);
+      expect(find.text('当前可见的榜单'), findsOneWidget);
+      await fixture.controller.saveBlockedChannels({channel.id});
+      await tester.pumpAndSettle();
+      expect(find.text('当前可见的榜单'), findsNothing);
+      expect(find.byKey(const ValueKey('post-search-hot-posts')), findsNothing);
+      expect(find.text('暂无搜索历史'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an unavailable optional ranking keeps search and the session usable',
+    (tester) async {
+      final channel = feed.channels.last;
+      final api = _RankingApi()
+        ..rankingFor = (_) async => throw const PostFailure(
+          kind: PostFailureKind.unavailable,
+          code: 'RANKINGS_UNAVAILABLE',
+          statusCode: 503,
+        );
+      api.resultFor = (_) =>
+          PostsPage(items: [feed.post(title: '搜索继续可用')], nextCursor: null);
+      final fixture = await _start(tester, api);
+      await _pickChannel(tester, channel.id);
+      await _open(tester);
+      expect(find.text('暂时无法加载热榜'), findsOneWidget);
+      expect(fixture.controller.available, isTrue);
+      await tester.enterText(find.byKey(_input), '关键词');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.text('搜索继续可用'), findsOneWidget);
+      expect(find.text('登录或核对会话'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'returning from a hot post refreshes and keeps the old list on failure',
+    (tester) async {
+      final channel = feed.channels.last;
+      final api = _RankingApi();
+      api.rankingFor = (scope) async {
+        if (api.reads.length == 2) {
+          throw const PostFailure(kind: PostFailureKind.transport);
+        }
+        return PostRanking(scope, [RankedPost(_id(3), '可继续浏览的榜单', 23)]);
+      };
+      await _start(tester, api);
+      await _pickChannel(tester, channel.id);
+      await _open(tester);
+      await tester.tap(find.text('可继续浏览的榜单'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PostDetailScreen), findsOneWidget);
+      await _back(tester);
+      expect(api.reads, [channel.id, channel.id]);
+      expect(find.text('热榜刷新失败，请重试'), findsOneWidget);
+      expect(find.text('可继续浏览的榜单'), findsOneWidget);
+      await tester.tap(find.text('重试'));
+      await tester.pumpAndSettle();
+      expect(api.reads, [channel.id, channel.id, channel.id]);
+      expect(find.text('热榜刷新失败，请重试'), findsNothing);
+    },
+  );
+
+  testWidgets('late hot posts are isolated when changing category', (
+    tester,
+  ) async {
+    final first = feed.channels.last;
+    final second = feed.channels[5];
+    final wait = Completer<PostRanking>();
+    final api = _RankingApi();
+    api.rankingFor = (scope) => scope == first.id
+        ? wait.future
+        : Future.value(PostRanking(scope, [RankedPost(_id(5), '新分类的热榜', 7)]));
+    await _start(tester, api);
+    await _pickChannel(tester, first.id);
+    await tester.tap(find.byKey(const ValueKey('feed-search')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(_scope));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.text(second.name).last);
+    await tester.pumpAndSettle();
+    expect(find.text('新分类的热榜'), findsOneWidget);
+    wait.complete(PostRanking(first.id, [RankedPost(_id(4), '旧分类的迟到热榜', 8)]));
+    await tester.pumpAndSettle();
+    expect(find.text('新分类的热榜'), findsOneWidget);
+    expect(find.text('旧分类的迟到热榜'), findsNothing);
+  });
+
+  testWidgets('hot posts fit a narrow screen with large text and long counts', (
+    tester,
+  ) async {
+    final api = _RankingApi();
+    api.rankingFor = (scope) async => PostRanking(scope, [
+      RankedPost(_id(6), '一篇包含很长标题的帖子需要在小屏幕大字号下正常换行展示', 9007199254740991),
+    ]);
+    final fixture = feed.FeedFixture(await IdentityTestFixture.create(), api);
+    addTearDown(fixture.dispose);
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: HhTelegramTheme.create(Brightness.light),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(1.8)),
+          child: child!,
+        ),
+        home: PostSearchScreen(
+          controller: fixture.controller,
+          channels: feed.channels,
+          initialChannelId: feed.channels.last.id,
+          onOpenPost: (_, _) {},
+          onOpenRankedPost: (_, _, _) async {},
+          onAuthenticationRequired: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('post-search-hot:${_id(6)}')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('search follows dark appearance and reduced motion', (
+    tester,
+  ) async {
+    final channel = feed.channels.last;
+    final api = _RankingApi()
+      ..rankingFor = (scope) async =>
+          PostRanking(scope, [RankedPost(_id(7), '深色榜单', 10)]);
+    api.histories[channel.id] = ['一条足够长的历史关键词', '另一条足够长的历史关键词', '第三条足够长的关键词'];
+    final fixture = await _start(tester, api);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: HhTelegramTheme.create(Brightness.dark),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: child!,
+        ),
+        home: PostSearchScreen(
+          controller: fixture.controller,
+          channels: feed.channels,
+          initialChannelId: channel.id,
+          onOpenPost: (_, _) {},
+          onOpenRankedPost: (_, _, _) async {},
+          onAuthenticationRequired: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final search = find.byType(PostSearchScreen);
+    final focusDecoration = tester.widget<AnimatedContainer>(
+      find.descendant(of: search, matching: find.byType(AnimatedContainer)),
+    );
+    expect(focusDecoration.duration, Duration.zero);
+    final reveal = tester.widget<TweenAnimationBuilder<double>>(
+      find.byKey(ValueKey('post-search-hot:${_id(7)}')),
+    );
+    expect(reveal.duration, Duration.zero);
+    expect(
+      Theme.of(tester.element(find.byKey(_input))).brightness,
+      Brightness.dark,
+    );
+    await tester.tap(find.byKey(const ValueKey('post-search-history-expand')));
+    await tester.pumpAndSettle();
+    expect(find.text('第三条足够长的关键词'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('typing searches after a pause without submitting or recording', (
     tester,
   ) async {

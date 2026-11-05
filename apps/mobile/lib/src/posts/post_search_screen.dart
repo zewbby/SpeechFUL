@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../channels/channel.dart';
 import '../design_system/detail_components.dart';
+import '../design_system/telegram_theme.dart';
 import '../localization/app_localizations.dart';
 import 'post_api.dart';
 import 'post_controller.dart';
 import 'post_models.dart';
+import 'post_ranking_api.dart';
 import 'post_search_api.dart';
 
 class PostSearchScreen extends StatefulWidget {
@@ -18,12 +20,19 @@ class PostSearchScreen extends StatefulWidget {
     required this.initialChannelId,
     required this.onOpenPost,
     required this.onAuthenticationRequired,
+    this.onOpenRankedPost,
   });
 
   final PostController controller;
   final List<Channel> channels;
   final String? initialChannelId;
   final void Function(BuildContext context, PostCard post) onOpenPost;
+  final Future<void> Function(
+    BuildContext context,
+    String postId,
+    String channelId,
+  )?
+  onOpenRankedPost;
   final VoidCallback onAuthenticationRequired;
 
   @override
@@ -36,6 +45,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   final _input = TextEditingController();
   final _focus = FocusNode();
   final _scroll = ScrollController();
+  final _discoveryScroll = ScrollController();
   final _historyWrites = <String?, Set<Future<void>>>{};
   late final int _epoch;
   late final Map<String, String> _channels = {
@@ -61,6 +71,10 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   bool _historyLoading = false, _historyChanging = false, _historyError = false;
   bool _historyExpanded = false, _retired = false;
   bool _inputInvalid = false;
+  int _rankingRequest = 0;
+  bool _rankingLoading = false, _rankingError = false;
+  bool _rankedPostOpen = false;
+  PostRanking? _ranking;
 
   PostController get _controller => widget.controller;
   bool get _current =>
@@ -68,6 +82,13 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       _controller.available &&
       _controller.authorityVersion == _epoch;
   String get _scopeName => hhText(context, _channels[_channelId] ?? '全部分类');
+  bool get _hasRanking =>
+      _channelId != null &&
+      _controller.supportsPostRankings &&
+      widget.onOpenRankedPost != null &&
+      !_controller.blockedChannelIds.contains(_channelId);
+  bool get _discovering =>
+      _keyword == null && trimPostSearchKeyword(_input.text).isEmpty;
 
   @override
   void initState() {
@@ -75,7 +96,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
     // Capture the authority before this route can dispatch any requests.
     _epoch = _controller.authorityVersion;
     _controller.addListener(_authorityChanged);
-    if (_current) scheduleMicrotask(_readHistory);
+    if (_current) scheduleMicrotask(_loadDiscovery);
   }
 
   @override
@@ -85,6 +106,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
     _input.dispose();
     _focus.dispose();
     _scroll.dispose();
+    _discoveryScroll.dispose();
     super.dispose();
   }
 
@@ -95,6 +117,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       _input.clear();
       _resetResults();
       _history = const [];
+      _clearRanking();
     }
     setState(() {});
   }
@@ -122,6 +145,9 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
     }
     setState(() {
       _inputInvalid = !empty && keyword == null;
+      if (!empty && (_rankingLoading || _ranking != null || _rankingError)) {
+        _clearRanking();
+      }
       if (_keyword == keyword) return;
       _resetResults();
       if (keyword != null) {
@@ -130,7 +156,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
         _searchTimer = Timer(_typingDelay, () => unawaited(_loadResults()));
       }
     });
-    if (empty) unawaited(_readHistory());
+    if (empty) _loadDiscovery();
   }
 
   void _clearInput() {
@@ -156,6 +182,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       );
       _inputInvalid = false;
       _keyword = keyword;
+      _clearRanking();
     });
     unawaited(_loadResults(recordHistory: true));
   }
@@ -167,12 +194,70 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       _history = const [];
       _historyLoading = _historyError = _historyExpanded = false;
       _channelId = channelId;
+      _clearRanking();
     });
     if (_keyword != null) {
       unawaited(_loadResults());
     } else if (trimPostSearchKeyword(_input.text).isEmpty) {
-      unawaited(_readHistory());
+      _loadDiscovery();
     }
+  }
+
+  void _clearRanking() {
+    ++_rankingRequest;
+    _ranking = null;
+    _rankingLoading = _rankingError = false;
+  }
+
+  void _loadDiscovery() {
+    if (_discoveryScroll.hasClients) _discoveryScroll.jumpTo(0);
+    unawaited(_readHistory());
+    unawaited(_readRanking());
+  }
+
+  Future<void> _readRanking() async {
+    if (!_current || !_hasRanking || !_discovering || _rankingLoading) return;
+    final channel = _channelId!;
+    final request = ++_rankingRequest;
+    setState(() {
+      _rankingLoading = true;
+      _rankingError = false;
+    });
+    bool current() =>
+        _current && request == _rankingRequest && _channelId == channel;
+    try {
+      final value = await _controller.hotPosts(channel);
+      if (current()) setState(() => _ranking = value);
+    } on Object {
+      if (current()) setState(() => _rankingError = true);
+    } finally {
+      if (current()) setState(() => _rankingLoading = false);
+    }
+  }
+
+  Future<void> _openRankedPost(RankedPost post) async {
+    final channel = _channelId;
+    if (!_current ||
+        !_hasRanking ||
+        _rankedPostOpen ||
+        channel == null ||
+        _controller.isPostDeleted(post.postId)) {
+      return;
+    }
+    _rankedPostOpen = true;
+    try {
+      _focus.unfocus();
+      await widget.onOpenRankedPost!(context, post.postId, channel);
+    } finally {
+      _rankedPostOpen = false;
+    }
+    if (!_current || _channelId != channel || !_discovering) return;
+    if (_discoveryScroll.hasClients) _discoveryScroll.jumpTo(0);
+    if (_rankingLoading) {
+      ++_rankingRequest;
+      _rankingLoading = false;
+    }
+    await _readRanking();
   }
 
   void _selectSort(PostSearchSort sort) {
@@ -375,39 +460,9 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                _buildSearchField(),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: TextField(
-                    key: const ValueKey('post-search-input'),
-                    autofocus: true,
-                    controller: _input,
-                    focusNode: _focus,
-                    textInputAction: TextInputAction.search,
-                    onChanged: _edit,
-                    onSubmitted: _submit,
-                    decoration: InputDecoration(
-                      hintText: hhText(context, '搜索标题或正文'),
-                      errorText: _inputInvalid
-                          ? hhText(context, '请输入 1–100 个字符的关键词')
-                          : null,
-                      border: const OutlineInputBorder(),
-                      prefixIcon: IconButton(
-                        tooltip: hhText(context, '提交搜索'),
-                        onPressed: () => _submit(_input.text),
-                        icon: const Icon(Icons.search),
-                      ),
-                      suffixIcon: _input.text.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: hhText(context, '清空关键词'),
-                              onPressed: _clearInput,
-                              icon: const Icon(Icons.close),
-                            ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 4,
@@ -431,13 +486,38 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                               child: Text(hhText(context, channel.name)),
                             ),
                         ],
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: HhTelegramPalette.of(context).selection,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(_scopeName),
-                              const Icon(Icons.arrow_drop_down),
+                              Icon(
+                                Icons.tag_rounded,
+                                size: 17,
+                                color: HhTelegramPalette.of(context).accent,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  _scopeName,
+                                  style: TextStyle(
+                                    color: HhTelegramPalette.of(context).accent,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 18,
+                                color: HhTelegramPalette.of(context).accent,
+                              ),
                             ],
                           ),
                         ),
@@ -446,6 +526,13 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                         for (final sort in PostSearchSort.values)
                           ChoiceChip(
                             key: ValueKey('post-search-sort:${sort.name}'),
+                            showCheckmark: false,
+                            side: BorderSide.none,
+                            shape: const StadiumBorder(),
+                            selectedColor: HhTelegramPalette.of(context)
+                                .selection,
+                            backgroundColor: HhTelegramPalette.of(context)
+                                .background,
                             label: Text(
                               hhText(
                                 context,
@@ -458,17 +545,98 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                     ],
                   ),
                 ),
-                const Divider(height: 1),
                 Expanded(
                   child: _keyword != null
                       ? _buildResults()
                       : trimPostSearchKeyword(_input.text).isEmpty
-                      ? _buildHistory()
+                      ? _buildDiscovery()
                       : const SizedBox.shrink(),
                 ),
               ],
             ),
     ),
+  );
+
+  Duration _motionDuration(int milliseconds) =>
+      MediaQuery.disableAnimationsOf(context) ||
+          MediaQuery.accessibleNavigationOf(context)
+      ? Duration.zero
+      : Duration(milliseconds: milliseconds);
+
+  Widget _buildSearchField() {
+    final colors = HhTelegramPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: ListenableBuilder(
+        listenable: _focus,
+        builder: (context, _) => AnimatedContainer(
+          duration: _motionDuration(180),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: _focus.hasFocus ? colors.selection : colors.background,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _focus.hasFocus
+                  ? colors.accent.withValues(alpha: .4)
+                  : colors.line,
+            ),
+          ),
+          child: TextField(
+            key: const ValueKey('post-search-input'),
+            autofocus: true,
+            controller: _input,
+            focusNode: _focus,
+            textInputAction: TextInputAction.search,
+            onChanged: _edit,
+            onSubmitted: _submit,
+            decoration: InputDecoration(
+              hintText: hhText(context, '搜索标题或正文'),
+              errorText: _inputInvalid
+                  ? hhText(context, '请输入 1–100 个字符的关键词')
+                  : null,
+              errorMaxLines: 2,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              prefixIcon: IconButton(
+                tooltip: hhText(context, '提交搜索'),
+                onPressed: () => _submit(_input.text),
+                color: colors.accent,
+                icon: const Icon(Icons.search_rounded),
+              ),
+              suffixIcon: _input.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: hhText(context, '清空关键词'),
+                      onPressed: _clearInput,
+                      icon: const Icon(Icons.cancel_rounded, size: 20),
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _reveal(Key key, Widget child) => TweenAnimationBuilder<double>(
+    key: key,
+    tween: Tween(begin: 0, end: 1),
+    duration: _motionDuration(220),
+    curve: Curves.easeOutCubic,
+    builder: (context, value, child) => Opacity(
+      opacity: .55 + .45 * value,
+      child: Transform.translate(
+        offset: Offset(0, 6 * (1 - value)),
+        child: child,
+      ),
+    ),
+    child: child,
   );
 
   Widget _buildResults() {
@@ -509,6 +677,12 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(
+              Icons.manage_search_rounded,
+              size: 44,
+              color: HhTelegramPalette.of(context).accent,
+            ),
+            const SizedBox(height: 12),
             Text(hhText(context, '暂无相关帖子')),
             if (_channelId != null)
               TextButton(
@@ -548,6 +722,10 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                 ),
               ),
             ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 8,
+              ),
               leading: DetailAvatar(
                 name: post.author.displayName,
                 avatar: post.author.avatar,
@@ -557,6 +735,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                 post.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               subtitle: Text(
                 '${post.author.displayName} · ${MaterialLocalizations.of(context).formatShortMonthDay(published)}',
@@ -572,119 +751,351 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                 }
               },
             ),
-            const Divider(height: 1, indent: 16, endIndent: 16),
+            const Divider(height: 1, indent: 72, endIndent: 20),
           ],
         );
       },
     );
   }
 
-  Widget _buildHistory() {
-    if (_historyLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_historyError) {
-      return Center(child: _retryNotice('暂时无法核对搜索历史', _readHistory));
-    }
-    if (_history.isEmpty) return Center(child: Text(hhText(context, '暂无搜索历史')));
-    return ListView(
+  Widget _buildDiscovery() {
+    final rows = _hasRanking
+        ? _ranking?.items
+              .where((post) => !_controller.isPostDeleted(post.postId))
+              .toList(growable: false)
+        : null;
+    final scroll = CustomScrollView(
       key: const ValueKey('post-search-history'),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      controller: _discoveryScroll,
+      physics: const AlwaysScrollableScrollPhysics(),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              children: [
+                _buildHistory(),
+                if (_hasRanking) _rankingHeader(rows),
+              ],
+            ),
+          ),
+        ),
+        if (rows != null)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            sliver: SliverList.builder(
+              itemCount: rows.length,
+              itemBuilder: (_, i) => _rankingRow(rows[i], i + 1),
+            ),
+          ),
+      ],
+    );
+    return _hasRanking
+        ? RefreshIndicator(onRefresh: _readRanking, child: scroll)
+        : scroll;
+  }
+
+  Widget _rankingHeader(List<RankedPost>? rows) => _reveal(
+    ValueKey('post-search-hot-heading:$_channelId'),
+    SizedBox(
+      width: double.infinity,
+      child: Column(
+        key: const ValueKey('post-search-hot-posts'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: HhTelegramPalette.of(context).selection,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.trending_up_rounded,
+                  size: 20,
+                  color: HhTelegramPalette.of(context).accent,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    hhText(context, '大家都在看'),
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (_rankingLoading && rows == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: LinearProgressIndicator(),
+            ),
+          if (_rankingError)
+            _retryNotice(
+              rows == null ? '暂时无法加载热榜' : '热榜刷新失败，请重试',
+              _readRanking,
+            ),
+          if (!_rankingError && rows != null && rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                hhText(context, '近七天暂无可展示帖子'),
+                style: TextStyle(
+                  color: HhTelegramPalette.of(context).secondary,
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _rankingRow(RankedPost post, int rank) {
+    final colors = HhTelegramPalette.of(context);
+    return _reveal(
+      ValueKey('post-search-hot:${post.postId}'),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Material(
+          color: colors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: colors.line),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _openRankedPost(post),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colors.selection,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Text(
+                      '$rank',
+                      style: TextStyle(
+                        color: colors.accent,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.ink,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.visibility_outlined,
+                              size: 14,
+                              color: colors.secondary,
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                hhText(
+                                  context,
+                                  '浏览量 {count}',
+                                  args: {'count': '${post.viewCount}'},
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.secondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: colors.secondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistory() {
+    final colors = HhTelegramPalette.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
+            Icon(Icons.history_rounded, size: 19, color: colors.secondary),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 hhText(context, '搜索历史'),
-                style: Theme.of(context).textTheme.titleSmall,
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
-            TextButton(
-              key: const ValueKey('post-search-history-clear'),
-              onPressed: _historyChanging ? null : () => _changeHistory(),
-              child: Text(hhText(context, '清空')),
-            ),
+            if (_history.isNotEmpty)
+              TextButton(
+                key: const ValueKey('post-search-history-clear'),
+                onPressed: _historyChanging ? null : () => _changeHistory(),
+                child: Text(hhText(context, '清空')),
+              ),
           ],
         ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final style = Theme.of(context).textTheme.labelLarge;
-            final widths = <double>[];
-            const gap = 8.0;
-            var row = 1;
-            var used = 0.0;
-            var collapsedCount = 0;
-            for (final entry in _history) {
-              final painter = TextPainter(
-                text: TextSpan(text: entry, style: style),
-                textDirection: Directionality.of(context),
-                textScaler: MediaQuery.textScalerOf(context),
-                maxLines: 1,
-              )..layout();
-              final width = (painter.width.ceilToDouble() + 64).clamp(
-                0.0,
-                constraints.maxWidth,
-              );
-              painter.dispose();
-              widths.add(width);
-              if (used + width > constraints.maxWidth) {
-                ++row;
-                used = 0;
+        if (_historyLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: LinearProgressIndicator(minHeight: 2),
+          )
+        else if (_historyError)
+          _retryNotice('暂时无法核对搜索历史', _readHistory)
+        else if (_history.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 4),
+            child: Text(
+              hhText(context, '暂无搜索历史'),
+              style: TextStyle(color: colors.secondary, fontSize: 13),
+            ),
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final style = Theme.of(context).textTheme.labelLarge;
+              final widths = <double>[];
+              const gap = 8.0;
+              var row = 1;
+              var used = 0.0;
+              var collapsedCount = 0;
+              for (final entry in _history) {
+                final painter = TextPainter(
+                  text: TextSpan(text: entry, style: style),
+                  textDirection: Directionality.of(context),
+                  textScaler: MediaQuery.textScalerOf(context),
+                  maxLines: 1,
+                )..layout();
+                final width = (painter.width.ceilToDouble() + 64).clamp(
+                  0.0,
+                  constraints.maxWidth,
+                );
+                painter.dispose();
+                widths.add(width);
+                if (used + width > constraints.maxWidth) {
+                  ++row;
+                  used = 0;
+                }
+                if (row <= 2) ++collapsedCount;
+                used += width + gap;
               }
-              if (row <= 2) ++collapsedCount;
-              used += width + gap;
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: gap,
-                  runSpacing: 4,
-                  children: [
-                    for (
-                      var i = 0;
-                      i < (_historyExpanded ? _history.length : collapsedCount);
-                      ++i
-                    )
-                      SizedBox(
-                        width: widths[i],
-                        child: InputChip(
-                          label: Text(
-                            _history[i],
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          labelStyle: style,
-                          onPressed: _historyChanging
-                              ? null
-                              : () => _submit(_history[i]),
-                          onDeleted: _historyChanging
-                              ? null
-                              : () =>
-                                    _changeHistory(removeKeyword: _history[i]),
-                          deleteButtonTooltipMessage: hhText(
-                            context,
-                            '删除「{keyword}」',
-                            args: {'keyword': _history[i]},
+              final content = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: gap,
+                    runSpacing: 4,
+                    children: [
+                      for (
+                        var i = 0;
+                        i <
+                            (_historyExpanded
+                                ? _history.length
+                                : collapsedCount);
+                        ++i
+                      )
+                        SizedBox(
+                          width: widths[i],
+                          child: InputChip(
+                            backgroundColor: colors.background,
+                            side: BorderSide.none,
+                            shape: const StadiumBorder(),
+                            deleteIcon: const Icon(
+                              Icons.close_rounded,
+                              size: 16,
+                            ),
+                            label: Text(
+                              _history[i],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            labelStyle: style,
+                            onPressed: _historyChanging
+                                ? null
+                                : () => _submit(_history[i]),
+                            onDeleted: _historyChanging
+                                ? null
+                                : () => _changeHistory(
+                                    removeKeyword: _history[i],
+                                  ),
+                            deleteButtonTooltipMessage: hhText(
+                              context,
+                              '删除「{keyword}」',
+                              args: {'keyword': _history[i]},
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-                if (collapsedCount < _history.length)
-                  TextButton(
-                    key: const ValueKey('post-search-history-expand'),
-                    onPressed: () =>
-                        setState(() => _historyExpanded = !_historyExpanded),
-                    child: Text(
-                      hhText(context, _historyExpanded ? '收起' : '展开'),
-                    ),
+                    ],
                   ),
-              ],
-            );
-          },
-        ),
+                  if (collapsedCount < _history.length)
+                    TextButton.icon(
+                      key: const ValueKey('post-search-history-expand'),
+                      onPressed: () =>
+                          setState(() => _historyExpanded = !_historyExpanded),
+                      icon: AnimatedRotation(
+                        turns: _historyExpanded ? .5 : 0,
+                        duration: _motionDuration(180),
+                        child: const Icon(Icons.expand_more_rounded, size: 18),
+                      ),
+                      label: Text(
+                        hhText(context, _historyExpanded ? '收起' : '展开'),
+                      ),
+                    ),
+                ],
+              );
+              if (_motionDuration(180) == Duration.zero) return content;
+              return AnimatedSize(
+                duration: _motionDuration(180),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topLeft,
+                child: content,
+              );
+            },
+          ),
       ],
     );
   }

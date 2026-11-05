@@ -73,6 +73,10 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _replyOpen = false;
   bool _composeOpen = false;
   bool _searchOpen = false;
+  bool _channelPickerOpen = false;
+  List<String> _channelOrder = const [];
+  final _channelOrderAge = Stopwatch();
+  Future<void>? _channelOrderRequest;
   PostController get c => widget.controller;
   bool get current => mounted && c.available && c.authorityVersion == _epoch;
   List<FeedChannelView> get channels => [
@@ -95,10 +99,11 @@ class _FeedScreenState extends State<FeedScreen> {
     c.addListener(_changed);
     // Starting a new route must not synchronously notify still-mounted sibling
     // routes during Navigator's build. Hide any prior timeline until this read.
-    scheduleMicrotask(() {
+    scheduleMicrotask(() async {
       if (!current) return;
       setState(() => _starting = false);
-      unawaited(c.loadTimeline(channelId: widget.initialChannelId));
+      await c.loadTimeline(channelId: widget.initialChannelId);
+      if (current) unawaited(_loadChannelOrder());
     });
   }
 
@@ -214,18 +219,73 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  Future<void> _pick(BuildContext context) => showFeedChannelPicker(
-    context,
-    channels: channels,
-    authority: c,
-    isCurrent: () => current,
-    selected: c.timelineChannelId,
-    onSelected: (id) {
-      if (!current || c.preferencesSaving) return;
-      if (_scroll.hasClients) _scroll.jumpTo(0);
-      unawaited(c.loadTimeline(channelId: id));
-    },
-  );
+  Future<void> _loadChannelOrder() async {
+    if (!current || !c.supportsPostRankings) return;
+    final existing = _channelOrderRequest;
+    if (existing != null) return existing;
+    final request = () async {
+      try {
+        final ids = await c.channelOrder();
+        final directory = widget.channels.map((channel) => channel.id).toSet();
+        if (current &&
+            ids.length == directory.length &&
+            directory.containsAll(ids)) {
+          _channelOrder = ids;
+          _channelOrderAge
+            ..reset()
+            ..start();
+        }
+      } on Object {
+        // The chooser can always use its authorized default directory.
+      }
+    }();
+    _channelOrderRequest = request;
+    try {
+      await request;
+    } finally {
+      _channelOrderRequest = null;
+    }
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    if (!current || _channelPickerOpen) return;
+    _channelPickerOpen = true;
+    try {
+      final pending = _loadChannelOrder();
+      if (_channelOrder.isEmpty && c.supportsPostRankings) {
+        await pending.timeout(
+          const Duration(milliseconds: 80),
+          onTimeout: () {},
+        );
+      }
+      if (!current || !context.mounted) return;
+      final directory = channels;
+      final byId = {for (final channel in directory) channel.code: channel};
+      final order = _channelOrderAge.elapsed < const Duration(minutes: 5)
+          ? _channelOrder
+          : const <String>[];
+      final ordered = [
+        for (final id in order)
+          if (byId[id] case final channel?) channel,
+        ...directory.where((channel) => !order.contains(channel.code)),
+      ];
+      await showFeedChannelPicker(
+        context,
+        channels: ordered,
+        authority: c,
+        isCurrent: () => current,
+        selected: c.timelineChannelId,
+        onSelected: (id) {
+          if (!current || c.preferencesSaving) return;
+          if (_scroll.hasClients) _scroll.jumpTo(0);
+          unawaited(c.loadTimeline(channelId: id));
+        },
+      );
+    } finally {
+      _channelPickerOpen = false;
+    }
+  }
+
   void _selectFeed(bool latest) {
     if (!current || c.timelineLoading || c.preferencesSaving) return;
     setState(() => _latestSelected = latest);
@@ -309,6 +369,7 @@ class _FeedScreenState extends State<FeedScreen> {
             initialChannelId: initialChannel,
             onOpenPost: (context, post) =>
                 _open(context, post.postId, post.channelId),
+            onOpenRankedPost: _open,
             onAuthenticationRequired: widget.onAuthenticationRequired,
           ),
         ),
@@ -318,9 +379,9 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  void _open(BuildContext context, String id, String channelId) {
+  Future<void> _open(BuildContext context, String id, String channelId) async {
     if (!current) return;
-    Navigator.of(context).push<void>(
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => PostDetailScreen(
           controller: c,

@@ -16,6 +16,50 @@ security:
   - bearerAuth: []
 x-design-document: ../../docs/design/feed-backend-contract.md
 paths:
+  /api/v1/feed/channel-order:
+    get:
+      operationId: readChannelOrder
+      summary: Read the current channel picker order
+      description: Five-minute snapshot. IDs are ordered by participation, new posts, then directory order. No body or query.
+      responses:
+        '200':
+          description: Complete ordered channel directory IDs
+          headers:
+            Session-Expires-At: { $ref: '#/components/headers/SessionExpiresAt' }
+            Server-Time: { $ref: '#/components/headers/ServerTime' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChannelOrder' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/channels/{channelId}/hot-posts:
+    get:
+      operationId: readChannelHotPosts
+      summary: Read up to twenty currently accessible ranked posts
+      description: Five-minute order with live visibility, preference, title and view count checks. No body or query. A blocked channel returns an empty list.
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/ResourceID' }
+      responses:
+        '200':
+          description: Ordered post rows, with implicit continuous rank
+          headers:
+            Session-Expires-At: { $ref: '#/components/headers/SessionExpiresAt' }
+            Server-Time: { $ref: '#/components/headers/ServerTime' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChannelHotPosts' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Error' }
   /api/v1/feed/interactions:
     post:
       operationId: readFeedInteractionSummaries
@@ -332,6 +376,36 @@ components:
       required: true
       schema: { type: integer, minimum: 1, maximum: 86400 }
   schemas:
+    ChannelOrder:
+      type: object
+      additionalProperties: false
+      required: [asOf, channelIds]
+      properties:
+        asOf: { type: string, format: date-time }
+        channelIds:
+          type: array
+          minItems: 1
+          maxItems: 7
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/ResourceID' }
+    ChannelHotPosts:
+      type: object
+      additionalProperties: false
+      required: [asOf, channelId, items]
+      properties:
+        asOf: { type: string, format: date-time }
+        channelId: { $ref: '#/components/schemas/ResourceID' }
+        items:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [postId, title, viewCount]
+            properties:
+              postId: { $ref: '#/components/schemas/ResourceID' }
+              title: { type: string, minLength: 1 }
+              viewCount: { type: integer, format: int64, minimum: 0 }
     PostInteractions:
       type: object
       additionalProperties: false
@@ -469,7 +543,7 @@ components:
           properties:
             code:
               type: string
-              enum: [MALFORMED_REQUEST, AUTHENTICATION_FAILED, SESSION_INVALID, session_replaced, AUTHORIZATION_UNAVAILABLE, SERVICE_UNAVAILABLE, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, CURSOR_INVALID, POST_CHANNEL_UNAVAILABLE, POST_NOT_FOUND, INTERACTION_VERSION_CONFLICT]
+              enum: [MALFORMED_REQUEST, AUTHENTICATION_FAILED, SESSION_INVALID, session_replaced, AUTHORIZATION_UNAVAILABLE, SERVICE_UNAVAILABLE, RANKINGS_UNAVAILABLE, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, CURSOR_INVALID, POST_CHANNEL_UNAVAILABLE, POST_NOT_FOUND, INTERACTION_VERSION_CONFLICT]
             message: { type: string, minLength: 1, maxLength: 256 }
   responses:
     Interactions:

@@ -72,6 +72,8 @@ func isPostPath(path string) bool {
 
 func parsePostRoute(path string) (postRoute, error) {
 	switch path {
+	case "/api/v1/feed/channel-order":
+		return postRoute{kind: channelOrderRoute, methods: "GET"}, nil
 	case postSearchPath:
 		return postRoute{kind: postSearchRoute, methods: "POST"}, nil
 	case postSearchHistoryPath:
@@ -84,6 +86,12 @@ func parsePostRoute(path string) (postRoute, error) {
 		return postRoute{}, errMalformed
 	}
 	parts := strings.Split(strings.TrimPrefix(path, "/api/v1/"), "/")
+	if len(parts) == 3 && parts[0] == "channels" && parts[2] == "hot-posts" {
+		if _, err := posts.ParseResourceID(parts[1]); err != nil {
+			return postRoute{}, errMalformed
+		}
+		return postRoute{kind: hotPostsRoute, id: parts[1], methods: "GET"}, nil
+	}
 	if len(parts) == 3 && parts[0] == "posts" && parts[2] == "repost" {
 		if _, err := posts.ParseResourceID(parts[1]); err != nil {
 			return postRoute{}, errMalformed
@@ -273,6 +281,10 @@ func (b *boundary) communityPostsPublic(w http.ResponseWriter, r *http.Request, 
 	}
 	if isPostSearchKind(route.kind) {
 		b.communityPostSearch(w, r, backend, bearer, route)
+		return
+	}
+	if route.kind == channelOrderRoute || route.kind == hotPostsRoute {
+		b.communityRankings(w, r, backend, bearer, route)
 		return
 	}
 	if isRepostKind(route.kind) {
@@ -669,7 +681,7 @@ func (b *boundary) postFailure(w http.ResponseWriter, err error) {
 				status = 422
 			case "COMMENT_SNAPSHOT_UNAVAILABLE", "COMMENT_SNAPSHOT_CAPACITY", "COMMENT_SNAPSHOT_INTEGRITY":
 				status = 503
-			case "SERVICE_UNAVAILABLE", "AUTHORIZATION_UNAVAILABLE", "SHARED_RATE_UNAVAILABLE":
+			case "SERVICE_UNAVAILABLE", "AUTHORIZATION_UNAVAILABLE", "SHARED_RATE_UNAVAILABLE", "RANKINGS_UNAVAILABLE":
 				status = 503
 			case "POSTING_RESTRICTED":
 				status = 409
@@ -771,6 +783,9 @@ func strictPostValue(value any, route postRoute) (any, error) {
 	}
 	if isRepostKind(route.kind) {
 		return strictRepostValue(value, route)
+	}
+	if route.kind == channelOrderRoute || route.kind == hotPostsRoute {
+		return strictRankings(value, route)
 	}
 	if route.command || route.seal || route.operation.Valid() {
 		result, ok := value.(posts.CommandResult)

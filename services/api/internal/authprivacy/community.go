@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/authprivacy/protocol"
+	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/rankings"
 )
 
 type Community struct {
@@ -35,6 +36,7 @@ type Community struct {
 	moderationEnabled bool
 	comments          *commentServices
 	directMessages    bool
+	rankings          *rankings.Cache
 }
 
 func NewCommunity(pool *pgxpool.Pool, verifier *protocol.Verifier, signingEpoch uint32, requestKey [32]byte, gate AuthorizationGate) (*Community, error) {

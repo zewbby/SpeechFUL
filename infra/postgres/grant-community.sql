@@ -117,6 +117,19 @@ DO $$ BEGIN
  END IF;
 END $$;
 
+-- 0031 stores only derived rank order. Cascading retention is owned by the
+-- snapshot FK; runtime cannot update published rows or delete individual ranks.
+DO $$ BEGIN
+ IF to_regclass('c_posts.ranking_snapshots') IS NOT NULL THEN
+  GRANT SELECT ON c_posts.ranking_inputs TO hnuhole_c_runtime;
+  GRANT UPDATE(revision) ON c_posts.ranking_inputs TO hnuhole_c_runtime;
+  GRANT SELECT,INSERT,DELETE ON c_posts.ranking_snapshots TO hnuhole_c_runtime;
+  GRANT UPDATE(channel_ids) ON c_posts.ranking_snapshots TO hnuhole_c_runtime;
+  GRANT SELECT,INSERT ON c_posts.ranking_posts TO hnuhole_c_runtime;
+  GRANT SELECT,INSERT,DELETE ON c_posts.ranking_channel_data TO hnuhole_c_runtime;
+ END IF;
+END $$;
+
 -- 0014's image triggers also protect text-only writes. Lifecycle cleanup
 -- must erase existing bytes/grants even when the image HTTP API is disabled.
 -- Upload insertion and verification columns remain a separate opt-in grant.
