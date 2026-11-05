@@ -61,7 +61,10 @@ func (c *Community) RefreshRankings(ctx context.Context, pool *pgxpool.Pool, wei
 	if c == nil || c.rankings == nil || pool == nil || !weights.Valid() {
 		return time.Time{}, errors.New("invalid channel ranking worker configuration")
 	}
-	decision, err := c.gate.Snapshot(ctx)
+	if err := c.rankings.WaitForIdle(ctx); err != nil {
+		return time.Time{}, err
+	}
+	decision, err := c.rankingBuildDecision(ctx, pool)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -113,6 +116,26 @@ func (c *Community) RefreshRankings(ctx context.Context, pool *pgxpool.Pool, wei
 	return bucket, nil
 }
 
+// Private computation needs a verified time sample, without publishing a new
+// authorization checkpoint. Every public response still uses withPostSessionAt.
+func (c *Community) rankingBuildDecision(ctx context.Context, pool *pgxpool.Pool) (AuthorizationDecision, error) {
+	tx, err := begin(ctx, pool)
+	if err != nil {
+		return AuthorizationDecision{}, err
+	}
+	defer tx.Rollback(ctx)
+	var generation uint64
+	if err := tx.QueryRow(ctx, `SELECT authorization_generation FROM c_auth.authorization_gate WHERE singleton_id=1`).Scan(&generation); err != nil {
+		return AuthorizationDecision{}, err
+	}
+	decision, err := c.gate.RecheckForCommit(ctx, tx, generation)
+	if err != nil {
+		// Persist an independently detected freeze after rolling back the read.
+		_ = c.gate.Abort(ctx, tx)
+	}
+	return decision, err
+}
+
 func (c *Community) buildRankingSnapshot(ctx context.Context, pool *pgxpool.Pool, decision AuthorizationDecision, version string, bucket time.Time, weights RankingWeights) error {
 	tx, err := begin(ctx, pool)
 	if err != nil {
@@ -133,18 +156,6 @@ func (c *Community) buildRankingSnapshot(ctx context.Context, pool *pgxpool.Pool
 	if exists {
 		return nil
 	}
-	// Retention and publication share the builder lock. Unchanged channel
-	// data stays alive through references from recent snapshots.
-	if _, err := tx.Exec(ctx, `DELETE FROM c_posts.ranking_snapshots WHERE version=(
-		SELECT version FROM c_posts.ranking_snapshots WHERE bucket<=$1 ORDER BY bucket LIMIT 1)`, bucket.Add(-rankings.MaxAge)); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM c_posts.ranking_channel_data WHERE (data_version,channel_id) IN (
-		SELECT d.data_version,d.channel_id FROM c_posts.ranking_channel_data d
-		WHERE NOT EXISTS (SELECT 1 FROM c_posts.ranking_posts r WHERE r.data_version=d.data_version AND r.channel_id=d.channel_id)
-		ORDER BY d.data_version LIMIT 7)`); err != nil {
-		return err
-	}
 	rows, err := tx.Query(ctx, `SELECT id::text FROM public.channels ORDER BY display_order`)
 	if err != nil {
 		return err
@@ -163,19 +174,14 @@ func (c *Community) buildRankingSnapshot(ctx context.Context, pool *pgxpool.Pool
 			return err
 		}
 		if reused.RowsAffected() == 0 {
+			if err := c.rankings.WaitForIdle(ctx); err != nil {
+				return err
+			}
 			if _, err := tx.Exec(ctx, buildRankingsSQL, version, decision.Generation, bucket, weights.Like, weights.Favorite, weights.Discussion, weights.HalfLifeHours, channel, policy); err != nil {
 				return err
 			}
 			if _, err := tx.Exec(ctx, `INSERT INTO c_posts.ranking_posts(version,channel_id,data_version) VALUES($1,$2,$1)`, version, channel); err != nil {
 				return err
-			}
-			// Yield only after expensive, changed-channel work.
-			timer := time.NewTimer(20 * time.Millisecond)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return ctx.Err()
-			case <-timer.C:
 			}
 		}
 	}
@@ -186,10 +192,25 @@ func (c *Community) buildRankingSnapshot(ctx context.Context, pool *pgxpool.Pool
 		WHERE version=$1`, version); err != nil {
 		return err
 	}
+	// Reuse before retention so a delayed cycle can keep unchanged data. The
+	// new references protect that data when older public snapshots expire.
+	if _, err := tx.Exec(ctx, `DELETE FROM c_posts.ranking_snapshots WHERE version=(
+		SELECT version FROM c_posts.ranking_snapshots WHERE bucket<=$1 ORDER BY bucket LIMIT 1)`, bucket.Add(-rankings.MaxAge)); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM c_posts.ranking_channel_data WHERE (data_version,channel_id) IN (
+		SELECT d.data_version,d.channel_id FROM c_posts.ranking_channel_data d
+		WHERE NOT EXISTS (SELECT 1 FROM c_posts.ranking_posts r WHERE r.data_version=d.data_version AND r.channel_id=d.channel_id)
+		ORDER BY d.data_version LIMIT 7)`); err != nil {
+		return err
+	}
 	// This transaction publishes only derived private candidate IDs. It must
 	// not serialize foreground business on the authorization row. Every
 	// public read still executes withPostSessionAt and its final Gate check.
 	// A recovery racing this commit leaves an old-generation cache that no
 	// reader can authorize; a later worker replaces it.
+	if err := c.rankings.WaitForIdle(ctx); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }

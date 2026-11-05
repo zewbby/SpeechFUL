@@ -1,8 +1,10 @@
 package authprivacy
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"os"
 	"slices"
 	"testing"
@@ -78,8 +80,16 @@ func TestFeedRankingsRedisPostgres(t *testing.T) {
 	build := func() {
 		t.Helper()
 		advance(5 * time.Minute)
+		before, e := os.ReadFile(control.lab.gate.anchor.Path)
+		if e != nil {
+			t.Fatal(e)
+		}
 		if _, e := l.c.RefreshRankings(ctx, l.cp, DefaultRankingWeights()); e != nil {
 			t.Fatal(e)
+		}
+		after, e := os.ReadFile(control.lab.gate.anchor.Path)
+		if e != nil || !bytes.Equal(before, after) {
+			t.Fatal("private ranking build changed the authorization checkpoint", e)
 		}
 	}
 	hot := func(want ...string) {
@@ -106,7 +116,8 @@ func TestFeedRankingsRedisPostgres(t *testing.T) {
 	if _, e = locked.Exec(ctx, "LOCK TABLE c_posts.post_likes IN ACCESS EXCLUSIVE MODE"); e != nil {
 		t.Fatal(e)
 	}
-	// An unchanged channel must be able to refresh without reading likes.
+	// Even after public snapshot expiry, unchanged data remains reusable.
+	advance(20 * time.Minute)
 	build()
 	if e = locked.Rollback(ctx); e != nil {
 		t.Fatal(e)
@@ -134,6 +145,20 @@ func TestFeedRankingsRedisPostgres(t *testing.T) {
 	hot()
 	if _, e := l.c.ReplaceFeedPreferences(ctx, b.SessionToken, posts.FeedPreferences{BlockedChannelIDs: []string{}}); e != nil {
 		t.Fatal(e)
+	}
+	future, e := cache.Snapshot(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	future.Bucket = control.clock.now().Truncate(rankings.Interval).Add(rankings.Interval)
+	future.Version = rankings.Version(future.Generation, future.Bucket)
+	if e := cache.Publish(ctx, future); e != nil {
+		t.Fatal(e)
+	}
+	// Private candidate lookup cannot authorize a future-dated public board.
+	current, e := l.c.ReadRankings(ctx, b.SessionToken, "")
+	if e != nil || !current.Value.(posts.ChannelRanking).AsOf.Before(future.Bucket) {
+		t.Fatal("future cache did not fall back to the authorized SQL snapshot", e)
 	}
 	if e := cache.Close(); e != nil {
 		t.Fatal(e)
@@ -194,6 +219,12 @@ func TestFeedRankingWindowAndPendingPublicationPostgres(t *testing.T) {
 	checkCount(1)
 	advanceClosureClock(t, control, start.Add(168*time.Hour+rankings.Interval))
 	checkCount(0)
+	if err := l.gate.Freeze(ctx, "ranking worker final Gate regression"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l.c.RefreshRankings(ctx, l.cp, DefaultRankingWeights()); !errors.Is(err, ErrAuthorizationUnavailable) {
+		t.Fatal("ranking worker accepted a frozen Gate", err)
+	}
 }
 
 func withRankingTestComments(t *testing.T, c *Community) *Community {

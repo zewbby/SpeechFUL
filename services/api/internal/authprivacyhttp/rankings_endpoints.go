@@ -17,6 +17,10 @@ type rankingBackend interface {
 	ReadRankings(context.Context, [32]byte, string) (authprivacy.PostResponse, error)
 }
 
+type rankingForeground interface {
+	BeginRankingForeground() func()
+}
+
 func (b *boundary) communityRankings(w http.ResponseWriter, r *http.Request, backend PostBackend, bearer [32]byte, route postRoute) {
 	if noBodyOrQuery(r) != nil {
 		b.postBad(w, errMalformed)

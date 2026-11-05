@@ -129,6 +129,10 @@ func (c *Community) withPostSession(ctx context.Context, bearer [32]byte, action
 	if !c.PostsEnabled() {
 		return result, ErrAuthorizationUnavailable
 	}
+	if c.rankings != nil {
+		finishForeground := c.rankings.ForegroundStarted()
+		defer finishForeground()
+	}
 	decision, err := c.gate.Snapshot(ctx)
 	if err != nil {
 		return result, err

@@ -42,6 +42,10 @@ func (c *Community) SearchPosts(ctx context.Context, bearer [32]byte, query post
 	if !c.PostsEnabled() {
 		return PostResponse{}, ErrAuthorizationUnavailable
 	}
+	if c.rankings != nil {
+		finishForeground := c.rankings.ForegroundStarted()
+		defer finishForeground()
+	}
 	decision, err := c.gate.Snapshot(ctx)
 	if err != nil {
 		return PostResponse{}, err

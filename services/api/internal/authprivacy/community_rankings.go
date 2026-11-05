@@ -18,8 +18,18 @@ import (
 const rankingReadBudget = time.Second
 
 var errRankingNeedsMore = errors.New("ranking candidates invalidated")
+var errRankingSnapshotInvalid = errors.New("ranking snapshot outside final trusted window")
 
 func rankingsUnavailable() error { return postError("RANKINGS_UNAVAILABLE", 503) }
+
+// BeginRankingForeground keeps background work behind the full HTTP response.
+// It only schedules ranking work and does not grant access to any resource.
+func (c *Community) BeginRankingForeground() func() {
+	if c.rankings == nil {
+		return nil
+	}
+	return c.rankings.ForegroundStarted()
+}
 
 // ReadRankings uses Redis only before opening the final Gate transaction.
 // Empty channel means directory order, not an all-channel posts leaderboard.
@@ -27,6 +37,8 @@ func (c *Community) ReadRankings(ctx context.Context, bearer [32]byte, channel s
 	if c.rankings == nil {
 		return PostResponse{}, rankingsUnavailable()
 	}
+	finishForeground := c.rankings.ForegroundStarted()
+	defer finishForeground()
 	if channel != "" {
 		if _, err := posts.ParseResourceID(channel); err != nil {
 			return PostResponse{}, postError("MALFORMED_REQUEST", 400)
@@ -35,6 +47,9 @@ func (c *Community) ReadRankings(ctx context.Context, bearer [32]byte, channel s
 	ctx, cancel := context.WithTimeout(ctx, rankingReadBudget)
 	defer cancel()
 	response, err := c.readRankings(ctx, bearer, channel)
+	if errors.Is(err, errRankingSnapshotInvalid) {
+		return PostResponse{}, rankingsUnavailable()
+	}
 	if ctx.Err() != nil && err != nil {
 		return PostResponse{}, rankingsUnavailable()
 	}
@@ -60,11 +75,15 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 		return PostResponse{}, ErrAuthorizationUnavailable
 	}
 
+	candidateAt := decision.TrustedAt
+	var verifiedAt *time.Time
 	project := func(snapshot rankings.Snapshot, ids []string, expected int) (PostResponse, error) {
 		return c.withPostSessionAt(ctx, token, account, decision, &generation,
 			func(tx pgx.Tx, account uuid.UUID, final AuthorizationDecision, _ restriction) (any, error) {
+				candidateAt = final.TrustedAt
+				verifiedAt = &candidateAt
 				if !snapshot.ValidAt(final.Generation, final.TrustedAt) {
-					return nil, rankingsUnavailable()
+					return nil, errRankingSnapshotInvalid
 				}
 				if channel == "" {
 					return posts.ChannelRanking{AsOf: snapshot.Bucket, ChannelIDs: snapshot.Channels}, nil
@@ -109,7 +128,10 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 	snapshot, cacheErr := c.rankings.Snapshot(cacheCtx)
 	var ids []string
 	var expected int
-	useCache := cacheErr == nil && snapshot.ValidAt(decision.Generation, decision.TrustedAt)
+	// A private worker's verified clock can be newer than the last public
+	// checkpoint. Here validate structure and generation only. The final Gate
+	// above alone decides whether the snapshot is current, stale or future.
+	useCache := cacheErr == nil && snapshot.ValidAt(decision.Generation, snapshot.Bucket)
 	if useCache && channel != "" {
 		if i := slices.Index(snapshot.Channels, channel); i >= 0 {
 			ids, cacheErr = c.rankings.Candidates(cacheCtx, snapshot, channel, snapshot.Counts[i])
@@ -122,13 +144,15 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 	cancel()
 	if useCache {
 		response, err := project(snapshot, ids, expected)
-		if !errors.Is(err, errRankingNeedsMore) {
+		if !errors.Is(err, errRankingNeedsMore) && !errors.Is(err, errRankingSnapshotInvalid) {
 			return response, err
 		}
+		useCache = !errors.Is(err, errRankingSnapshotInvalid)
 		// Keep the original order even if a new snapshot was published during
 		// this request. The mirror can scan past the cached lookahead.
-	} else {
-		snapshot, err = c.latestRankingSnapshot(ctx, decision)
+	}
+	if !useCache {
+		snapshot, err = c.latestRankingSnapshot(ctx, decision, verifiedAt)
 		if err != nil {
 			// Even an unavailable board must not mask a revoked session.
 			// The empty candidate cannot pass snapshot validation, but the
@@ -139,8 +163,11 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 	if channel == "" {
 		return project(snapshot, nil, 0)
 	}
+	if candidateAt.Before(snapshot.Bucket) {
+		candidateAt = snapshot.Bucket
+	}
 	for range 2 {
-		rows, err := c.pool.Query(ctx, rankFallbackSQL, snapshot.Version, channel, decision.TrustedAt)
+		rows, err := c.pool.Query(ctx, rankFallbackSQL, snapshot.Version, channel, candidateAt)
 		if err != nil {
 			return PostResponse{}, rankingsUnavailable()
 		}
@@ -156,11 +183,15 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 	return PostResponse{}, rankingsUnavailable()
 }
 
-func (c *Community) latestRankingSnapshot(ctx context.Context, decision AuthorizationDecision) (rankings.Snapshot, error) {
+func (c *Community) latestRankingSnapshot(ctx context.Context, decision AuthorizationDecision, verifiedAt *time.Time) (rankings.Snapshot, error) {
 	var snapshot rankings.Snapshot
-	err := c.pool.QueryRow(ctx, readRankSnapshotSQL, decision.Generation, decision.TrustedAt,
-		decision.TrustedAt.Add(-rankings.MaxAge)).Scan(&snapshot.Version, &snapshot.Generation, &snapshot.Bucket, &snapshot.Channels, &snapshot.Counts)
-	if err != nil || !snapshot.ValidAt(decision.Generation, decision.TrustedAt) {
+	oldest := decision.TrustedAt.Add(-rankings.MaxAge)
+	if verifiedAt != nil {
+		oldest = verifiedAt.Add(-rankings.MaxAge)
+	}
+	err := c.pool.QueryRow(ctx, readRankSnapshotSQL, decision.Generation, verifiedAt,
+		oldest).Scan(&snapshot.Version, &snapshot.Generation, &snapshot.Bucket, &snapshot.Channels, &snapshot.Counts)
+	if err != nil || !snapshot.ValidAt(decision.Generation, snapshot.Bucket) {
 		return rankings.Snapshot{}, rankingsUnavailable()
 	}
 	snapshot.Bucket = snapshot.Bucket.UTC()

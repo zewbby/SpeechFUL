@@ -69,7 +69,7 @@ FROM c_posts.ranking_snapshots s
 JOIN c_posts.ranking_posts link ON link.version=s.version
 JOIN c_posts.ranking_channel_data r USING(data_version,channel_id)
 JOIN c_posts.ranking_inputs i ON i.channel_id=r.channel_id
-WHERE s.generation=$2 AND s.bucket<$3 AND s.bucket>$3::timestamptz-interval '15 minutes'
+WHERE s.generation=$2 AND s.bucket<$3
     AND r.channel_id=$4 AND r.input_revision=i.revision AND r.next_change>$3 AND r.policy=$5
 ORDER BY s.bucket DESC LIMIT 1`
 
@@ -80,7 +80,7 @@ SELECT s.version, s.generation, s.bucket, s.channel_ids,
            WHERE r.version=s.version AND r.channel_id=ch.id),0)
            FROM unnest(s.channel_ids) WITH ORDINALITY ch(id,n) ORDER BY ch.n)
 FROM c_posts.ranking_snapshots s
-WHERE s.generation=$1 AND s.bucket<=$2 AND s.bucket>$3
+WHERE s.generation=$1 AND ($2::timestamptz IS NULL OR s.bucket<=$2) AND s.bucket>$3
 ORDER BY s.bucket DESC LIMIT 1`
 
 // Both queries use the same live post predicate. The fallback can

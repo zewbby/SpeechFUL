@@ -223,6 +223,23 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('热门帖子'), findsOneWidget);
       expect(find.text('浏览量 42'), findsOneWidget);
+      for (final section in [
+        find.byKey(const ValueKey('post-search-hot-posts')),
+        find.byKey(ValueKey('post-search-hot:${_id(1)}')),
+      ]) {
+        expect(
+          find.descendant(of: section, matching: find.byType(Icon)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: section, matching: find.byType(Image)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: section, matching: find.byType(RawImage)),
+          findsNothing,
+        );
+      }
     },
   );
 

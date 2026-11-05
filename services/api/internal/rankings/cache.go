@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -48,8 +49,10 @@ func (s Snapshot) ValidAt(generation uint64, now time.Time) bool {
 }
 
 type Cache struct {
-	client *redis.Client
-	prefix string
+	client     *redis.Client
+	prefix     string
+	foreground atomic.Int64
+	activity   atomic.Uint64
 }
 
 func NewCache(options *redis.Options, environment string) *Cache {
@@ -57,6 +60,40 @@ func NewCache(options *redis.Options, environment string) *Cache {
 }
 
 func (c *Cache) Close() error { return c.client.Close() }
+
+// ForegroundStarted never waits for background work. The revision also records
+// requests that start and finish between the worker's observations.
+func (c *Cache) ForegroundStarted() func() {
+	c.foreground.Add(1)
+	c.activity.Add(1)
+	return func() {
+		c.activity.Add(1)
+		c.foreground.Add(-1)
+	}
+}
+
+// WaitForIdle gives foreground reads one uninterrupted 20ms interval before
+// starting another aggregate query or committing derived snapshot data.
+func (c *Cache) WaitForIdle(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	revision := c.activity.Load()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			current := c.activity.Load()
+			if c.foreground.Load() == 0 && current == revision && c.activity.Load() == current {
+				return ctx.Err()
+			}
+			revision = current
+		}
+	}
+}
 
 func (c *Cache) key(version, channel string) string {
 	return c.prefix + version + ":" + channel

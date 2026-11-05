@@ -2,6 +2,7 @@ package rankings
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -9,6 +10,27 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
+
+func TestForegroundReadsDelayRankingWorkAndCancellation(t *testing.T) {
+	c := &Cache{}
+	first := c.ForegroundStarted()
+	second := c.ForegroundStarted()
+	first()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Millisecond)
+	defer cancel()
+	if err := c.WaitForIdle(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("background work started during a foreground read", err)
+	}
+	second()
+	if err := c.WaitForIdle(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	cancelled, stop := context.WithCancel(context.Background())
+	stop()
+	if err := c.WaitForIdle(cancelled); !errors.Is(err, context.Canceled) {
+		t.Fatal("cancelled worker was allowed to continue", err)
+	}
+}
 
 func TestSnapshotRejectsStaleCrossGenerationAndMalformedMetadata(t *testing.T) {
 	now := time.Date(2026, 11, 5, 4, 5, 30, 0, time.UTC)

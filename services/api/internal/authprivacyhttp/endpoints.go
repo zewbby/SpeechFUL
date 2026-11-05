@@ -171,8 +171,14 @@ func NewCommunityEndpoints(options CommunityOptions) (*Endpoints, error) {
 	if options.Credentials == nil {
 		options.Credentials, _ = options.Backend.(authprivacy.CredentialBackend)
 	}
+	foreground, _ := options.Posts.(rankingForeground)
 	return &Endpoints{
 		Public: b.wrap(false, func(w http.ResponseWriter, r *http.Request) {
+			if foreground != nil && isPostPath(r.URL.Path) {
+				if finish := foreground.BeginRankingForeground(); finish != nil {
+					defer finish()
+				}
+			}
 			if isInboxPath(r.URL.Path) {
 				backend, _ := options.Backend.(InboxBackend)
 				b.communityInbox(w, r, backend)

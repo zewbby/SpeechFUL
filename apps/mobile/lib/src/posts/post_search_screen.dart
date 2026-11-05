@@ -805,32 +805,13 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 28),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: HhTelegramPalette.of(context).selection,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.trending_up_rounded,
-                  size: 20,
-                  color: HhTelegramPalette.of(context).accent,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    hhText(context, '大家都在看'),
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-            ],
+          Semantics(
+            header: true,
+            child: Text(
+              hhText(context, '大家都在看'),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
           ),
           const SizedBox(height: 14),
           if (_rankingLoading && rows == null)
@@ -912,39 +893,21 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.visibility_outlined,
-                              size: 14,
-                              color: colors.secondary,
-                            ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Text(
-                                hhText(
-                                  context,
-                                  '浏览量 {count}',
-                                  args: {'count': '${post.viewCount}'},
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.secondary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          hhText(
+                            context,
+                            '浏览量 {count}',
+                            args: {'count': '${post.viewCount}'},
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.secondary,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                    color: colors.secondary,
                   ),
                 ],
               ),
