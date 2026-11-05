@@ -236,11 +236,6 @@ const communitySettingsTranslations = <String, (String, String, String)>{
   '清空关键词': ('清除關鍵字', 'Clear keyword', 'キーワードを消去'),
   '搜索分类': ('搜尋分類', 'Search category', '検索カテゴリ'),
   '相关度': ('相關性', 'Relevance', '関連度'),
-  '提交关键词以搜索帖子': (
-    '輸入關鍵字並開始搜尋',
-    'Submit a keyword to search posts',
-    'キーワードを入力して検索',
-  ),
   '暂时无法搜索帖子': ('暫時無法搜尋貼文', 'Could not search posts', '投稿を検索できませんでした'),
   '暂无相关帖子': ('找不到相關貼文', 'No matching posts', '一致する投稿がありません'),
   '搜索全部分类': ('搜尋所有分類', 'Search all categories', 'すべてのカテゴリを検索'),

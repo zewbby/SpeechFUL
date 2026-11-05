@@ -77,3 +77,20 @@
 - PASS。Windows 仓库验证环境运行 `python packages/openapi/check-specs.py`、`python tools/check-community-text-contract.py`、`python -m unittest discover -s tools/tests -p test_collaboration.py` 和 `git diff --check origin/main`。Go、SQL、权限脚本与 OpenAPI 和已通过实体设备／真实数据库验证的 `2976098` 一致。四语言整合版以本地 Flutter 回归及 PR CI 验证。
 
 - PR #101 的首轮 CI 在 `22636c8` 发现契约回归仍断言 16 个受保护操作。更新为 19 个，覆盖搜索和历史新增的 3 个操作。Windows Python 验证环境运行 `python -m unittest discover -s tools/tests -p test_community_text_contract.py -v`，9 项 PASS。
+
+## 日常开发部署与 Android 安装包
+
+- 2026-11-04 用户授权部署并在最新安装包中使用。发布目标沿用当前本机 WSL 日常开发服务及私有 CA 的 Android USB Profile 渠道。前后端来自 [PR #101](https://github.com/zewbby/SpeechFUL/pull/101) 已合入 `main` 的 `67de30cb363088217cd6d096e2db2c6b27cda0e5`，PR 的 14 个工作流及合并后 2 个主线检查 PASS。PR #100 的帖子编辑试用分支仍单独保留，其候选 0029 与本次主线 0029 同号。
+- PASS。WSL2 Ubuntu 24.04、非 root、Go 1.22.2、PostgreSQL 16。用精确主线归档执行 `go build -mod=readonly -buildvcs=false` 构建 C、V 和 authdev。经原 C/V Gate 行锁平稳停止旧 API/watch，`pg_dump --format=custom` 备份两库并用 `pg_restore --list` 校验。Goose `up-to 29` 仅升级 C，并用 `psql --single-transaction` 应用新历史表的两条授权。现有表数据投影、序列与 C/V Gate 代次和恢复计数前后一致。恢复器已重新固定 C29/V7 及新二进制，幂等启动检查 PASS。
+- PASS。安装包内置 CA 的 C/V HTTPS ready 与 realme 的 USB 映射已验证。三条新增操作对缺少令牌返回 `401 AUTHENTICATION_FAILED`，对格式正确但不存在的令牌返回 `401 SESSION_INVALID`，且为 `Cache-Control: no-store`。首轮部署探测错把缺少令牌期望写成 `SESSION_INVALID`，迁移和服务已成功，按实际契约复验后固定恢复器，无重复迁移。
+- PASS。Windows Flutter 3.47.5、JDK 17、SDK 36，`flutter pub get --offline --enforce-lockfile`、`flutter build apk --profile --no-pub --target-platform android-arm64 --build-number=2026110403 --build-name=0.1.0-post-search` 使用现有私有 CA 与 `AUTH_DEV_PROFILE`。包名 `org.hnuhole.hnuhole_mobile`，使用原日常开发签名，`apksigner verify --verbose --print-certs` 通过，已核对 AOT 中的搜索及历史路由。交付 `E:/Hnuhole-env/deliveries/SpeechFUL-2026110403-profile.apk`，SHA-256 为 `46e07ad06fbba4e526a667636ab189e7ff2941e92cac9475d60d0de64e6cbad9`。部署 Session 未在手机上执行最终包的安装或已登录业务实测，先前的自动化真机证据见产品复验。
+- 实现完成，验证按上述范围通过，已合并，已部署本机日常开发环境并更新最新安装包。正式生产发布未执行。部署与安装包回执、构建日志及 USB 恢复入口位于 `E:/Hnuhole-env/post-search-release-20261104`，私有数据库备份保留在 WSL 的部署目录。
+- 2026-11-05 用户手动验收 PASS。对话中交给用户验收的版本为 Android Profile 包 `2026110403`（`67de30c`），验收范围为搜索、翻页、详情返回和历史，用户回复「通过了」。证据为用户手动确认。
+
+## 输入后自动查询
+
+- 2026-11-05 用户指出输入关键词必须按回车才显示帖子，要求输入后直接看到结果。常规模式从最新 `origin/main` `8582593bb3f9b15240bcee9e8deb69caa34e2fa9` 建立 `codex/fix/post-search-as-you-type`，保留此前部署与手动验收记录。
+- 输入有效关键词并停顿 350 毫秒后自动查询，键盘与焦点保留。连续修改取消尚未发出的查询，旧响应失效，清空回到历史。自动查询不写历史，键盘搜索键、搜索按钮及点选历史词仍按已确认规则记录。沿用现有分类、排序、分页和 C Gate 接口。
+- PASS。Windows Flutter 3.47.5，`flutter pub get --offline --enforce-lockfile`、`flutter analyze --no-pub`，以及 `flutter test --no-pub --reporter expanded test/post_search_test.dart test/post_api_test.dart test/feed_ui_test.dart test/feed_scroll_refresh_test.dart test/community_localization_test.dart test/app_localizations_test.dart test/login_home_navigation_test.dart` 共 107 项。覆盖输入停顿、焦点、仅显式提交写历史、慢网旧响应、清空、分页重试和详情返回。被测版本为上述基线及本分支的 Flutter 源码和测试差异。日志位于 `E:/Hnuhole-env/post-search-as-you-type-20261105`。
+- PASS。Windows JDK 17 与 Android SDK 36 执行 `flutter build apk --profile --no-pub --target-platform android-arm64 --build-number=2026110501 --build-name=0.1.0-live-search`，使用既有 USB 开发配置。APK 用原开发证书签名，经 `apksigner verify --verbose --print-certs` 与 `aapt dump badging` 核验，与 `2026110404` 签名一致。试用包 `E:/Hnuhole-env/post-search-as-you-type-20261105/SpeechFUL-2026110501-profile.apk`，SHA-256 `21746b6916073dd19da6fc90426b91885451760c053800a523288bd7ed0c6b0e`。
+- 本轮实现已完成，本地回归与 Android 构建 PASS。产品 CI 与该试用包真机验收 NOT_RUN。本轮改动尚未合并或发布。

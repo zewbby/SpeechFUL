@@ -145,6 +145,77 @@ Future<void> _back(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('typing searches after a pause without submitting or recording', (
+    tester,
+  ) async {
+    final api = _SearchApi()
+      ..resultFor = (_) =>
+          PostsPage(items: [feed.post(title: '自习室开放时间')], nextCursor: null);
+    await _start(tester, api);
+    await _open(tester);
+
+    await tester.enterText(find.byKey(_input), '自');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.enterText(find.byKey(_input), ' 自习 ');
+    await tester.pump(const Duration(milliseconds: 349));
+    expect(api.queries, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
+    expect(api.queries.single.keyword, '自习');
+    expect(api.queries.single.record, isFalse);
+    expect(api.historyWrites, 0);
+    expect(find.text('自习室开放时间'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byKey(_input)).focusNode!.hasFocus,
+      isTrue,
+    );
+
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    expect(api.queries.map((query) => query.record), [false, true]);
+    expect(api.histories[null], ['自习']);
+  });
+
+  testWidgets(
+    'editing retires slow results and clearing cancels pending search',
+    (tester) async {
+      final slow = Completer<PostsPage<PostCard>>();
+      final api = _SearchApi()
+        ..histories[null] = ['此前搜索']
+        ..resultFor = (query) => query.keyword == '旧词'
+            ? slow.future
+            : PostsPage(items: [feed.post(title: '新词命中')], nextCursor: null);
+      await _start(tester, api);
+      await _open(tester);
+
+      await tester.enterText(find.byKey(_input), '旧词');
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(api.queries.single.keyword, '旧词');
+
+      await tester.enterText(find.byKey(_input), '新词');
+      slow.complete(
+        PostsPage(items: [feed.post(title: '旧词命中')], nextCursor: null),
+      );
+      await tester.pump();
+      expect(find.text('旧词命中'), findsNothing);
+      expect(api.queries, hasLength(1));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.text('新词命中'), findsOneWidget);
+
+      await tester.enterText(find.byKey(_input), '第三个词');
+      await tester.pump();
+      await tester.tap(find.byTooltip('清空关键词'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(api.queries.map((query) => query.keyword), ['旧词', '新词']);
+      expect(find.text('此前搜索'), findsOneWidget);
+      expect(find.text('新词命中'), findsNothing);
+      expect(api.historyWrites, 0);
+    },
+  );
+
   testWidgets(
     'search labels follow the app language and keep keywords verbatim',
     (tester) async {
@@ -339,7 +410,8 @@ void main() {
       };
       await _start(tester, api);
       await _open(tester);
-      await _submit(tester, '自习');
+      await tester.enterText(find.byKey(_input), '自习');
+      await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
       expect(find.text('吐槽'), findsOneWidget);
       final list = find.byKey(_results);
@@ -355,7 +427,7 @@ void main() {
       await tester.tap(find.text('重试'));
       await tester.pumpAndSettle();
       expect(api.queries.map((query) => query.cursor), [null, 'next', 'next']);
-      expect(api.queries.map((query) => query.record), [true, false, false]);
+      expect(api.queries.map((query) => query.record), [false, false, false]);
 
       scroll.jumpTo(scroll.position.maxScrollExtent);
       await tester.pumpAndSettle();

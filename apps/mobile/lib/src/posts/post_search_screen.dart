@@ -31,6 +31,8 @@ class PostSearchScreen extends StatefulWidget {
 }
 
 class _PostSearchScreenState extends State<PostSearchScreen> {
+  static const _typingDelay = Duration(milliseconds: 350);
+
   final _input = TextEditingController();
   final _focus = FocusNode();
   final _scroll = ScrollController();
@@ -41,7 +43,8 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   };
   late String? _channelId = widget.initialChannelId;
   PostSearchSort _sort = PostSearchSort.relevance;
-  String? _submitted, _cursor;
+  Timer? _searchTimer;
+  String? _keyword, _cursor;
   List<PostCard> _posts = const [];
   List<String> _history = const [];
   ({String? cursor, bool recordHistory})? _retry;
@@ -57,7 +60,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   bool _searchLoading = false;
   bool _historyLoading = false, _historyChanging = false, _historyError = false;
   bool _historyExpanded = false, _retired = false;
-  String? _inputError;
+  bool _inputInvalid = false;
 
   PostController get _controller => widget.controller;
   bool get _current =>
@@ -77,6 +80,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
     _controller.removeListener(_authorityChanged);
     _input.dispose();
     _focus.dispose();
@@ -89,18 +93,17 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       _retired = true;
       _focus.unfocus();
       _input.clear();
-      _submitted = _cursor = null;
-      _retry = null;
-      _posts = const [];
+      _resetResults();
       _history = const [];
     }
     setState(() {});
   }
 
   void _resetResults() {
+    _searchTimer?.cancel();
     ++_searchRequest;
     _inFlight = null;
-    _submitted = _cursor = null;
+    _keyword = _cursor = null;
     _posts = const [];
     _retry = null;
     _searchLoading = false;
@@ -108,12 +111,26 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
 
   void _edit(String value) {
     if (!_current) return;
-    final keyword = trimPostSearchKeyword(value);
+    final empty = trimPostSearchKeyword(value).isEmpty;
+    String? keyword;
+    if (!empty) {
+      try {
+        keyword = normalizePostSearchKeyword(value);
+      } on FormatException {
+        // Show the field error and wait for valid input.
+      }
+    }
     setState(() {
-      _inputError = null;
-      if (_submitted != keyword) _resetResults();
+      _inputInvalid = !empty && keyword == null;
+      if (_keyword == keyword) return;
+      _resetResults();
+      if (keyword != null) {
+        _keyword = keyword;
+        _searchLoading = true;
+        _searchTimer = Timer(_typingDelay, () => unawaited(_loadResults()));
+      }
     });
-    if (keyword.isEmpty) unawaited(_readHistory());
+    if (empty) unawaited(_readHistory());
   }
 
   void _clearInput() {
@@ -128,7 +145,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
     try {
       keyword = normalizePostSearchKeyword(value);
     } on FormatException {
-      setState(() => _inputError = '请输入 1–100 个字符的关键词');
+      setState(() => _inputInvalid = true);
       return;
     }
     _focus.unfocus();
@@ -137,8 +154,8 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
         text: keyword,
         selection: TextSelection.collapsed(offset: keyword.length),
       );
-      _inputError = null;
-      _submitted = keyword;
+      _inputInvalid = false;
+      _keyword = keyword;
     });
     unawaited(_loadResults(recordHistory: true));
   }
@@ -151,7 +168,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       _historyLoading = _historyError = _historyExpanded = false;
       _channelId = channelId;
     });
-    if (_submitted != null) {
+    if (_keyword != null) {
       unawaited(_loadResults());
     } else if (trimPostSearchKeyword(_input.text).isEmpty) {
       unawaited(_readHistory());
@@ -159,7 +176,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   }
 
   void _selectSort(PostSearchSort sort) {
-    if (!_current || sort == _sort || _submitted == null) return;
+    if (!_current || sort == _sort || _keyword == null) return;
     setState(() => _sort = sort);
     unawaited(_loadResults());
   }
@@ -168,8 +185,9 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
     String? cursor,
     bool recordHistory = false,
   }) async {
-    final keyword = _submitted;
+    final keyword = _keyword;
     if (!_current || keyword == null) return;
+    _searchTimer?.cancel();
     final key = (
       keyword: keyword,
       channelId: _channelId,
@@ -369,9 +387,9 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                     onSubmitted: _submit,
                     decoration: InputDecoration(
                       hintText: hhText(context, '搜索标题或正文'),
-                      errorText: _inputError == null
-                          ? null
-                          : hhText(context, _inputError!),
+                      errorText: _inputInvalid
+                          ? hhText(context, '请输入 1–100 个字符的关键词')
+                          : null,
                       border: const OutlineInputBorder(),
                       prefixIcon: IconButton(
                         tooltip: hhText(context, '提交搜索'),
@@ -424,7 +442,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                           ),
                         ),
                       ),
-                      if (_submitted != null)
+                      if (_keyword != null)
                         for (final sort in PostSearchSort.values)
                           ChoiceChip(
                             key: ValueKey('post-search-sort:${sort.name}'),
@@ -442,11 +460,11 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
                 ),
                 const Divider(height: 1),
                 Expanded(
-                  child: _submitted != null
+                  child: _keyword != null
                       ? _buildResults()
                       : trimPostSearchKeyword(_input.text).isEmpty
                       ? _buildHistory()
-                      : Center(child: Text(hhText(context, '提交关键词以搜索帖子'))),
+                      : const SizedBox.shrink(),
                 ),
               ],
             ),
