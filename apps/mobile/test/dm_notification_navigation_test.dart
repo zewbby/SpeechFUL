@@ -28,6 +28,13 @@ class _NavigationDm extends ChangeNotifier implements DmController {
   @override
   List<Map<String, dynamic>> conversations = [];
   int reads = 0;
+  int syncs = 0;
+
+  @override
+  Future<void> sync() async {
+    syncs++;
+  }
+
   void loaded() {
     conversations = [p2.directory()];
     notifyListeners();
@@ -60,6 +67,57 @@ class _Runtime extends p2.ChatRuntime {
 }
 
 void main() {
+  for (final destination in ['home', 'personal', 'directMessages']) {
+    testWidgets('returning to $destination immediately synchronizes DM', (
+      tester,
+    ) async {
+      final f = HomeTestFixture(), c = _NavigationDm();
+      final original = await f.create();
+      final r = _Runtime(c);
+      r.identities = [const DmIdentity(id: p1.own, name: '本人身份')];
+      c.loaded();
+      await tester.pumpWidget(
+        app.HnuholeApp(
+          directory: original.directory,
+          repository: original.repository,
+          api: original.api,
+          sessions: original.sessions,
+          flows: original.flows,
+          management: original.management,
+          identities: original.identities,
+          store: original.store,
+          posts: original.posts,
+          postApi: original.postApi,
+          dm: r,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('destination:$destination')));
+      await tester.pumpAndSettle();
+      final before = c.syncs;
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump();
+      expect(c.syncs, before);
+      for (final state in [
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pumpAndSettle();
+      expect(c.syncs, before + 1);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    });
+  }
+
   for (final matching in [true, false]) {
     testWidgets(
       'cold notification waits for authenticated directory; matching owner=$matching',
@@ -148,7 +206,9 @@ void main() {
             findsOneWidget,
           );
           expect(
-            tester.widget<HhAppNavigation>(find.byType(HhAppNavigation)).selected,
+            tester
+                .widget<HhAppNavigation>(find.byType(HhAppNavigation))
+                .selected,
             AppDestination.directMessages,
           );
           expect(

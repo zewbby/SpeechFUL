@@ -349,6 +349,64 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
     });
+    for (final expireWhileStarting in [false, true]) {
+      test(
+        'cold incoming waits for initialization and binding; expired=$expireWhileStarting',
+        () async {
+          final hold = Completer<void>();
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(channel, (call) async {
+                calls.add(call);
+                if (call.method == 'takeTap') await hold.future;
+                return null;
+              });
+          final start = n.start();
+          final incomingTask = n.incoming([incoming(1)], 'account', c);
+          await Future<void>.delayed(Duration.zero);
+          expect(calls.where((call) => call.method == 'show'), isEmpty);
+          if (expireWhileStarting) c.expire();
+          hold.complete();
+          await start;
+          await incomingTask;
+          final shows = calls.where((call) => call.method == 'show');
+          if (expireWhileStarting) {
+            expect(shows, isEmpty);
+          } else {
+            expect(shows, hasLength(1));
+            expect(calls.map((call) => call.method), [
+              'takeTap',
+              'bind',
+              'show',
+            ]);
+            expect(shows.single.arguments['preview'], false);
+          }
+        },
+      );
+    }
+    test(
+      'stale root binding cannot clear the first received notification',
+      () async {
+        final hold = Completer<void>();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              calls.add(call);
+              if (call.method == 'takeTap') await hold.future;
+              return null;
+            });
+        var initialWindow = true;
+        final start = n.start();
+        final staleBind = n.bind(null, current: () => initialWindow);
+        final delivery = n.incoming([incoming(1)], 'account', c);
+        initialWindow = false;
+        hold.complete();
+        await Future.wait([start, staleBind, delivery]);
+        expect(calls.map((call) => call.method), ['takeTap', 'bind', 'show']);
+        expect(
+          calls.singleWhere((call) => call.method == 'bind').arguments['scope'],
+          n.scopeFor('account'),
+        );
+      },
+    );
     test('default sends neither names nor content; explicit preview uses public peer name only', () async {
       await n.start();
       await n.bind('account');

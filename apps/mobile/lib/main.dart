@@ -417,7 +417,11 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
   Future<void> _dmNotificationChanged() async {
     final n = widget.dmNotifications, c = widget.dm?.controller;
     if (n == null || c == null || !mounted) return;
-    await n.bind(c.available ? c.accountId : null);
+    final window = c.scope;
+    await n.bind(
+      c.available ? c.accountId : null,
+      current: () => mounted && c.scope == window,
+    );
     await n.reconcile(c);
     if (!mounted || _handlingDmTap || n.pending == null) return;
     final target = n.pending!;
@@ -655,6 +659,7 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(widget.sessions.onActivity());
+      unawaited(widget.dm?.controller.sync());
     }
   }
 

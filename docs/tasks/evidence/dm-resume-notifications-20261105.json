@@ -1,0 +1,313 @@
+{
+  "task": "DM-RESUME-NOTIFICATIONS-01",
+  "baseline": "7edccf24a4dfe35f508efcea5c7ba5eace804999",
+  "binding": "baseline plus these source and test files; SHA-256 over final working-tree bytes",
+  "sourceSHA256": {
+    "apps/mobile/lib/main.dart": "0d015b9a8f158e0e33ec5aacb8275d1e5f480f743ce5ff93c49a25547f0cba49",
+    "apps/mobile/lib/src/messaging/dm_notifications.dart": "17917c13ceefa62fc1e3a5700b73726e9bd5ae30920e90019cc606d61e80ad5c",
+    "apps/mobile/test/dm_governance_test.dart": "f505b919576042ef044897a0c5e11dea3597314085d147100134503a25d8fb28",
+    "apps/mobile/test/dm_notification_navigation_test.dart": "fe20789a318eb765ae1a925833a13442c6e78668b29e7d34ea060751c3a1fe78",
+    "apps/mobile/integration_test/dm_resume_device.dart": "df5902f65f864f1f8c196c82ab62fe6a38d76037a9bf61d28a89cb5620962d1e"
+  },
+  "localRegression": {
+    "affectedFiles": 17,
+    "affectedPassed": 164,
+    "finalNotificationPassed": 17,
+    "note": "Final notification test rerun follows one added stale-bind test. Counts overlap.",
+    "analyze": "PASS; 0 issues"
+  },
+  "device": {
+    "requested": "vivo",
+    "authorizedReplacement": "realme; user said 用真我也行",
+    "serial": "7e0660f1",
+    "model": "RMX3366",
+    "android": "14",
+    "package": "org.hnuhole.hnuhole_mobile.dmresume",
+    "entry": "integration_test/dm_resume_device.dart calls normal app.main()",
+    "authFixture": "owned synthetic C session imported into isolated native vault",
+    "dailyPackageChanged": false,
+    "productionDataChanged": false,
+    "apkSHA256": "a5345bef301544685e6ff77a1aa886dc35809aaf88aa2c28bcaebd483e608831",
+    "apkOnlyDifference": "isolated debug applicationIdSuffix .dmresume and test entry, public loopback CA defines",
+    "checks": {
+      "home-resume": {
+        "atUtc": "2026-11-05T05:19:48.465752+00:00",
+        "app": {
+          "pid": 17721,
+          "authenticated": true,
+          "available": true,
+          "messages": 3,
+          "unread": 1,
+          "muted": false
+        },
+        "runningPid": "17721",
+        "notifications": {
+          "active": 1,
+          "privateTextPresent": true,
+          "syntheticBodyExposed": false
+        }
+      },
+      "inbox-resume": {
+        "atUtc": "2026-11-05T05:20:24.166570+00:00",
+        "app": {
+          "pid": 17721,
+          "authenticated": true,
+          "available": true,
+          "messages": 4,
+          "unread": 2,
+          "muted": false
+        },
+        "runningPid": "17721",
+        "notifications": {
+          "active": 1,
+          "privateTextPresent": true,
+          "syntheticBodyExposed": false
+        }
+      },
+      "personal-before-resume": {
+        "atUtc": "2026-11-05T05:21:00.776366+00:00",
+        "app": {
+          "pid": 17721,
+          "authenticated": true,
+          "available": true,
+          "messages": 4,
+          "unread": 2,
+          "muted": false
+        },
+        "runningPid": "17721",
+        "notifications": {
+          "active": 0,
+          "privateTextPresent": false,
+          "syntheticBodyExposed": false
+        }
+      },
+      "personal-resume": {
+        "atUtc": "2026-11-05T05:21:03.715830+00:00",
+        "app": {
+          "pid": 17721,
+          "authenticated": true,
+          "available": true,
+          "messages": 5,
+          "unread": 3,
+          "muted": false
+        },
+        "runningPid": "17721",
+        "notifications": {
+          "active": 1,
+          "privateTextPresent": true,
+          "syntheticBodyExposed": false
+        }
+      },
+      "muted-message": {
+        "atUtc": "2026-11-05T05:21:34.937495+00:00",
+        "app": {
+          "pid": 17721,
+          "authenticated": true,
+          "available": true,
+          "messages": 6,
+          "unread": 3,
+          "muted": true
+        },
+        "runningPid": "17721",
+        "notifications": {
+          "active": 0,
+          "privateTextPresent": false,
+          "syntheticBodyExposed": false
+        }
+      },
+      "unmuted-message": {
+        "atUtc": "2026-11-05T05:21:39.298491+00:00",
+        "app": {
+          "pid": 17721,
+          "authenticated": true,
+          "available": true,
+          "messages": 7,
+          "unread": 5,
+          "muted": false
+        },
+        "runningPid": "17721",
+        "notifications": {
+          "active": 1,
+          "privateTextPresent": true,
+          "syntheticBodyExposed": false
+        }
+      },
+      "repeated-sync-no-duplicate": {
+        "atUtc": "2026-11-05T05:22:11.683615+00:00",
+        "app": {
+          "pid": 17721,
+          "authenticated": true,
+          "available": true,
+          "messages": 7,
+          "unread": 5,
+          "muted": false
+        },
+        "runningPid": "17721",
+        "notifications": {
+          "active": 0,
+          "privateTextPresent": false,
+          "syntheticBodyExposed": false
+        }
+      },
+      "stopped-before-image": {
+        "atUtc": "2026-11-05T05:22:39.195461+00:00",
+        "app": {
+          "pid": 17721,
+          "authenticated": true,
+          "available": true,
+          "messages": 7,
+          "unread": 5,
+          "muted": false
+        },
+        "runningPid": "",
+        "notifications": {
+          "active": 0,
+          "privateTextPresent": false,
+          "syntheticBodyExposed": false
+        }
+      },
+      "cold-image-received": {
+        "atUtc": "2026-11-05T05:22:47.375713+00:00",
+        "app": {
+          "pid": 19458,
+          "authenticated": true,
+          "available": true,
+          "messages": 8,
+          "unread": 6,
+          "muted": false
+        },
+        "runningPid": "19458",
+        "notifications": {
+          "active": 1,
+          "privateTextPresent": true,
+          "syntheticBodyExposed": false
+        }
+      },
+      "permission-denied": {
+        "atUtc": "2026-11-05T05:23:25.760738+00:00",
+        "app": {
+          "pid": 19797,
+          "authenticated": true,
+          "available": true,
+          "messages": 9,
+          "unread": 7,
+          "muted": false
+        },
+        "runningPid": "19797",
+        "notifications": {
+          "active": 0,
+          "privateTextPresent": false,
+          "syntheticBodyExposed": false
+        }
+      },
+      "permission-restored": {
+        "atUtc": "2026-11-05T05:23:48.216084+00:00",
+        "app": {
+          "pid": 19797,
+          "authenticated": true,
+          "available": true,
+          "messages": 10,
+          "unread": 8,
+          "muted": false
+        },
+        "runningPid": "19797",
+        "notifications": {
+          "active": 1,
+          "privateTextPresent": true,
+          "syntheticBodyExposed": false
+        }
+      },
+      "clicked-and-read": {
+        "atUtc": "2026-11-05T05:25:00.480932+00:00",
+        "app": {
+          "pid": 19797,
+          "authenticated": true,
+          "available": true,
+          "messages": 10,
+          "unread": 0,
+          "muted": false
+        },
+        "runningPid": "19797",
+        "notifications": {
+          "active": 0,
+          "privateTextPresent": false,
+          "syntheticBodyExposed": false
+        }
+      },
+      "notification-click": {
+        "correctPeerVisible": true,
+        "privateConversationVisible": true,
+        "latestMessageVisible": true
+      }
+    }
+  },
+  "defaultAndroidBuild": {
+    "entry": "lib/main.dart",
+    "mode": "debug",
+    "target": "android-arm64",
+    "apkSHA256": "dd4e848f84d56d05e0ed62f06dd20e651f4d2525ca48d100f14754a0ce50d406",
+    "installed": false
+  },
+  "backend": {
+    "source": "7edccf2",
+    "productDiff": "none",
+    "test": "TestDMChatDevicePostgres",
+    "result": "PASS",
+    "transport": "real HTTPS; pinned test CA and hostname validation",
+    "database": "task-owned PostgreSQL 16 fixture; separate C/V and restricted runtime",
+    "stopped": true
+  },
+  "cleanup": {
+    "ownedTestPackageRemoved": true,
+    "taskReverseRemoved": true,
+    "leaseReleased": true
+  },
+  "notRun": [
+    "vivo (replaced by user)",
+    "iOS",
+    "remote product CI",
+    "production"
+  ],
+  "logs": {
+    "regression-before-final.log": {
+      "sha256": "37f14b88c76d089012532f92f36fbc5f18fff9b34b2c4c48b5e1b40d4a08e256",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\regression-before-final.log"
+    },
+    "focused.log": {
+      "sha256": "1c07b2e4a3dbf7edf0dba1efc422d7cb25ec6dce10a4d046c7bbdee4b33b4940",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\focused.log"
+    },
+    "affected-regression.log": {
+      "sha256": "519355a5bb9e548c2ea30cd8abeb5c75e30d11e17a322ce936b7d096559d37e6",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\affected-regression.log"
+    },
+    "notification-final.log": {
+      "sha256": "3f7335b129788343d198209ae3050fb147e0ca7287ee4e966820cbac87e5964a",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\notification-final.log"
+    },
+    "analyze-delivery.log": {
+      "sha256": "14343989c2b5cc79c0fe07dee2d00e37981d3fa49c69fe3daca1675866238ced",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\analyze-delivery.log"
+    },
+    "android-delivery.log": {
+      "sha256": "7e1dded279bb60a2fcafee3adc11af94e9c1348289846d1217ae0bdee8c6f6f1",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\android-delivery.log"
+    },
+    "device-build.log": {
+      "sha256": "716b19e2a586b79c7a585bb198c113f6f17a0f940dfc7073e7d7f65b4e0866e2",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\device-build.log"
+    },
+    "backend-device.log": {
+      "sha256": "68fac14344fb7a74f2fafc635709c0902718bd9282d4266e397e7ef739443860",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\backend-device.log"
+    },
+    "device-signature.log": {
+      "sha256": "b9c6879e48d25a9786d2beb8a15738c06edce7d06f2722dd860894618592bd09",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\device-signature.log"
+    },
+    "delivery-signature.log": {
+      "sha256": "b9c6879e48d25a9786d2beb8a15738c06edce7d06f2722dd860894618592bd09",
+      "path": "E:\\Hnuhole-env\\dm-resume-notifications-20261105\\delivery-signature.log"
+    }
+  }
+}

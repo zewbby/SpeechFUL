@@ -46,6 +46,7 @@ class DmNotifications {
   String? _scope;
   bool _loaded = false;
   bool _bound = false;
+  bool _disposed = false;
   AppLanguage _language = AppLanguage.simplifiedChinese;
   final _started = Completer<void>();
   DmNotificationTarget? pending;
@@ -105,8 +106,9 @@ class DmNotifications {
     onTap?.call();
   }
 
-  Future<void> bind(String? account) async {
+  Future<void> bind(String? account, {bool Function()? current}) async {
     await _started.future;
+    if (_disposed || current?.call() == false) return;
     final next = account == null ? null : scopeFor(account);
     if (_bound && _scope == next) return;
     _bound = true;
@@ -183,11 +185,19 @@ class DmNotifications {
     DmController controller,
   ) async {
     final owner = scopeFor(account), window = controller.scope;
-    if (!_loaded || _scope != owner || !controller.available) return;
+    bool current() =>
+        !_disposed &&
+        controller.available &&
+        controller.accountId == account &&
+        controller.scope == window;
+    if (!current()) return;
+    // The first receive can finish before the root's post-frame binding or
+    // notification preference load. Keep it until initialization completes,
+    // while rejecting callbacks from an account that has since detached.
+    await bind(account, current: current);
+    if (!current() || _scope != owner) return;
     for (final item in items) {
-      if (_scope != owner ||
-          !controller.available ||
-          controller.scope != window) {
+      if (!current() || _scope != owner) {
         return;
       }
       final row = controller.conversations
@@ -221,6 +231,7 @@ class DmNotifications {
   }
 
   void dispose() {
+    _disposed = true;
     channel.setMethodCallHandler(null);
     onTap = null;
   }
