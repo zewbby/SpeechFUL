@@ -10,7 +10,7 @@
 - 用户追加视觉要求：搜索页做得更好看并加入动画。沿用现有蓝色和深浅主题，采用圆角输入框与聚焦过渡、胶囊历史词、历史展开动画、榜单卡片淡入及轻微位移。动画 180–220ms，系统减少动态效果或无障碍导航启用时收敛为即时展示。确定性视觉调整沿用既有搜索范围、输入、排序和导航含义。
 - 模型选择：使用当前 GPT-6.1 Sol 执行开发与验证，常规单 Session。
 - 设备授权：用户已确认解锁 RMX3366，并明确要求重新安装「这轮热榜独立验收包」。验收应用 ID 为 `org.hnuhole.hnuhole_mobile.channelrankings20261105`。
-- 状态：实现已完成；验证 PASS（本轮本地功能、性能和真机范围，其他环境另列）；合并未合并；发布未发布。
+- 状态：实现已完成；验证 PASS（本轮本地功能、性能和真机范围，其他环境另列）；合并状态见 [PR #106](https://github.com/zewbby/SpeechFUL/pull/106)；发布未发布。
 
 ## 接口与依赖
 
@@ -64,9 +64,10 @@
 | 性能迭代历史 | 先定位后台检查点写入和跨周期全通道重算，再加入前台优先调度，最后覆盖完整 HTTP 响应 | 早期方案复测 FAIL，见 `performance-optimized-02.log`（搜索 +35.2%）、`performance-priority-01.log`（搜索 +4.7%、详情 +6.8%）、`performance-priority64b-01.log`（搜索 +1.9%、详情 +5.7%）。修正 HTTP 登记范围后，上述最终两轮通过。`performance-priority64-01.log` 在工具会话更新中被中断，只有部分样本，不能作为通过证据。最终长测由一次性 systemd 单元以 hnuhole 用户运行，完成后自动回收单元。 |
 | 本轮 Android 构建与装机 | Profile ARM64，隔离 package；构建副本中的搜索源码与最终源码 SHA256 均为 `f2977813c8d737634cc74867324961dcd5dc2776cd85f9c7a717a98d9f6a8f1c` | PASS。`android-text-only-profile.log`、`adb install -r` Success。APK SHA256 `4d6c3f5bf27befde616b41b48707094f44f95765a1e05f583c5fef297beeb37b`。 |
 | 本轮 Android 完整操作 | 用户再次解锁后，RMX3366 Android 14，USB loopback＋实际 HTTPS、SQL、Redis；最终后端和纯文字热榜 | PASS。`android-text-only-live.log`。输入、切分类、详情返回和无图片／图标检查通过；12 次首条可见为 752、251、297、252、240、211、280、316、286、243、327、350ms，P95 752ms。`device-screen.png` 已目视核对。隔离验收包已更新，私有认证 fixture 和本任务 reverse 已清理，设备租约已释放。 |
-| 远程产品 CI、独立审查 | 尚未创建 PR | NOT_RUN。本地功能验证与远程 CI 分开登记。 |
+| 远程产品 CI | [PR #106 当前 head 的 Checks](https://github.com/zewbby/SpeechFUL/pull/106/checks)，GitHub 使用最新 main 的测试合并结果 | 以该链接的实际结果为准。合并前必须核对适用产品 CI 全部通过；本地结果只证明各自范围。 |
+| 独立审查 | 常规单 Session；PR 作者本人 | NOT_RUN。未提交 GitHub 成员批准或独立审查证据。 |
 
 ## 阻碍与下一步
 
 - 本轮用户要求已完成。上述性能结论适用于记录中的同一 C 进程、负载和设备环境；前台繁忙时算榜等待空隙，并沿用既有预算与重试。
-- 公网网络下 Android P95、评论图片附带回归与远程产品 CI 保持待验。可交付本地分支、已更新的独立自动验收包与实测截图。
+- 公网网络下 Android P95 保持待验，评论图片附带回归及其他模块远程验收以 PR Checks 实际覆盖为准。可交付本地分支、已更新的独立自动验收包与实测截图；合并结果与提交以 PR #106 为准。
