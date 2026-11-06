@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_navigation.dart';
 import 'feed_chrome.dart';
@@ -58,8 +59,20 @@ class PrimaryTabsState extends State<PrimaryTabs> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _CoveredRouteInsets(child: Builder(builder: _buildTabs));
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    // Upper routes override this region; popping exposes the tabs' style again.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: brightness == Brightness.dark
+            ? Brightness.light
+            : Brightness.dark,
+        statusBarBrightness: brightness,
+      ),
+      child: _CoveredRouteInsets(child: Builder(builder: _buildTabs)),
+    );
+  }
 
   Widget _buildTabs(BuildContext context) => PopScope(
     canPop: _selected == AppDestination.home,

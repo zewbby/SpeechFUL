@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hnuhole_image_viewer/image_viewer.dart';
 import 'package:hnuhole_mobile/src/design_system/motion.dart';
 import 'package:hnuhole_mobile/src/design_system/motion_routes.dart';
 import 'package:hnuhole_mobile/src/design_system/telegram_theme.dart';
@@ -70,6 +73,125 @@ class _MediaBuildProbeState extends State<_MediaBuildProbe> {
 }
 
 void main() {
+  for (final brightness in [Brightness.light, Brightness.dark]) {
+    testWidgets(
+      'tabs restore themed status bars after viewer and app bar ($brightness)',
+      (tester) async {
+        tester.view.physicalSize = const Size(400, 720);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+        tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+        addTearDown(tester.view.reset);
+        final navigator = GlobalKey<NavigatorState>();
+        var currentBrightness = brightness;
+        late StateSetter updateTheme;
+        await tester.pumpWidget(
+          StatefulBuilder(
+            builder: (context, setState) {
+              updateTheme = setState;
+              return MaterialApp(
+                navigatorKey: navigator,
+                theme: HhTelegramTheme.create(currentBrightness),
+                home: PrimaryTabs(
+                  window: ('account', 1),
+                  onSelected: (_) {},
+                  builders: {
+                    for (final destination in AppDestination.values)
+                      destination: (_) =>
+                          const Scaffold(body: Text('home surface')),
+                  },
+                ),
+              );
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        // Match RenderView's annotation lookup at the status bar's center.
+        SystemUiOverlayStyle? statusStyle() => tester
+            .binding
+            .renderViews
+            .single
+            .debugLayer!
+            .find<SystemUiOverlayStyle>(const Offset(200, 12));
+        final expectedIcons = brightness == Brightness.light
+            ? Brightness.dark
+            : Brightness.light;
+        expect(statusStyle()?.statusBarIconBrightness, expectedIcons);
+        expect(statusStyle()?.statusBarBrightness, brightness);
+        expect(statusStyle()?.statusBarColor, Colors.transparent);
+        expect(statusStyle()?.systemNavigationBarColor, isNull);
+        expect(statusStyle()?.systemNavigationBarIconBrightness, isNull);
+        final controller = ViewerController(
+          items: [
+            ViewerItem.provider(
+              id: 'status-bar-fixture',
+              provider: MemoryImage(
+                File(
+                  '../../packages/image_viewer/example/assets/fixtures/ordinary.png',
+                ).readAsBytesSync(),
+              ),
+              pixelSize: const Size(640, 480),
+              saveAllowed: false,
+            ),
+          ],
+        );
+        navigator.currentState!.push(
+          HnuImageViewerRoute(
+            builder: (_) => HnuImageViewer(
+              controller: controller,
+              enableAndroidSaving: false,
+              onClosed: (_) => navigator.currentState!.pop(),
+            ),
+          ),
+        );
+        for (var frame = 0; frame < 10; frame++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 5)),
+          );
+          await tester.pump(const Duration(milliseconds: 40));
+        }
+        expect(find.byType(HnuImageViewer), findsOneWidget);
+        expect(statusStyle()?.statusBarIconBrightness, Brightness.light);
+        await tester.tap(find.byKey(const ValueKey('viewer-close')));
+        await tester.pumpAndSettle();
+        expect(find.byType(HnuImageViewer), findsNothing);
+        expect(statusStyle()?.statusBarIconBrightness, expectedIcons);
+        expect(statusStyle()?.statusBarBrightness, brightness);
+        controller.dispose();
+        const appBarStyle = SystemUiOverlayStyle(
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        );
+        navigator.currentState!.push(
+          MaterialPageRoute<void>(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('upper route'),
+                systemOverlayStyle: appBarStyle,
+              ),
+              body: const Text('app bar surface'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(statusStyle()?.statusBarIconBrightness, Brightness.light);
+        navigator.currentState!.pop();
+        await tester.pumpAndSettle();
+        expect(statusStyle()?.statusBarIconBrightness, expectedIcons);
+        updateTheme(
+          () => currentBrightness = brightness == Brightness.light
+              ? Brightness.dark
+              : Brightness.light,
+        );
+        await tester.pumpAndSettle();
+        expect(statusStyle()?.statusBarIconBrightness, brightness);
+        expect(statusStyle()?.statusBarBrightness, currentBrightness);
+        await tester.pumpWidget(const SizedBox());
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'chrome frames preserve visible and retained hidden tab widgets',
     (tester) async {
