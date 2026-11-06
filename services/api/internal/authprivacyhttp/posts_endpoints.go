@@ -61,7 +61,7 @@ func (route postRoute) allows(method string) bool {
 }
 
 func isPostPath(path string) bool {
-	if path == postTagPath || path == postTagSuggestionsPath || path == postSearchPath || path == postSearchHistoryPath || path == "/api/v1/me/reposts" {
+	if path == postLinkResolvePath || path == postTagPath || path == postTagSuggestionsPath || path == postSearchPath || path == postSearchHistoryPath || path == "/api/v1/me/reposts" {
 		return true
 	}
 	for _, prefix := range []string{"/api/v1/post-commands", "/api/v1/me/post-tasks", "/api/v1/me/posts", "/api/v1/me/post-composer-context", "/api/v1/posts", "/api/v1/feed", "/api/v1/me/feed-preferences", "/api/v1/me/liked-posts", "/api/v1/me/favorite-posts"} {
@@ -78,6 +78,8 @@ func parsePostRoute(path string) (postRoute, error) {
 		return postRoute{kind: postTagRoute, methods: "POST"}, nil
 	case postTagSuggestionsPath:
 		return postRoute{kind: postTagSuggestionsRoute, methods: "POST"}, nil
+	case postLinkResolvePath:
+		return postRoute{kind: postLinkResolveRoute, methods: "POST"}, nil
 	case "/api/v1/feed/channel-order":
 		return postRoute{kind: channelOrderRoute, methods: "GET"}, nil
 	case postSearchPath:
@@ -92,6 +94,12 @@ func parsePostRoute(path string) (postRoute, error) {
 		return postRoute{}, errMalformed
 	}
 	parts := strings.Split(strings.TrimPrefix(path, "/api/v1/"), "/")
+	if len(parts) == 3 && parts[0] == "posts" && parts[2] == "share" {
+		if _, err := posts.ParseResourceID(parts[1]); err != nil {
+			return postRoute{}, errMalformed
+		}
+		return postRoute{kind: postShareRoute, id: parts[1], methods: "GET"}, nil
+	}
 	if len(parts) == 3 && parts[0] == "channels" && parts[2] == "hot-posts" {
 		if _, err := posts.ParseResourceID(parts[1]); err != nil {
 			return postRoute{}, errMalformed
@@ -270,7 +278,7 @@ func (b *boundary) communityPostsPublic(w http.ResponseWriter, r *http.Request, 
 		route.editCapabilities = true
 	}
 	command := ""
-	if route.command || route.seal || r.Method == http.MethodGet || isPostSearchKind(route.kind) || route.kind == authprivacy.PostViewRecord || route.kind == authprivacy.PostFeedPreferences || isPostInteractionKind(route.kind) || isRepostKind(route.kind) {
+	if route.command || route.seal || r.Method == http.MethodGet || route.kind == postLinkResolveRoute || isPostSearchKind(route.kind) || route.kind == authprivacy.PostViewRecord || route.kind == authprivacy.PostFeedPreferences || isPostInteractionKind(route.kind) || isRepostKind(route.kind) {
 		if hasHeader(r.Header, "Idempotency-Key") {
 			b.postBad(w, errMalformed)
 			return
@@ -292,6 +300,10 @@ func (b *boundary) communityPostsPublic(w http.ResponseWriter, r *http.Request, 
 	}
 	if route.kind == postTagRoute || route.kind == postTagSuggestionsRoute {
 		b.communityPostTags(w, r, backend, bearer, route)
+		return
+	}
+	if route.kind == postShareRoute || route.kind == postLinkResolveRoute {
+		b.communityPostSharing(w, r, backend, bearer, route)
 		return
 	}
 	if isPostSearchKind(route.kind) {
@@ -812,6 +824,9 @@ func (b *boundary) writePostResponse(w http.ResponseWriter, response authprivacy
 
 // 先限定实际 DTO 类型再校验内容，不能把 backend 的任意 row/map 直接序列化。
 func strictPostValue(value any, route postRoute) (any, error) {
+	if route.kind == postShareRoute {
+		return strictPostShareLink(value, route.id)
+	}
 	if route.edit != "" {
 		return strictPostEditValue(value, route)
 	}

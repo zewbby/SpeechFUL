@@ -40,6 +40,8 @@
 
 ## Related Work
 
+- [帖子分享与原帖链接后端](docs/tasks/POST-SHARE-01.md)：任务分支提供固定分享链接、登录后读取最新原帖及无内容预览的通用引导页；App 接线与发布另行完成。
+
 - [开发环境旧启动入口修复](docs/branches/fix-development-runtime-resume.md)：三个原入口已统一版本绑定恢复器，C28/V7与三Redis冷启、重复执行验证通过，PR状态见任务。
 
 - [隔夜关机会话恢复](docs/branches/docs-session-overnight-acceptance.md)：单台 vivo 2702 隔夜恢复限定验证通过；C28/V7 与 Redis 恢复说明已整理，文档合并状态见任务PR。
