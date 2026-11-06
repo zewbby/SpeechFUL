@@ -1,6 +1,8 @@
 import '../localization/app_localizations.dart';
 import '../rate_limit_notice.dart';
 import '../design_system/detail_components.dart';
+import '../design_system/motion.dart';
+import '../design_system/motion_routes.dart';
 import 'x_feed.dart';
 import '../comments/comment_runtime.dart';
 import '../comments/comment_views.dart';
