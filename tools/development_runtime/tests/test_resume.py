@@ -36,6 +36,21 @@ class ManifestTest(unittest.TestCase):
     def test_approved_pin(self):
         self.assertEqual(r.load(self.manifest)['source'], 'new-source')
 
+    def test_ranking_redis_requires_pinned_config_and_acl(self):
+        config, acl = self.root / 'ranking.conf', self.root / 'ranking.acl'
+        config.write_text('synthetic ranking config')
+        acl.write_text('synthetic ranking ACL')
+        self.d['rankingRedis'] = dict(config=str(config), acl=str(acl))
+        self.save()
+        with self.assertRaisesRegex(r.ResumeError, 'dependency-coverage'):
+            r.load(self.manifest)
+        self.d['files'].update({str(config): r.sha(config), str(acl): r.sha(acl)})
+        self.save()
+        self.assertIn('rankingRedis', r.load(self.manifest))
+        acl.write_text('unexpected ACL change')
+        with self.assertRaisesRegex(r.ResumeError, 'pinned-file-drift'):
+            r.load(self.manifest)
+
     def test_old_receipt_and_file_drift_refused_before_execution(self):
         for field in ['c', 'community', 'redis.conf']:
             with self.subTest(field=field):

@@ -48,6 +48,8 @@ def load(path):
                 *(str(Path(d['bin']) / n) for n in ('community', 'verifier', 'authdev'))}
     require(required <= set(d['files']), 'manifest-coverage')
     required.update(d.get('dependencyFiles', []))
+    if d.get('rankingRedis'):
+        required.update([d['rankingRedis']['config'], d['rankingRedis']['acl']])
     for db in d.get('databases', []):
         required.update([db['pgctl'], db['postgres']])
     require(required <= set(d['files']), 'dependency-coverage')
@@ -197,6 +199,9 @@ def resume(d, manifest_path, m=None):
         if m.owned_redis(p, shared) is None:
             m.start_redis(p, shared, resuming=True)
     snapshot_redis(m, d, Path(manifest_path).parent / 'snapshot-process.private.json')
+    if d.get('rankingRedis'):
+        snapshot_redis(m, {'snapshotRedis': d['rankingRedis']},
+                       Path(manifest_path).parent / 'ranking-process.private.json')
     # Resume must succeed synchronously for BOTH domains before any new API.
     for p in 'cv':
         m.run([Path(d['bin']) / 'authdev', 'resume', '-operator', d['operators'][p]],
