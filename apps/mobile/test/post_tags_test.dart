@@ -51,6 +51,21 @@ class _TagApi extends ComposerApi implements PostTagApi {
   }
 }
 
+class _RotatingAuthority extends ChangeNotifier implements PostController {
+  int epoch = 1;
+  @override
+  bool get available => true;
+  @override
+  int get authorityVersion => epoch;
+  void rotate() {
+    ++epoch;
+    notifyListeners();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 const _second = '55555555-5555-4555-8555-555555555555';
 const _channels = [
   Channel(
@@ -84,6 +99,65 @@ PostCard _card(String title, {String channel = composerChannel}) => PostCard(
 );
 
 void main() {
+  testWidgets('面板尚未操作时切换会话代次也立即关闭旧选择', (tester) async {
+    final controller = _RotatingAuthority();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showPostTagPicker(context, controller, ['篮球']),
+              child: const Text('打开标签'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('打开标签'));
+    await tester.pumpAndSettle();
+    expect(find.text('#篮球'), findsOneWidget);
+    controller.rotate();
+    await tester.pumpAndSettle();
+    expect(find.text('#篮球'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+  test('带图片的新建与重试标签命令保持跨语言摘要一致', () {
+    final vector = jsonDecode(
+      File('../../packages/post-protocol-vectors/tags-v1.json')
+          .readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final media = vector['mediaVectors'] as List;
+    expect(media, hasLength(2));
+    for (final raw in media) {
+      final intent = raw['intent'] as Map<String, dynamic>;
+      final text = intent['operation'] == 'CREATE'
+          ? PostProtocol.create(
+              channelId: intent['channelId'],
+              identityId: intent['identityId'],
+              title: intent['title'],
+              body: intent['body'],
+            )
+          : PostProtocol.retry(
+              taskId: intent['taskId'],
+              expectedAttemptVersion: intent['expectedAttemptVersion'],
+              title: intent['title'],
+              body: intent['body'],
+            );
+      final frame = PostProtocol.withTags(
+        PostProtocol.withImages(
+          text,
+          (intent['images'] as List).cast<Map<String, dynamic>>(),
+        ),
+        PostTags.parse(intent['tags']),
+      );
+      expect(
+        frame.map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+        raw['frameHex'],
+      );
+      expect(PostProtocol.digest(frame), raw['sha256']);
+    }
+  });
   test('标签命令与跨语言独立向量一致，空标签保留原摘要', () {
     final vector = jsonDecode(
       File('../../packages/post-protocol-vectors/tags-v1.json')

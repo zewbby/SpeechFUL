@@ -49,7 +49,7 @@ class PostTagScreen extends StatefulWidget {
 }
 
 class _PostTagScreenState extends State<PostTagScreen> {
-  late final _epoch = widget.controller.authorityVersion;
+  late final int _epoch;
   final _scroll = ScrollController();
   List<PostCard> _items = const [];
   String? _channel, _cursor, _error;
@@ -63,6 +63,7 @@ class _PostTagScreenState extends State<PostTagScreen> {
   @override
   void initState() {
     super.initState();
+    _epoch = widget.controller.authorityVersion;
     _blocked = Set.of(widget.controller.blockedChannelIds);
     widget.controller.addListener(_changed);
     _scroll.addListener(_nearEnd);

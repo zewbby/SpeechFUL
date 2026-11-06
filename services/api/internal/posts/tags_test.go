@@ -10,12 +10,16 @@ import (
 
 func TestTagSharedIndependentGolden(t *testing.T) {
 	var vector struct {
-		ChannelID   string `json:"channelId"`
-		IdentityID  string `json:"identityId"`
-		Title, Body string
-		Tags        []string
-		FrameHex    string
-		SHA256      string
+		ChannelID    string `json:"channelId"`
+		IdentityID   string `json:"identityId"`
+		Title, Body  string
+		Tags         []string
+		FrameHex     string
+		SHA256       string
+		MediaVectors []struct {
+			Intent           Intent
+			FrameHex, SHA256 string
+		}
 	}
 	raw, err := os.ReadFile("../../../../packages/post-protocol-vectors/tags-v1.json")
 	if err != nil {
@@ -32,6 +36,19 @@ func TestTagSharedIndependentGolden(t *testing.T) {
 	digest, err := RequestDigest(intent)
 	if err != nil || hex.EncodeToString(digest[:]) != vector.SHA256 {
 		t.Fatal("tag digest differs from independent vector", err)
+	}
+	if len(vector.MediaVectors) != 2 {
+		t.Fatal("missing create/retry image tag vectors")
+	}
+	for _, media := range vector.MediaVectors {
+		frame, err := FrameIntent(media.Intent)
+		if err != nil || hex.EncodeToString(frame) != media.FrameHex {
+			t.Fatal("image tag frame differs", err)
+		}
+		digest, err := RequestDigest(media.Intent)
+		if err != nil || hex.EncodeToString(digest[:]) != media.SHA256 {
+			t.Fatal("image tag digest differs", err)
+		}
 	}
 }
 

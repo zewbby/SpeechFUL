@@ -55,7 +55,7 @@ func (b *boundary) communityPostSharing(w http.ResponseWriter, r *http.Request, 
 		b.postFailure(w, err)
 		return
 	}
-	detailRoute := postRoute{kind: authprivacy.PostDetail, id: route.id}
+	detailRoute := postRoute{kind: authprivacy.PostDetail, id: route.id, includeTags: route.includeTags}
 	if route.kind == postLinkResolveRoute {
 		b.writePostResponse(w, response, detailRoute, false)
 		return

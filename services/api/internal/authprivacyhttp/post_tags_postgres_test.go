@@ -38,6 +38,11 @@ func TestRealHTTPSPostTagsLifecycleAndCompatibilityPostgres(t *testing.T) {
 	if tags := detail["tags"].([]any); len(tags) != 2 || tags[0] != "篮球" {
 		t.Fatal("published labels missing", detail)
 	}
+	shared := call("GET", "/api/v1/posts/"+post+"/share", reader, "", nil, 200)
+	resolved := call("POST", postLinkResolvePath, reader, "", map[string]any{"url": shared["url"]}, 200)
+	if tags := resolved["post"].(map[string]any)["tags"].([]any); len(tags) != 2 || tags[0] != "篮球" {
+		t.Fatal("resolving the original post dropped public labels")
+	}
 	legacy := postHTTPSJSON(t, s, "GET", "/api/v1/posts/"+post, reader, "", nil, 200)
 	if _, exists := legacy["post"].(map[string]any)["tags"]; exists {
 		t.Fatal("legacy DTO acquired unknown tag field")

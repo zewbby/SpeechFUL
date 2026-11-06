@@ -50,7 +50,7 @@ class _PostTagPicker extends StatefulWidget {
 class _PostTagPickerState extends State<_PostTagPicker> {
   final _input = TextEditingController();
   late final _tags = List<String>.of(widget.selected);
-  late final _epoch = widget.controller.authorityVersion;
+  late final int _epoch;
   List<String> _suggestions = const [];
   String? _error;
   bool _loading = false;
@@ -63,6 +63,7 @@ class _PostTagPickerState extends State<_PostTagPicker> {
   @override
   void initState() {
     super.initState();
+    _epoch = widget.controller.authorityVersion;
     widget.controller.addListener(_authorityChanged);
   }
 
