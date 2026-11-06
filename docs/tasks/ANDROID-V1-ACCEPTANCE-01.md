@@ -64,6 +64,20 @@
 - D02 新用例在旧实现先 FAIL（新回复已可见而根计数没有1），修复后 comment_views 66项 PASS；完整 App analyze 0问题、1166 PASS／4既有 SKIP。`comment-created-count-before.log`、`comment-created-count-after.log`、`flutter-final-analyze.log`、`flutter-final.log`。此前用例第一次断言误用了与固定回复fixture不同的文字，纠正后才复现目标计数失败，不作为产品失败证据。
 - 后端无源码修改，仍为 main `6b722f071f07cbd94d96095734499f8cdd061641`；D02 真机待下一统一包复验。新增本地修复尚无远程产品CI，不把 main 已有CI算作修复head CI。
 
+### 通知 UTC 缺陷、真实兼容 fixture 与后续设备记录
+
+- D03／P1：A 收到 B 的真实回复和点赞后，整个通知页持续“通知暂时无法读取”，直连同样复现。严格 TLS 原响应200，interaction `createdAt`为`+08:00`，而契约与`PostJson.utc`要求`Z`；已有系统通知使用UTC，故此前纯系统页可读。最小服务端修复在读取 interaction 记录后调用`UTC()`，不放宽客户端校验、不改数据／权限／Gate。
+- 真实 PG 回归将该测试专用连接的 timestamptz codec 设为UTC+8，未改系统时钟或全局时区：旧实现先 FAIL，修复后`TestNotificationInboxPostgres` PASS（含跨身份、已读、点赞聚合及治理链路）；[修复前](E:/Hnuhole-env/android-v1-acceptance-01/inbox-utc-before.log)、[修复后](E:/Hnuhole-env/android-v1-acceptance-01/inbox-utc-after.log)。设备后端更新及复验待完成。
+- 全量安全回归首轮 FAIL：一项旧兼容fixture删0033结构仍宣称0033已应用；另外authprivacy包总计超过30m终止，未把刚开始的用例误作超时根因。修复仅限测试：先断言这种半迁移应拒绝，再移除本测试私有tracker构造既有非tracker历史形态；生产schema检查不变。真实PG复验PASS：`gate-compat-after.log`。
+- 原runner明确只允许1–30m。尝试90m被参数验证拒绝，未改上限；随后本任务外部runner按Test[A-M]/Test[N-Z]分组authprivacy，再运行其余全部包及vet，均保留race和每组30m限制。`safety-gate-cohorts-real.log`进行中。不是热榜持续负载，未扩压或性能优化。
+- 客户端统一包已安装：源码`79025cbcd9af41e1bbc60b0d804064246a4be7f7`，2026110702/profile/arm64、正式main入口，SHA256 `fb40fd349fcb823ac473fce71b77c61ad0c008974de60c24614d4c3b4e3e77c8`、59,754,605字节；define及签名同前。[最终包回执](E:/Hnuhole-env/android-v1-acceptance-01/android-final-receipt.json)。D02已真机不刷新由0→1，[证据](E:/Hnuhole-env/android-v1-acceptance-01/11-final-publication-count.png)。
+- A→B→A普通密码登录完成：B无A搜索历史、A私人聊天备注及草稿入口状态；A从“我的”恢复原草稿。另有图片／标签／第二身份草稿，经正常保存退出、冷启动、切回其所属身份后完整恢复并发布，首页读回一致；中央新建按钮不是原草稿恢复入口，早期误用不记缺陷。[发布后](E:/Hnuhole-env/android-v1-acceptance-01/13-draft-restored-published.png)。
+- 身份真机：A从1→3，第二身份改名及图库头像成功，30天改名提示；第三次累计创建后名额已满，删除一次性第三身份后仍等6个月。最后一个身份删除按钮初始禁用。已有A帖子在全局切到第二身份后仍以原A发言，B回复身份正确。
+- 治理真机＋正常API：A App举报B seed31→C审核API领取并MUTE1天→A进度／处理详情→B App处罚通知／申诉→独立D审核API接受→B App处罚撤销及申诉结果通知，恢复DM发送。只用合成资源；网页浏览器拒绝私有CA，网页实际操作BLOCKED。[举报结果](E:/Hnuhole-env/android-v1-acceptance-01/12-report-handled.png)。
+- 设备附加：四语言切换，繁／英／日各冷启动保留；搜索历史复用、单删、吐槽范围确认清空；喜欢／收藏／转帖正常写入后本人各分类一致。B seed31正常删除，A旧榜点击诚实显示目标不可读，返回刷新移除并补位；一次性热榜503保留旧榜和重试，随后成功恢复。[失败保留](E:/Hnuhole-env/android-v1-acceptance-01/15-hotlist-retains-old-on-failure.png)。
+- 分享公网关联：设备真实`pm get-app-links`显示任务包127.0.0.1状态1024，非验证成功；当前没有已确认公开C域／发布签名。[设备关联](E:/Hnuhole-env/android-v1-acceptance-01/device-app-links.txt)。无效链接＋连续HTTPS＋登录恢复组合命令被自动审批以`blocked by policy`拒绝，未给更具体原因，未执行也未换命令绕过；该组D保持BLOCKED。已有运行中／冷启scheme和系统分享证据仅各自范围。
+- 评论故障注入准备一次受WSL shell逗号花括号展开影响，规则未命中，已取消；该次普通评论成功和重启不算丢回包验收。与原编辑确实命中的丢回包分开登记。
+
 ## 场景矩阵
 
 环境缩写：D＝realme Android14，正常 `lib/main.dart`、原生安全存储、任务独立包；R＝候选一次性 C34/V7、真实 PostgreSQL16、独立评论 Redis 和热榜 Redis、严格私有 CA HTTPS；H＝候选 Flutter host/widget，网络／平台替身；S＝仓库真实 SQL/HTTPS/race runner；P＝公网公开域名及发布签名。D+R 才作为联合真机业务证据。数据 A/B/C 均为任务合成账号；IP、邮箱、恢复码、私钥及令牌只在私有材料中。
