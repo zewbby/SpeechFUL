@@ -5,7 +5,7 @@
 - 授权依据与边界：2026-11-06 用户要求「需求：新增 自定义标签 功能」，完成 Q1–Q6 后回复「可以，按这个方案实现。」；随后明确要求「推送，合并，部署」，授权本任务 Push、PR、检查通过后合并及部署到现有日常开发环境。保留其他工作区及正式数据，不将日常环境交付冒充生产发布。
 - 需求确认：2026-11-06 用户逐项回复 Q1–Q5，依据见下方；Q6 已由用户最终确认，以下方案无未决取舍。
 - 更新日期：2026-11-06。
-- 状态：实现已完成；验证 PASS（下列本地范围，远程产品 CI 与设备验收待验）；正在推送送审，尚未合并；部署准备中，尚未发布。
+- 状态：实现已完成；最终 PR head `e9b953d` 的 14 个适用 workflow 全部 PASS；PR #109 已 Squash Merge 到 `main`，提交 `be6d07ab2c35c859d7176569e1a99b5e1ec74de5`；已部署本机 WSL 日常开发环境 C33/V7。ARM64 profile 安装包已交付，真机／iOS NOT_RUN，非生产发布。本段交付状态为合并后回执，仅同步同一任务分支，不另建文档 PR。
 
 ## 目标与范围
 
@@ -55,9 +55,13 @@
 | 日常部署准备 | 当前固定清单 `8582593`，C30/V7；原部署用户 `hnuhole` | PASS：原环境停止，已使用固定恢复器 resume 正常启动；C/V 严格 TLS ready。Gate 保持 OPEN，C generation=11/RECOVER=11、V generation=8/RECOVER=8；未调用 recover。新版本尚未升级；待远程 CI 与合并后进行停写备份、前向迁移及清单重新固定。 |
 | 发布权限审计增量 | `96a53f0` ＋明确审计差异；一次性 C/V 独立 PG 集群 | 远程发布与身份审计 FAIL 原因为矩阵未登记 `post_tag_terms` 的既有 SELECT/INSERT/DELETE 授权。精确补入该表，新增拒绝 UPDATE/REFERENCES/TRIGGER 及 recovery/business 读取的负测试。14 项 prerelease 工具与真实权限审计 PASS，见 [日志](E:/Hnuhole-env/custom-tags-validation-20261106/prerelease-role-audit-pr109.log)。该差异不扩大数据库授权。 |
 | 回退边界 | C33 相对尚无标签的服务版本 | 已从旧服务严格列授权检查确认其不兼容新增 tags UPDATE；C33 down 已明确拒绝。发布演练同步为：旧源码无 0033 时，实际旧 C 进程必须拒绝启动并保持全表／sequence 摘要不变，再重新启动候选并复验原 HTTPS 业务；兼容版本仍执行原二进制回退。真实演练待最终 CI；不声称旧服务可在 C33 运行。 |
+| 最终产品 CI | PR head `e9b953d392144cbe8cf664edc900b5bca9dd51a5` | PASS：14 个适用 workflow 全部通过，[完整运行清单](E:/Hnuhole-env/custom-tags-validation-20261106/final-pr-ci.json)。[标签 Dart→HTTPS→SQL](https://github.com/zewbby/SpeechFUL/actions/runs/42179529386)、[后端／真实迁移](https://github.com/zewbby/SpeechFUL/actions/runs/42179529268)、[身份与精确角色审计](https://github.com/zewbby/SpeechFUL/actions/runs/42179529297)、[治理](https://github.com/zewbby/SpeechFUL/actions/runs/42179529367)、[Android 与发布演练](https://github.com/zewbby/SpeechFUL/actions/runs/42179529344) 均 PASS。真实恢复演练验证两新实例数据／权限摘要一致、旧服务回退拒绝且数据不变、候选重新启用；不将此描述为旧服务兼容回退。独立审查及成员批准 NOT_RUN。 |
+| 推送与合并 | [PR #109](https://github.com/zewbby/SpeechFUL/pull/109)；合并 `be6d07ab2c35c859d7176569e1a99b5e1ec74de5` | PASS：按用户明确授权推送与 Squash Merge；合并前核对最终 head 的全部适用 workflow。合并提交与被测 head 的产品目录 `apps/mobile`、`packages`、`services/api`、`infra` 完全相同。 |
+| 日常后端部署 | 合并提交 `be6d07a`；`HnuHole-Ubuntu-24.04`、原 `hnuhole` 用户；`/home/hnuhole/custom-tags-daily-be6d07ab2c35` | PASS：原 C/V 停写并创建两份完整备份、验证备份目录后，C30 前向升级到 C33；V7 不变。迁移前后原有列投影／sequence 摘要一致；Gate 保持 C generation=11/RECOVER=11、V generation=8/RECOVER=8，未调用 recover。新二进制、回执及私有恢复清单已固定；重复 resume 启动服务数为 0。C/V 原 CA 严格 TLS ready，Windows 51245/54948 均 HTTP 200。标签两接口及关键词搜索在缺少 bearer 时返回 401/no-store；业务完整链路由上述隔离真实 CI 证明，未用日常账号写入测试内容。[部署回执](E:/Hnuhole-env/custom-tags-release-20261106/backend-receipt.json)。 |
+| 日常 Android 交付 | `2026110601`、`0.1.0-custom-tags`、ARM64 profile；编译自 `e9b953d`，产品源码与已部署 `be6d07a` 相同 | PASS：使用原端点／开发 CA 与原升级证书，依赖锁不变、实际 APK 验签及包名／ABI／versionCode 核对通过。[APK](E:/Hnuhole-env/deliveries/SpeechFUL-2026110601-profile.apk)，SHA256 `e544ce3115451d20e35e39ae981cdf7387f55f911616299e4ea0d6c0a9a83877`；[交付回执](E:/Hnuhole-env/custom-tags-release-20261106/android-package-receipt.json)。已更新本机 current-development-deployment 与 latest-android-package 指针，[恢复入口](E:/Hnuhole-env/custom-tags-release-20261106/resume-custom-tags.ps1) 实际调用 PASS。当前仅 x86 模拟器在线，未安装 ARM64 手机包，真机及 iOS NOT_RUN。 |
 
-产品证据绑定上述源码提交；此后的任务记录、README 和 CI 路径触发更新不改变被测产品源码，也不提升验证范围。所有数据库与私有 CA／会话 fixture 均由任务 runner 创建和清理，未修改日常或正式业务数据。
+产品证据绑定上述源码提交；仅文档／回执更新不提升验证范围。隔离测试库与私有 CA／会话 fixture 由任务 runner 创建和清理；日常环境只进行已授权的非重置升级和服务切换，原有业务数据摘要保持一致，备份保留在原部署用户私有目录，未操作生产数据。
 
 ## 阻碍与下一步
 
-无本地开发阻碍。按用户「推送，合并，部署」继续完成远程产品 CI、合并和现有日常开发环境部署。设备状态与实际运行基线将在部署前核实；不自动推进其他未合并功能。
+推送、合并与现有日常环境部署已完成。真机安装／验收和 iOS 未执行，未做生产部署；C33 故障处理必须前向修复或经验证的数据恢复，不能直接回退旧服务或执行 down。不自动推进其他未合并功能。
