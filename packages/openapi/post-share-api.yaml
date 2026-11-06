@@ -1,0 +1,562 @@
+openapi: 3.0.3
+info:
+  title: SpeechFUL post sharing and original-post links
+  version: 0.1.0
+  description: POST-SHARE-01. Authenticated link creation and resolution reuse the existing final C Gate
+    and current public-post read. Links convey no additional access authority, sender identity or historical
+    snapshot. No repost, view count or speaking-identity binding is created. The public HTML guide is
+    content-free. All paths use HTTPS and no-store. Unknown/duplicate fields, noncanonical identifiers
+    and unrelated Idempotency-Key are rejected.
+servers:
+- url: /
+  description: Configured independent C HTTPS origin; never a request-selected Host.
+x-design-document: ../../docs/tasks/POST-SHARE-01.md
+paths:
+  /api/v1/posts/{postId}/share:
+    parameters:
+    - $ref: '#/components/parameters/PostID'
+    get:
+      operationId: readPostShareLink
+      summary: Read the stable share link for a currently readable original post
+      description: No body or query. Response URL is configured publicOrigin + /s/posts/{postId}; shareText
+        is exactly SpeechFUL, a newline, then URL. The link does not expire. Deleted, hidden or absent
+        original posts return 404 POST_NOT_FOUND. No content metadata is included.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/PostShareLinkRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/post-links/resolve:
+    post:
+      operationId: resolveOriginalPostLink
+      summary: Resolve an own-origin share URL to its latest readable original post
+      description: Accept only the exact configured HTTPS origin and /s/posts/{canonical nonzero UUID}.
+        No userinfo, relative URL, app scheme, escaped path, query, fragment, whitespace or trailing slash.
+        No remote fetch occurs. Requires a current Bearer and final C Gate; deleted/hidden/absent posts
+        return 404. Successful response and Post-Edited-At header follow the existing original-post detail
+        contract.
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        x-max-bytes: 4096
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolvePostLinkInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/PostRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /s/posts/{postId}:
+    parameters:
+    - $ref: '#/components/parameters/PostID'
+    get:
+      operationId: readPostShareGuide
+      summary: Read a content-free public guide to open SpeechFUL
+      description: No body or query. The only per-target field is an app button to speechful://posts/{postId}.
+        Does not automatically redirect, authenticate, renew a session, look up a post or load third-party
+        resources. App scheme/HTTPS association and deferred-login routing require separate client integration.
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/PostShareGuide'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    head:
+      operationId: headPostShareGuide
+      summary: Read public guide headers without a response body
+      security: []
+      responses:
+        '200':
+          description: Same guide headers as GET, with no response body.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+            Content-Security-Policy:
+              required: true
+              schema:
+                type: string
+            Referrer-Policy:
+              required: true
+              schema:
+                type: string
+            X-Content-Type-Options:
+              required: true
+              schema:
+                type: string
+            X-Robots-Tag:
+              required: true
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: canonical-unpadded-base64url-32-bytes
+  schemas:
+    PostShareLink:
+      type: object
+      additionalProperties: false
+      required:
+      - postId
+      - url
+      - shareText
+      properties:
+        postId:
+          $ref: '#/components/schemas/ResourceID'
+        url:
+          type: string
+          format: uri
+          description: Fixed HTTPS URL using only configured origin and original-post ID.
+        shareText:
+          type: string
+          description: Exactly SpeechFUL + newline + url. No title, body, author or media.
+    ResolvePostLinkInput:
+      type: object
+      additionalProperties: false
+      required:
+      - url
+      properties:
+        url:
+          type: string
+          format: uri
+          minLength: 1
+          maxLength: 4096
+    ResourceID:
+      type: string
+      format: uuid
+      pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+      description: Canonical nonzero opaque UUID; possession never grants ownership.
+    CommandKey:
+      type: string
+      minLength: 22
+      maxLength: 22
+      pattern: ^[A-Za-z0-9_-]{21}[AQgw]$
+    ErrorBody:
+      type: object
+      additionalProperties: false
+      required:
+      - error
+      - requestId
+      properties:
+        requestId:
+          $ref: '#/components/schemas/CommandKey'
+        error:
+          type: object
+          additionalProperties: false
+          required:
+          - code
+          - message
+          properties:
+            code:
+              type: string
+              enum:
+              - MALFORMED_REQUEST
+              - AUTHENTICATION_FAILED
+              - SESSION_INVALID
+              - session_replaced
+              - AUTHORIZATION_UNAVAILABLE
+              - SHARED_RATE_UNAVAILABLE
+              - SERVICE_UNAVAILABLE
+              - RATE_LIMITED
+              - PAYLOAD_TOO_LARGE
+              - UNSUPPORTED_MEDIA_TYPE
+              - CURSOR_INVALID
+              - COMMAND_CONFLICT
+              - COMMAND_SEALED
+              - RESULT_EXPIRED
+              - POST_CONTENT_INVALID
+              - POST_IDENTITY_UNAVAILABLE
+              - POST_CHANNEL_UNAVAILABLE
+              - POSTING_RESTRICTED
+              - ACCOUNT_CLOSING
+              - TASK_NOT_FOUND
+              - TASK_NOT_RETRYABLE
+              - TASK_NOT_HIDEABLE
+              - TASK_VERSION_CONFLICT
+              - POST_NOT_FOUND
+            message:
+              type: string
+              minLength: 1
+              maxLength: 256
+              description: Fixed bounded safe message, no raw database/transport error, text, identity/account
+                detail or request key.
+    UTCDateTime:
+      type: string
+      format: date-time
+      pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$
+    PublicPostResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - post
+      properties:
+        post:
+          $ref: '#/components/schemas/PublicPost'
+    PublicPost:
+      type: object
+      additionalProperties: false
+      required:
+      - postId
+      - channelId
+      - title
+      - body
+      - author
+      - publishedAt
+      properties:
+        postId:
+          $ref: '#/components/schemas/ResourceID'
+        channelId:
+          $ref: '#/components/schemas/ResourceID'
+        title:
+          $ref: '#/components/schemas/Title'
+        body:
+          $ref: '#/components/schemas/Body'
+        author:
+          $ref: '#/components/schemas/PublicAuthor'
+        publishedAt:
+          $ref: '#/components/schemas/UTCDateTime'
+        imageCount:
+          type: integer
+          minimum: 1
+          maximum: 9
+          description: Omitted for zero images; positive count permits an empty body.
+    Title:
+      type: string
+      minLength: 1
+      description: Original Unicode scalar text counted as Unicode 16.0 extended grapheme clusters. Spaces,
+        punctuation, TAB/CR/LF count; CRLF is one cluster. No trim, NFC or nickname character ban. At
+        least one scalar outside White_Space and Default_Ignorable is required. Invalid UTF-8/surrogates/NUL
+        and C0/C1 except TAB/CR/LF are rejected. Runtime grapheme and byte validation required; JSON Schema
+        length is not grapheme count.
+      x-max-grapheme-clusters: 15
+      x-max-utf8-bytes: 4096
+      x-unicode-version: 16.0.0
+    Body:
+      type: string
+      minLength: 0
+      description: Empty only with at least one image (or positive response imageCount). Otherwise original
+        Unicode scalar text counted as Unicode 16.0 extended grapheme clusters. Spaces, punctuation, TAB/CR/LF
+        count; CRLF is one cluster. No trim, NFC or nickname character ban. At least one scalar outside
+        White_Space and Default_Ignorable is required. Invalid UTF-8/surrogates/NUL and C0/C1 except TAB/CR/LF
+        are rejected. Runtime grapheme and byte validation required; JSON Schema length is not grapheme
+        count.
+      x-max-grapheme-clusters: 3000
+      x-max-utf8-bytes: 65536
+      x-unicode-version: 16.0.0
+    PublicAuthor:
+      oneOf:
+      - $ref: '#/components/schemas/ActivePublicAuthor'
+      - $ref: '#/components/schemas/InactivePublicAuthor'
+    ActivePublicAuthor:
+      type: object
+      additionalProperties: false
+      required:
+      - state
+      - nickname
+      - avatar
+      properties:
+        state:
+          type: string
+          enum:
+          - ACTIVE
+        nickname:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: Current authorized identity nickname, not the accepted-time snapshot.
+        avatar:
+          type: string
+          pattern: ^(default-v1|avatar-v1:(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$
+    InactivePublicAuthor:
+      type: object
+      additionalProperties: false
+      required:
+      - state
+      - shortCode
+      - avatar
+      properties:
+        state:
+          type: string
+          enum:
+          - DELETED
+          - ACCOUNT_CLOSED
+        shortCode:
+          type: string
+          minLength: 12
+          maxLength: 12
+          pattern: ^[A-Z2-7]{12}$
+          description: Stable uniformly random identity-level 60-bit code with database uniqueness/collision
+            retry; no account relation, timestamp, sequential number or truncated UUID. Render 注销身份 ·
+            code.
+        avatar:
+          type: string
+          enum:
+          - inactive-v1
+  responses:
+    PostShareLinkRead:
+      description: Fixed link and content-free system-share text, after final authorization.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Session-Expires-At:
+          $ref: '#/components/headers/SessionExpiresAt'
+        Server-Time:
+          $ref: '#/components/headers/ServerTime'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PostShareLink'
+    PostShareGuide:
+      description: Same generic guide for every canonical target, including missing/deleted/hidden posts.
+        No database lookup, content, availability signal or session authority.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Content-Security-Policy:
+          required: true
+          schema:
+            type: string
+        Referrer-Policy:
+          required: true
+          schema:
+            type: string
+        X-Content-Type-Options:
+          required: true
+          schema:
+            type: string
+        X-Robots-Tag:
+          required: true
+          schema:
+            type: string
+      content:
+        text/html:
+          schema:
+            type: string
+    MethodNotAllowed:
+      description: Unsupported method; Allow lists supported methods.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Allow:
+          required: true
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    BadRequest:
+      description: Invalid boundary input or cursor; no authoritative conclusion about an earlier in-flight
+        original command.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Unauthorized:
+      description: Missing/malformed Bearer, invalid/expired/revoked session, or session_replaced. Clear
+        only current affected auth fence, retain original account-scoped intent; do not treat as failed
+        publication or erase drafts.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Forbidden:
+      description: Rejected Origin or current posting/account restriction; durable business rejection
+        is observable by original key when one was recorded, never inferred solely from HTTP status.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    NotFound:
+      description: Identical unknown/foreign/nonvisible resource result; no owner, other identity, hidden
+        body or existence clue. Command queries never use this for absence.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    PayloadTooLarge:
+      description: Bounded bytes exceeded, not proof about an earlier command attempt.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    UnsupportedMediaType:
+      description: Require declared application/json for body operations; no request payload logged.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    RateLimited:
+      description: Bounded network/command quota; preserve intent and obey Retry-After, not a failed publication
+        state.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    ServiceUnavailable:
+      description: Gate frozen/unavailable, database/evidence failure or unknown commit outcome. Never
+        retry under a new command or downgrade to FAILED; query or seal the immutable original after recovery.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    PostRead:
+      description: Final-authorized visible published post and current public author projection.
+      headers:
+        Session-Expires-At:
+          $ref: '#/components/headers/SessionExpiresAt'
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Server-Time:
+          $ref: '#/components/headers/ServerTime'
+        Post-Edited-At:
+          description: Present only when the current original post has been edited; UTC timestamp.
+          schema:
+            type: string
+            format: date-time
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PublicPostResponse'
+  parameters:
+    PostID:
+      name: postId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ResourceID'
+  headers:
+    RequestId:
+      required: true
+      description: Independent server-generated C request ID, equals error requestId.
+      schema:
+        $ref: '#/components/schemas/CommandKey'
+    NoStore:
+      required: true
+      schema:
+        type: string
+        enum:
+        - no-store
+    RetryAfter:
+      required: true
+      description: Bounded retry delay in seconds, no account information.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 86400
+    SessionExpiresAt:
+      required: true
+      description: Current same-Bearer UTC deadline after final authorization and commit. Successful foreground
+        calls may renew by existing C policy; exact replays never extend a replaced/invalid session. Persist
+        before publishing state.
+      schema:
+        $ref: '#/components/schemas/UTCDateTime'
+    ServerTime:
+      required: true
+      description: Final C Gate trusted UTC time for this committed response; not an access capability.
+      schema:
+        $ref: '#/components/schemas/UTCDateTime'

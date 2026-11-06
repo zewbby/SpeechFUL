@@ -456,7 +456,7 @@ func Run(ctx context.Context, c Config, service authprivacyhttp.Service) error {
 			adminDirectory = c.Path(c.AdminDirectory)
 			origins = append(append([]string{}, origins...), c.PublicOrigin)
 		}
-		endpoints, err = authprivacyhttp.NewCommunityEndpoints(authprivacyhttp.CommunityOptions{Shared: shared, Backend: community, Passwords: passwords, InternalPeer: identity, AllowedOrigins: origins, Limits: limits, AdminDirectory: adminDirectory})
+		endpoints, err = authprivacyhttp.NewCommunityEndpoints(authprivacyhttp.CommunityOptions{PublicOrigin: c.PublicOrigin, Shared: shared, Backend: community, Passwords: passwords, InternalPeer: identity, AllowedOrigins: origins, Limits: limits, AdminDirectory: adminDirectory})
 		if err != nil {
 			return err
 		}

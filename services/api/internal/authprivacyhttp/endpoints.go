@@ -82,6 +82,9 @@ type ChannelBackend interface {
 }
 
 type CommunityOptions struct {
+	// PublicOrigin is the configured C HTTPS origin, never a request Host header.
+	// Empty keeps link generation/resolution disabled for older embedders.
+	PublicOrigin     string
 	Shared           *SharedLimits
 	AdminDirectory   string
 	ModerationAccess ModerationAccessBackend
@@ -113,11 +116,12 @@ type errorDetails struct {
 	RetryAfterSeconds int `json:"retryAfterSeconds"`
 }
 type boundary struct {
-	shared  *SharedLimits
-	service Service
-	peer    PeerIdentity
-	origins map[string]bool
-	limits  *networkLimiter
+	postLinkOrigin string
+	shared         *SharedLimits
+	service        Service
+	peer           PeerIdentity
+	origins        map[string]bool
+	limits         *networkLimiter
 }
 
 func NewVerifierEndpoints(options VerifierOptions) (*Endpoints, error) {
@@ -144,6 +148,13 @@ func NewCommunityEndpoints(options CommunityOptions) (*Endpoints, error) {
 		return nil, err
 	}
 	b.shared = options.Shared
+	if options.PublicOrigin != "" {
+		origin, err := fixedOrigin(options.PublicOrigin)
+		if err != nil {
+			return nil, err
+		}
+		b.postLinkOrigin = strings.TrimSuffix(origin.String(), "/")
+	}
 	if options.Channels == nil {
 		options.Channels, _ = options.Backend.(ChannelBackend)
 	}
@@ -174,6 +185,10 @@ func NewCommunityEndpoints(options CommunityOptions) (*Endpoints, error) {
 	foreground, _ := options.Posts.(rankingForeground)
 	return &Endpoints{
 		Public: b.wrap(false, func(w http.ResponseWriter, r *http.Request) {
+			if isPostShareLanding(r.URL.Path) {
+				b.servePostShareLanding(w, r)
+				return
+			}
 			if foreground != nil && isPostPath(r.URL.Path) {
 				if finish := foreground.BeginRankingForeground(); finish != nil {
 					defer finish()
@@ -326,7 +341,7 @@ func (b *boundary) wrap(internal bool, next http.HandlerFunc) http.Handler {
 				if route, e := parsePostRoute(r.URL.Path); b.service == CommunityService && e == nil && isPostInteractionKind(route.kind) && route.kind != authprivacy.PostInteractionBatch {
 					w.Header().Set("Access-Control-Expose-Headers", "Session-Expires-At, Server-Time, X-Request-ID, Retry-After, Interaction-Version")
 				}
-				if route, e := parsePostRoute(r.URL.Path); b.service == CommunityService && e == nil && route.kind == authprivacy.PostDetail {
+				if route, e := parsePostRoute(r.URL.Path); b.service == CommunityService && e == nil && (route.kind == authprivacy.PostDetail || route.kind == postLinkResolveRoute) {
 					w.Header().Set("Access-Control-Expose-Headers", "Session-Expires-At, Server-Time, X-Request-ID, Retry-After, Post-Edited-At")
 				}
 				w.Header().Set("Vary", "Origin")
