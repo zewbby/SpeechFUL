@@ -596,8 +596,18 @@ class _CommentPostPaneState extends State<CommentPostPane> {
     }
     rows.removeWhere((r) => widget.runtime.deleted.contains(r.id));
     replies.removeWhere((id, _) => widget.runtime.deleted.contains(id));
-    for (final list in replies.values) {
-      list.removeWhere((r) => widget.runtime.deleted.contains(r.id));
+    for (final entry in replies.entries) {
+      final list = entry.value;
+      final removed = list
+          .where((r) => widget.runtime.deleted.contains(r.id))
+          .length;
+      if (removed > 0) {
+        final root = rows.where((r) => r.id == entry.key).firstOrNull;
+        if (root != null) {
+          root.data['replyCount'] = (root.replyCount - removed).clamp(0, 10000);
+        }
+        list.removeWhere((r) => widget.runtime.deleted.contains(r.id));
+      }
     }
     final added = current ? _syncLocalComments() : <String>[];
     setState(() {});

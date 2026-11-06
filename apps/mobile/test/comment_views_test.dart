@@ -282,6 +282,53 @@ void main() {
   snapshotRecoveryTests();
   detailReferenceTests();
   quickReplyTests();
+  testWidgets('deleting a reply updates its visible root count once', (
+    tester,
+  ) async {
+    final journal = _MemoryJournal();
+    final r = _Runtime(journal);
+    await r.core.activate(account);
+    addTearDown(() async {
+      r.core.dispose();
+      r.dispose();
+      await journal.close();
+    });
+    r.rootRows.single['replyCount'] = 2;
+    r.ownIds.add(reply);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CommentPostPane(
+            runtime: r,
+            postId: post,
+            postBody: '正文',
+            continuous: true,
+            body: const Text('正文'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    String? rootCount() => tester
+        .widgetList<DetailAction>(find.byType(DetailAction))
+        .where((button) => button.action == FeedAction.comment)
+        .map((button) => button.count)
+        .whereType<String>()
+        .single;
+    expect(rootCount(), '2');
+    expect(find.text('乙回复甲的具体内容'), findsOneWidget);
+    await tester.tap(find.byTooltip('评论操作').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+    expect(find.text('乙回复甲的具体内容'), findsNothing);
+    expect(rootCount(), '1');
+    r.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(rootCount(), '1');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets(
     'real root and reply rows open report forms for their concrete comment',
     (tester) async {
