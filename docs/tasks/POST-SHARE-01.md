@@ -1,11 +1,11 @@
 # POST-SHARE-01 — 帖子分享与链接打开原帖
 
 - 模式：常规；负责人／状态维护人：当前 Session。
-- 分支／Worktree／PR：后端 [PR #108](https://github.com/zewbby/SpeechFUL/pull/108) 已合并为 `4a3115dad4c0ecd257afc85f3abaea3a8ea3de69`。App 使用 `codex/feat/post-sharing-mobile`、`E:/Hnuhole-env/source/SpeechFUL-post-sharing`，初始基线 `4a3115d`，整合主线标签 `be6d07a`，产品／测试最终提交为 `ce20d2e98df4603f3cec2f815ca91c45bd72326c`；App 尚未推送或创建 PR。
-- 授权依据与边界：用户原先要求后端功能，并授权“推送本次分支并创建 PR，相关产品 CI 全部通过后合并”，该后端交付已完成。随后要求“继续实现 App 端的分享按钮、链接唤起和登录后返回原帖”，本轮完成 App 本地实现、验证及必要本地提交，不将后端分支授权扩大为新 App 分支发布授权。没有部署授权；未更新日常 App、业务服务或现有数据库。
+- 分支／Worktree／PR：后端 [PR #108](https://github.com/zewbby/SpeechFUL/pull/108) 已合并为 `4a3115dad4c0ecd257afc85f3abaea3a8ea3de69`。App 使用 `codex/feat/post-sharing-mobile`、`E:/Hnuhole-env/source/SpeechFUL-post-sharing`，初始基线 `4a3115d`，整合主线标签 `be6d07a`，产品／测试最终提交为 `ce20d2e98df4603f3cec2f815ca91c45bd72326c`；已推送并创建 [PR #111](https://github.com/zewbby/SpeechFUL/pull/111)。
+- 授权依据与边界：后端按原先授权合并完成；用户继续要求 App 分享及原帖恢复，并在本地实现交付后明确要求“推送合并”，授权本 App 分支推送、创建 PR 和适用产品 CI 全部通过后的合并。没有部署授权；未更新日常 App、业务服务或现有数据库。
 - 需求确认：使用 `grill-with-docs` 及其 `grilling`、`domain-modeling` 依赖核实代码和文档，再收敛 Q1–Q5；用户均明确确认推荐方案，无未决产品取舍。
 - 更新日期：2026-11-06。
-- 状态：后端 实现已完成／验证 PASS／已合并／未部署。App 实现已完成／本地适用验证 PASS，iOS 与公网 HTTPS 关联待验／未合并／未发布。
+- 状态：后端 实现已完成／验证 PASS／已合并／未部署。App 实现已完成／本地适用验证 PASS，iOS 与公网 HTTPS 关联待验／已送审／未发布。记录提交时 CI 运行中，最终 CI 与合并状态以 PR #111 实时结果为准。
 
 ## 目标与范围
 
@@ -47,7 +47,7 @@ App 最终产品及测试为 `ce20d2e`（实现 `f3e8d3c`，主线整合 `da4601
 | Android 系统链路 | API 36 x86_64 read-only AVD、1080×2400／density 420、独立包 `org.hnuhole.hnuhole_mobile.postshareverify`；真实平台 Intent、真实导航与系统分享面板；认证／帖子数据使用明确的内存替身 | PASS，冷启动、登录后打开、最近任务防重放三场景，含热启动返回此前个人页、取消系统分享后忙碌解除与无发送成功提示；系统预览仅品牌和 URL，无框架异常。此项不证明原生认证存储、真实设备或与 SQL 的组合链路。[device-results.json](E:/Hnuhole-env/post-sharing-mobile-validation-20261106/final-device/device-results.json)、[系统面板](E:/Hnuhole-env/post-sharing-mobile-validation-20261106/final-device/postshare-cold-share.png)。 |
 | 首轮失败与修正 | 早期 host／native 记录保留，非最终结果 | FAIL 后已复验 PASS：修正测试返回按钮定位、失效会话目标恢复，以及 Kotlin Gradle Java 类型导入；设备测试初始路由受测试 binding 重置，改读真实 engine route。默认图形后端启动失败后改用任务只读 AVD／SwiftShader；320dp 基线页头溢出不作为当前 411dp 验收结果。见同目录早期 `focused-*.log`、`android-build-r1.log`、`postshare-cold-failure.log`、`emulator-*.log`。 |
 | 配置／政策 | plist、entitlements、Android manifest 解析；锁文件无差异；`git diff --check`、`python -X utf8 tools/check-collaboration.py --staged` | PASS，仅证明对应结构与提交政策，不代替 iOS、设备或产品 CI。 |
-| 远端 CI／审查 | 已在 Feed UI CI 新增分享 host 测试及真实 Dart 分享探针，与主线标签探针并存；Android 原生构建仍由适用平台 workflow 处理 | NOT_RUN：App 分支未推送、无远端 CI 或独立成员审查证据，不能将本地通过记作 CI 通过。 |
+| 远端 CI／审查 | Feed UI CI 新增分享 host 测试及真实 Dart 分享探针，与主线标签探针并存；Android 原生构建由适用平台 workflow 处理 | 已送审 [PR #111 检查](https://github.com/zewbby/SpeechFUL/pull/111/checks)，此记录提交时运行中，合并前须核对最终 head 的全部适用产品 CI 成功。无独立成员批准证据，不将本地通过记作远端 CI 通过。 |
 | 清理 | 本任务资源 | PASS：SQL runner 自动停止并清理私有集群；移除本任务独立测试包并关闭任务 read-only 模拟器，保留原 AVD、缓存和现有应用。[cleanup.log](E:/Hnuhole-env/post-sharing-mobile-validation-20261106/cleanup.log)。 |
 
 最终 `ce20d2e` 的 [10 项分享场景](E:/Hnuhole-env/post-sharing-mobile-validation-20261106/same-link-fixed.log)复验 PASS；新增的“取消登录后重点击同一 URL”场景先[复现 FAIL](E:/Hnuhole-env/post-sharing-mobile-validation-20261106/same-link-before-fix.log)，修正意图去重后通过。最终 Android 三场景使用不指定 Activity、按 manifest intent filter 解析的 scheme Intent；另[无包名限制的系统解析](E:/Hnuhole-env/post-sharing-mobile-validation-20261106/implicit-resolution.log)也指向本任务 Activity。这仍不证明公网 HTTPS 域名验证通过。
@@ -56,4 +56,4 @@ App 最终产品及测试为 `ce20d2e`（实现 `f3e8d3c`，主线整合 `da4601
 
 ## 阻碍与下一步
 
-App 已完成本地实现和上述可执行验证。后续送审须核对新 App 分支 head 的适用产品 CI；iOS 构建／设备、公网 HTTPS 域关联仍待对应环境验收。未更新用户日常安装包或部署服务；当前日常后端版本也未由本任务推进。当前无需新的产品取舍。
+App 已完成本地实现和上述可执行验证，并按最新授权推送、创建 PR #111。持续核对最终 head 的全部适用产品 CI，全部成功后 squash 合并；最终合并时间及 SHA 以 PR 实时结果为准。iOS 构建／设备、公网 HTTPS 域关联仍待对应环境验收。未更新用户日常安装包或部署服务；当前日常后端版本也未由本任务推进。当前无需新的产品取舍。
