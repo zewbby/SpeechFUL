@@ -25,7 +25,7 @@ type postSearchBackend interface {
 }
 
 func isPostSearchKind(kind authprivacy.PostReadKind) bool {
-	return kind == postSearchRoute || kind == postSearchHistoryRoute
+	return kind == postTagRoute || kind == postTagSuggestionsRoute || kind == postSearchRoute || kind == postSearchHistoryRoute
 }
 
 func (b *boundary) communityPostSearch(w http.ResponseWriter, r *http.Request, backend PostBackend, bearer [32]byte, route postRoute) {

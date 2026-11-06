@@ -169,6 +169,7 @@ void _runHnuholeApp(AuthPresentationController presentation) {
     ),
   );
   final posts = PostController(
+    channelDirectory: () => directory.channels,
     api: postApi,
     mediaApi: postApi,
     uploadApi: postApi,

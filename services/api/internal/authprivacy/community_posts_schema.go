@@ -24,6 +24,11 @@ func (c *Community) CheckPostSchema(ctx context.Context) error {
 // have no moderation dependency; the formal runtime must also hold the minimum
 // invoker cleanup privileges before it accepts any traffic.
 func CheckModerationLifecycleSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	if pool != nil {
+		if err := checkPostTagSchema(ctx, pool); err != nil {
+			return err
+		}
+	}
 	if pool == nil {
 		return errPostSchema
 	}
@@ -47,6 +52,9 @@ func CheckModerationLifecycleSchema(ctx context.Context, pool *pgxpool.Pool) err
 }
 
 func checkPostSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	if err := checkPostTagSchema(ctx, pool); err != nil {
+		return err
+	}
 	if err := checkPostSearchHistorySchema(ctx, pool, true); err != nil {
 		return err
 	}
@@ -188,6 +196,14 @@ WHERE n.nspname='c_posts' AND c.relname IN ('publication_ordinal_seq','acceptanc
  AND EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='c_posts.posts'::regclass AND tgname='fence_post_edit' AND tgenabled='O')`).Scan(&valid); err != nil || !valid {
 			return errPostSchema
 		}
+	}
+	var tagSchema bool
+	if err := pool.QueryRow(ctx, `SELECT to_regclass('c_posts.post_tag_terms') IS NOT NULL`).Scan(&tagSchema); err != nil {
+		return errPostSchema
+	}
+	if tagSchema {
+		writable["posts"] = append(writable["posts"], "tags")
+		writable["attempt_contents"] = append(writable["attempt_contents"], "tags")
 	}
 	for table, names := range writable {
 		if err := pool.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM unnest($2::text[]) AS required(name)

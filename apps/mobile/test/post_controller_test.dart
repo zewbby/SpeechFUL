@@ -123,6 +123,7 @@ class _Api implements PostApi {
     required String identityId,
     required String title,
     required String body,
+    List<String> tags = const [],
   }) async {
     creates.add({
       'token': sessionToken,
@@ -252,6 +253,7 @@ class _Api implements PostApi {
     required int expectedAttemptVersion,
     required String title,
     required String body,
+    List<String> tags = const [],
   }) async {
     retries.add({
       'token': sessionToken,

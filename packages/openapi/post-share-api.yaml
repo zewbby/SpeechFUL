@@ -47,6 +47,12 @@ paths:
   /api/v1/post-links/resolve:
     post:
       operationId: resolveOriginalPostLink
+      parameters:
+      - name: X-Post-Tags
+        in: header
+        required: false
+        description: Opt in to public label fields on the resolved original post.
+        schema: {type: string, enum: [v1]}
       summary: Resolve an own-origin share URL to its latest readable original post
       description: Accept only the exact configured HTTPS origin and /s/posts/{canonical nonzero UUID}.
         No userinfo, relative URL, app scheme, escaped path, query, fragment, whitespace or trailing slash.
@@ -257,6 +263,12 @@ components:
       - author
       - publishedAt
       properties:
+        tags:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          description: Public labels for X-Post-Tags v1 clients; omitted when empty.
+          items: {type: string, minLength: 1, maxLength: 10}
         postId:
           $ref: '#/components/schemas/ResourceID'
         channelId:

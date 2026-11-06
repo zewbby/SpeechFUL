@@ -1,6 +1,29 @@
 part of 'post_controller.dart';
 
 extension PostSearchController on PostController {
+  Future<List<String>> suggestPostTags(String prefix) => _api is! PostTagApi
+      ? Future.value(const [])
+      : _withDiscoveryAuthority(
+          (token) => (_api as PostTagApi).suggestPostTags(
+            sessionToken: token,
+            prefix: prefix,
+          ),
+        );
+  Future<PostsPage<PostCard>> taggedPosts(
+    String tag, {
+    String? channelId,
+    String? cursor,
+  }) => _withDiscoveryAuthority(
+    (token) => (_api as PostTagApi).taggedPosts(
+      sessionToken: token,
+      tag: tag,
+      channelId: channelId,
+      cursor: cursor,
+    ),
+  );
+  Future<PostDetail> readTaggedPost(String id) => _withDiscoveryAuthority(
+    (token) => _api.detail(sessionToken: token, postId: id),
+  );
   bool get supportsPostSearch => _api is PostSearchApi;
   bool get supportsPostRankings => _api is PostRankingApi;
 

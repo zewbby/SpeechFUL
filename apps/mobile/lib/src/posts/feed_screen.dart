@@ -27,6 +27,7 @@ import 'post_reposts_widgets.dart';
 import 'post_images.dart';
 import 'post_screens.dart';
 import 'post_search_screen.dart';
+import 'post_tag_screen.dart';
 import 'x_feed.dart';
 import 'x_feed_controls.dart';
 
@@ -533,6 +534,7 @@ class _FeedScreenState extends State<FeedScreen> {
                             .formatShortDate(post.publishedAt.toLocal()),
                         title: post.title,
                         body: post.body,
+                        tags: post.tags,
                         views: c.postViewCount(post.postId),
                         comments: c
                             .interaction(post.postId)
@@ -598,6 +600,17 @@ class _FeedScreenState extends State<FeedScreen> {
                                   current && !c.isPostDeleted(post.postId),
                             )
                           : null,
+                      onTag: (tag) => unawaited(
+                        openPostTag(
+                          context,
+                          controller: c,
+                          tag: tag,
+                          channels: widget.channels,
+                          onAuthenticationRequired:
+                              widget.onAuthenticationRequired,
+                          loadImages: widget.loadImages,
+                        ),
+                      ),
                       onPost: () => _open(context, post.postId, post.channelId),
                       onAuthor: () =>
                           unawaited(DmScope.contact(context, post.postId)),

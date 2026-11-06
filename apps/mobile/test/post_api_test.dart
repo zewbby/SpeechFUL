@@ -820,6 +820,7 @@ void main() {
       title: '纯图帖子',
       body: '',
       images: [selection],
+      tags: const ['篮球'],
     );
     expect(jsonDecode(endpoint.requests.last.body), {
       'channelId': _id,
@@ -827,6 +828,7 @@ void main() {
       'title': '纯图帖子',
       'body': '',
       'images': [selection.toJson()],
+      'tags': ['篮球'],
     });
     await uploader.retryWithImages(
       sessionToken: _token,
@@ -836,9 +838,11 @@ void main() {
       title: '重试',
       body: '',
       images: [selection],
+      tags: const ['篮球'],
     );
     expect(endpoint.requests.last.uri.path, '/api/v1/me/post-tasks/$_id/retry');
     expect(endpoint.requests.last.headers['idempotency-key'], [_key]);
+    expect((jsonDecode(endpoint.requests.last.body) as Map)['tags'], ['篮球']);
   });
 
   test(

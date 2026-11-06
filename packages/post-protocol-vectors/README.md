@@ -1,5 +1,7 @@
 # Flutter F2协议向量快照
 
+`tags-v1.json` 为 CUSTOM-TAGS-01 的独立扩展向量，包含文字新建、图片新建及图片重试的标签命令 framing 与 SHA256。Go 和 Dart 同时校验这些向量；空标签继续沿用以下历史文字和图片向量的原字节。
+
 本目录的post-command-v1.json与后端已发布514a944560988e3d8d599e6f9fe9d5d99fe07f88的Git blob一致，含9组framing/SHA256和7组Unicode16字素输入期望；其旧scope字段是T1历史说明，该说明对应F2；F3现已接入Dart符合性入口，实际运行结果见F3验证记录。
 
 本分支规范见[F2设计](../../docs/design/community-flutter-f2-design.md)、[版本锁](../../docs/design/community-flutter-f2-lock.json)及[OpenAPI](../openapi/post-api.yaml)。[上游API说明](https://github.com/zewbby/HnuHole/blob/514a944560988e3d8d599e6f9fe9d5d99fe07f88/docs/design/community-text-posting-api.md)和[T1历史报告](https://github.com/zewbby/HnuHole/blob/514a944560988e3d8d599e6f9fe9d5d99fe07f88/docs/design/community-text-posting-t1-report.md)属于固定来源，不需要另一工作树的未提交文件。

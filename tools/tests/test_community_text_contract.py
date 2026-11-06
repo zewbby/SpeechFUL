@@ -27,7 +27,7 @@ class CommunityTextContractTests(unittest.TestCase):
         return CHECKER.check_contract(self.spec, self.text, self.media)
 
     def test_current_text_and_image_contract_and_shared_goldens(self):
-        self.assertEqual(self.check(), (23, 9, 2))
+        self.assertEqual(self.check(), (25, 9, 2))
 
     def test_edit_requires_revision_and_cannot_change_identity_or_channel(self):
         original = copy.deepcopy(self.spec)

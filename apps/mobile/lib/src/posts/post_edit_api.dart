@@ -100,6 +100,7 @@ abstract interface class PostEditApi {
     required String title,
     required String body,
     List<String>? imageIds,
+    List<String>? tags,
   });
 
   Future<PostResponse<bool>> stageEditImage({

@@ -56,7 +56,7 @@ func (b *boundary) communityPostEdit(w http.ResponseWriter, r *http.Request, bac
 	case r.Method == http.MethodGet:
 		response, err = backend.PostEditResult(r.Context(), bearer, route.id, route.editCommand)
 	default:
-		object, decodeErr := readRequestObject(r, posts.MaxRequestBytes, []string{"revision", "title", "body"}, []string{"imageIds"})
+		object, decodeErr := readRequestObject(r, posts.MaxRequestBytes, []string{"revision", "title", "body"}, []string{"imageIds", "tags"})
 		if decodeErr != nil {
 			b.postBad(w, decodeErr)
 			return
@@ -69,6 +69,14 @@ func (b *boundary) communityPostEdit(w http.ResponseWriter, r *http.Request, bac
 			return
 		}
 		input := posts.EditInput{Revision: revision, Title: title, Body: body}
+		if _, present := object["tags"]; present {
+			tags, err := parsePostTags(object)
+			if err != nil {
+				b.postBad(w, err)
+				return
+			}
+			input.Tags = &tags
+		}
 		if value, exists := object["imageIds"]; exists {
 			raw, ok := value.([]any)
 			if !ok || len(raw) > postmedia.MaxImages {

@@ -214,8 +214,15 @@ func TestModerationLegacyRestrictionMinimalPrivilegesPostgres(t *testing.T) {
 func TestModerationLegacyRestrictionBefore0015Postgres(t *testing.T) {
 	l := newPostLab(t)
 	mustExec(t, l.cp, `DROP SCHEMA c_moderation CASCADE`)
-	// Remove the later 0030 edit feature before modeling a pre-0015 database.
-	mustExec(t, l.cp, `DROP TRIGGER fence_post_edit ON c_posts.posts;
+	// Remove later tags and edits before modeling a pre-0015 database.
+	mustExec(t, l.cp, `DROP TRIGGER post_tag_terms_sync ON c_posts.posts;
+DROP TRIGGER post_tags_lifecycle ON c_posts.posts;
+DROP TRIGGER attempt_tags_immutable ON c_posts.attempt_contents;
+DROP TABLE c_posts.post_tag_terms;
+ALTER TABLE c_posts.posts DROP COLUMN tag_keys,DROP COLUMN tags;
+ALTER TABLE c_posts.attempt_contents DROP COLUMN tags;
+DROP FUNCTION c_posts.sync_post_tag_terms(),c_posts.fence_post_tags(),c_posts.fence_attempt_tags(),c_posts.tag_keys(text[]),c_posts.valid_tags(text[]);
+DROP TRIGGER fence_post_edit ON c_posts.posts;
 DROP FUNCTION c_posts.fence_post_edit();
 DROP TABLE c_posts.post_edit_receipts,c_posts.post_edit_media;
 ALTER TABLE c_posts.posts DROP COLUMN edit_revision,DROP COLUMN edited_at,

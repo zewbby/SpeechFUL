@@ -13,6 +13,7 @@ abstract interface class PostUploadApi {
     required String title,
     required String body,
     required List<PostImageSelection> images,
+    List<String> tags = const [],
   });
   Future<PostResponse<PostCommandResult>> retryWithImages({
     required String sessionToken,
@@ -22,6 +23,7 @@ abstract interface class PostUploadApi {
     required String title,
     required String body,
     required List<PostImageSelection> images,
+    List<String> tags = const [],
   });
   Future<PostResponse<PostUploadState>> uploads({
     required String sessionToken,

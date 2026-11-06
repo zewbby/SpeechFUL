@@ -70,6 +70,26 @@ class PrereleaseRoleAuditPostgresTest(unittest.TestCase):
                     self.lab.grants('c')
                 self.lab.audit()
 
+    def test_tag_projection_grants_reject_updates_and_other_roles(self):
+        self.lab.audit()
+        for role, privilege in [
+            ('hnuhole_c_runtime', 'UPDATE'),
+            ('hnuhole_c_runtime', 'REFERENCES'),
+            ('hnuhole_c_runtime', 'TRIGGER'),
+            ('hnuhole_c_recovery', 'SELECT'),
+            ('hnuhole_business', 'SELECT'),
+        ]:
+            with self.subTest(role=role, privilege=privilege):
+                self.lab.sql('c', 'GRANT ' + privilege + ' ON c_posts.post_tag_terms TO ' + role)
+                try:
+                    with self.assertRaisesRegex(RuntimeError, 'owned SQL operation failed'):
+                        self.lab.audit()
+                    self.assertIn('operational role acquired noncontract table privilege',
+                                  (self.lab.root / 'sql-error.private.log').read_text())
+                finally:
+                    self.lab.sql('c', 'REVOKE ' + privilege + ' ON c_posts.post_tag_terms FROM ' + role)
+        self.lab.audit()
+
     def test_repost_grants_pass_and_extra_permissions_fail(self):
         self.lab.audit()
         for table in ('post_reposts', 'post_repost_versions'):
