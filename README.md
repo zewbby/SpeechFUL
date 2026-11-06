@@ -40,6 +40,8 @@
 
 ## Related Work
 
+- [帖子自定义标签](docs/tasks/CUSTOM-TAGS-01.md)：本地分支已接入添加、复用、编辑、独立标签结果和关键词搜索；每帖最多三个、每个最多十字，验证及发布状态见任务记录。
+
 - [帖子分享与原帖链接后端](docs/tasks/POST-SHARE-01.md)：任务分支提供固定分享链接、登录后读取最新原帖及无内容预览的通用引导页；App 接线与发布另行完成。
 
 - [开发环境旧启动入口修复](docs/branches/fix-development-runtime-resume.md)：三个原入口已统一版本绑定恢复器，C28/V7与三Redis冷启、重复执行验证通过，PR状态见任务。

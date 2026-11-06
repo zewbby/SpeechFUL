@@ -5,6 +5,7 @@ on:
       - 'services/api/**'
       - 'infra/postgres/**'
       - 'packages/openapi/**'
+      - 'packages/post-protocol-vectors/**'
       - '.github/workflows/feed-backend.yml'
   workflow_dispatch:
 permissions:

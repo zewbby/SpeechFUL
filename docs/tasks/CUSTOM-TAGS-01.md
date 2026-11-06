@@ -1,11 +1,11 @@
 # CUSTOM-TAGS-01 — 帖子自定义标签
 
 - 模式：常规；负责人／状态维护人：当前 Session。
-- 分支／Worktree／PR：`codex/feat/custom-tags`；`E:/Hnuhole-env/source/SpeechFUL-custom-tags`；PR 未创建。实际基线为已 fetch 的 `origin/main`，`48bcbc7cf90d163597d1f8a5f5944d9a08cb3ebf`。
+- 分支／Worktree／PR：`codex/feat/custom-tags`；`E:/Hnuhole-env/source/SpeechFUL-custom-tags`；PR 未创建。初始主线基线 `48bcbc7cf90d163597d1f8a5f5944d9a08cb3ebf`，开发期间整合主线帖子分享后端 `4a3115dad4c0ecd257afc85f3abaea3a8ea3de69`。最终产品代码提交 `64fcc2b8b7128d827be92cb0e9a1fba48c3a333e`。
 - 授权依据与边界：2026-11-06 用户要求「需求：新增 自定义标签 功能」，完成 Q1–Q6 后回复「可以，按这个方案实现。」覆盖本地调查、开发、验证和必要本地提交；尚无 Push、PR、合并或部署授权。保留其他工作区及正式数据。
 - 需求确认：2026-11-06 用户逐项回复 Q1–Q5，依据见下方；Q6 已由用户最终确认，以下方案无未决取舍。
 - 更新日期：2026-11-06。
-- 状态：实现进行中；验证 NOT_RUN；合并未合并；发布未发布。
+- 状态：实现已完成；验证 PASS（下列本地范围，远程产品 CI 与设备验收待验）；合并未合并（未进入 main）；发布未发布。
 
 ## 目标与范围
 
@@ -20,7 +20,10 @@
 
 ## 接口与依赖
 
-- 基线的草稿、发布确认、创建／重试协议、公开内容与编辑 DTO、SQL 均没有主题标签字段；需要按确认范围同步扩展，并保留原命令幂等、公开版本、会话及最终 C Safety Gate 约束。
+- 已同步扩展草稿、创建／重试协议、公开投影、编辑与 SQL，保留原命令幂等、公开版本、会话及最终 C Safety Gate。非空标签包裹完整文字／图片命令帧，空标签保留旧摘要；旧未决编辑不补入标签字段，避免改变原提交。
+- [迁移 0033](../../services/api/migrations/0033_post_tags.sql) 保存不可变发布标签、公开标签、精确检索键与已有词投影；触发器沿用 invoker 权限，删除／下架及时退出检索和提示。当前从主线到该迁移的首次安装与升级已经过一次性真实库验证；之后整合其他迁移时仍按最终链复核。
+- `POST /api/v1/post-tags/posts` 使用单标签精确匹配、首次发布时间和发布序号降序；游标绑定账号、标签、分类、页大小、发布上界和屏蔽版本。`POST /api/v1/post-tags/suggestions` 只提示公开可访问词，前缀下划线按字面处理。
+- 新客户端通过 `X-Post-Tags: v1` 读取标签；旧公开 DTO 继续省略该字段，旧客户端编辑省略标签时保留当前标签。分享链接解析读取原帖时传递同一协商状态。
 - 当前首页「筛选」打开账号级通道屏蔽，不能直接作为已有标签筛选入口：`apps/mobile/lib/src/posts/feed_screen.dart:296`、`x_feed_controls.dart:46`。
 - 基线搜索仅匹配标题和正文；本次增加标签关键词匹配，另提供独立精确标签页，不改变普通搜索分组和排序。
 - [标签规则](../design/modules/tags.md) 已按 Q1–Q6 更新，旧通道内多标签 AND 筛选由本次独立单标签结果替代。
@@ -38,13 +41,19 @@
 | 项目 | 被测版本／环境 | 结果与证据 |
 | --- | --- | --- |
 | 仓库调查 | Windows PowerShell；主线 `48bcbc7` | PASS。已核对实际源码根、远端、分支、Worktree 和原有改动，并建立独立任务分支；原工作区未修改。 |
-| 代码事实 | 同一主线 | 发帖确认页 `post_screens.dart:1152` 仅标题和身份；创建／重试字段见服务端 `internal/posts/model.go:35`、`:43`，编辑字段见 `internal/posts/edit.go:3`；搜索匹配见 `internal/authprivacy/community_post_search.go:111`。主题标签尚未接入。 |
-| 实现 | 基线 `48bcbc7` 加本任务差异 | 发布与重试摘要绑定、草稿与旧未决编辑兼容、公开投影、编辑、建议词、普通搜索、独立标签页和举报证据已接入。 |
-| Flutter 聚焦回归 | Windows Flutter；基线加本任务差异 | PASS，180 项受影响测试通过，见 `E:/Hnuhole-env/custom-tags-validation-20261106/flutter-final.log`。覆盖面板、草稿、跨语言向量、旧未决编辑、迟到响应、原发帖／编辑／搜索及深色窄屏大字布局。 |
-| SQL 与真实客户端首轮 | WSL2 Linux 源码和一次性 PostgreSQL 16；实际 Dart EXE、私有 CA 与 C HTTPS | 标签发布／编辑／搜索、实际 Dart 读取和保存、旧公开 DTO 兼容通过。整轮另有历史 pre-0015 夹具移除新结构不完整而 FAIL；该夹具已修正，待聚焦复验。保留原记录 `sql-affected.log`。 |
-| Android 构建 | 同一 Flutter 产品源码；ARM64 debug | PASS，`android-final.log`；未安装设备，不等同于真机验收或发布。 |
-| 远程产品 CI／独立审查 | 分支未推送，PR 未创建 | NOT_RUN。已将标签 widget、真实 Dart／HTTPS／SQL 和 Go 检查接入适用产品 workflow。 |
+| 实现 | `568a8f5` 功能；`2f6e7fc` 整合主线；`64fcc2b` 完成边界修正 | 发布／重试摘要绑定、草稿与旧未决编辑、公开投影、编辑、建议词、普通搜索、独立标签页及举报证据已接入。会话代次在面板建立时固定，未操作就换会话也关闭旧面板。 |
+| Flutter | Windows Flutter 3.47.5；180 项受影响基础回归，随后按最终差异聚焦标签、HTTP 和布局；`flutter analyze --no-pub` | PASS。基础结果 [flutter-final.log](E:/Hnuhole-env/custom-tags-validation-20261106/flutter-final.log)；最终图片新建／重试向量、会话变化、迟到响应、面板与 HTTP 合计 46 项通过，见 [边界回归](E:/Hnuhole-env/custom-tags-validation-20261106/flutter-final-boundaries.log)；[最终 analyze](E:/Hnuhole-env/custom-tags-validation-20261106/flutter-final-analysis.log) 无问题。最终 Flutter 产品源码与 `64fcc2b` 一致。 |
+| Go 静态与单元 | `64fcc2b` 的 Git archive 解到 `/home/hnuhole/custom-tags-20261106`；Go 1.22.2；`go test ./...`、`go build ./...`、`go vet ./...` | PASS，三个命令退出码均为 0，[状态记录](E:/Hnuhole-env/custom-tags-validation-20261106/go-verified-status.json) 及同目录 `go-verified-*.log`。无 DSN 的 host 结果只证明该范围，真实 SQL 另列。 |
+| SQL、迁移和安全回归 | `2f6e7fc`；WSL2 Linux 源码、一次性 PostgreSQL 16；`sh authlab/run-feed-isolated.sh`，pattern 覆盖标签、搜索、schema、Goose、Gate、注销及分享 | PASS，27 个顶层测试及其子项，见 [SQL 回归](E:/Hnuhole-env/custom-tags-validation-20261106/sql-merged-final.log)。包括六种首次／升级链、最小权限、旧模块兼容、标签修改、清空、分页／屏蔽、字面下划线、举报原标签证据及 Gate 冻结。最终相关业务和 schema 源码未改变；分享协商增量另列。 |
+| 最终真实 HTTPS／Dart | `64fcc2b` Git archive；同一独立 SQL runner；`FEED_TEST_PATTERN='^(TestRealHTTPSPostTags\|TestRealHTTPSPostShare)'`；提供编译后的 `POST_TAGS_DART_PROBE` | PASS，4 项真实 HTTPS 测试，包含实际 Dart 客户端读取、搜索、建议、编辑清空和创建后任务恢复，以及分享原帖保留标签、旧客户端封闭 DTO 和无效／冻结会话。[原始日志](E:/Hnuhole-env/custom-tags-validation-20261106/sql-final-boundaries.log)、[退出码与版本](E:/Hnuhole-env/custom-tags-validation-20261106/sql-final-status.json)。 |
+| API 与管理端 | `64fcc2b`；全量 OpenAPI、`tools/check-community-text-contract.py`；管理端源码与 `2f6e7fc` 相同 | PASS，13 份 OpenAPI 和 25 个受保护操作静态契约；[OpenAPI](E:/Hnuhole-env/custom-tags-validation-20261106/openapi-final-64fcc2b.log)、[契约](E:/Hnuhole-env/custom-tags-validation-20261106/contract-final-64fcc2b.log)。`node --check apps/admin/app.mjs` 及 13 项管理端测试通过，见 [管理端测试](E:/Hnuhole-env/custom-tags-validation-20261106/admin-tests.log)。 |
+| 可见布局 | 最终标签组件；360×800、1.5 倍文字、深色主题，实际 Noto Sans SC 与 Material Icons 字体 | PASS，无溢出，已目视核对标签、删除图标、3/3 数量与完成按钮；[截图](E:/Hnuhole-env/source/SpeechFUL-custom-tags/apps/mobile/build/custom-tags-render/tag-picker-dark-large-text.png)。此证据属于 Flutter host 渲染。 |
+| Android 构建 | 最终 Flutter 产品源码；`flutter build apk --debug --no-pub --target-platform android-arm64` | PASS，[构建日志](E:/Hnuhole-env/custom-tags-validation-20261106/android-final-boundaries.log)。本地 `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk` 的 SHA256 为 `4569a9104e7c78c9b169d9fbd3a22a42abfff9635013b5fabf5b422e5c25b7a5`。未安装设备，不等同于真机验收或发布。 |
+| 历史失败及修复 | 首轮本地 SQL；修正前的 pre-0015 历史夹具未移除新增标签结构 | 原始 FAIL 保留在 `sql-affected.log`，不作为通过证据。夹具已完整移除后续标签结构以模拟旧库；同名测试在上述 `2f6e7fc` SQL 回归 PASS。 |
+| 产品 CI、设备与独立审查 | 分支未推送，PR 未创建；未安装实际设备 | NOT_RUN：远程产品 CI、真机及 iOS 验收、独立审查。已将标签 widget、图片向量、实际 Dart／HTTPS／SQL 和 Go 检查接入产品 workflow；本地结果不冒充远程 CI、成员批准或正式发布。 |
+
+产品证据绑定上述源码提交；此后的任务记录、README 和 CI 路径触发更新不改变被测产品源码，也不提升验证范围。所有数据库与私有 CA／会话 fixture 均由任务 runner 创建和清理，未修改日常或正式业务数据。
 
 ## 阻碍与下一步
 
-完成历史夹具聚焦复验和最终 Go／SQL 检查；集成开发期间主线新增的帖子分享入口，核对最终差异后记录交付。只处理本任务本地内容，不推进其他未合并功能或正式部署。
+无本地开发阻碍。功能和上述本地验证已完成，代码及证据保留在当前任务分支。远程 CI、设备验收、进入 main 与部署仍待相应后续阶段；不自动推进其他未合并功能或正式部署。
