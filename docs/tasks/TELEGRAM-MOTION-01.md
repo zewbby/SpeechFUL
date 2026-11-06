@@ -3,13 +3,13 @@
 - 模式：指挥。2026-11-06 用户明确要求“基本能做的都做，工作量太大你先划分为几个模块，然后用 orchestrator 来做”。
 - 负责人／状态维护人：当前 Session。
 - 执行 Session：按下方模块派发独立子 Agent；本入口负责唯一任务记录，不创建侧栏新聊天。
-- 分支／Worktree／PR：集成分支 `codex/feat/telegram-motion`；`E:/Hnuhole-env/source/SpeechFUL-telegram-motion`；PR 未创建。实际基线为已 fetch 的 `origin/main`，`e9bfa80595cd05621ff86bd9da8fade284150110`。执行模块使用独立分支及 Worktree。
+- 分支／Worktree／PR：集成分支 `codex/feat/telegram-motion`；`E:/Hnuhole-env/source/SpeechFUL-telegram-motion`；PR [#107](https://github.com/zewbby/SpeechFUL/pull/107)（Draft）。实际基线为已 fetch 的 `origin/main`，`e9bfa80595cd05621ff86bd9da8fade284150110`。执行模块使用独立分支及 Worktree。
 - 本轮规则版本：AGENTS.md 与 CONTRIBUTING.md 的最近修改提交均为 `a4d7228a0dd4b91e851746ab7f9fb37d1ec806b5`；orchestrator Skill 最近修改提交为 `454653b329b3d22a1b712c882c9ace942d5a7c16`。全部以本任务基线中的文件内容生效。任务契约版本为本文件下方 **v1**，派单时绑定承载本次文档的提交。
 - 授权依据与边界：2026-11-06 用户最初要求把适用效果应用到 SpeechFUL；本轮进一步明确“合并、装机，验真机手感、帧率及远程 CI”，授权本任务 push、PR、通过门槛后合并，以及同签保数据装机和真机/帧率验收。正式后端/生产部署不在本轮；不卸载/清数据，不绕过认证或安全 Gate，不给真实他人发送测试消息。
 - 恢复专项授权：既有日常开发连接拒绝后，普通 resume 在 2026-11-06 02:23:47Z 检出 C DB/anchor 高水位差异并触发保护性冻结。用户随后明确选择“授权恢复，接受重新登录（推荐）”，授权按既有部署流程显式恢复 C Gate，接受 C 授权代次提升及旧 C 会话失效；不恢复 V 代次、不重置 schema 或清理业务数据。
 - 需求确认：已使用 `grill-with-docs` 组合技能核对现有源码并集中询问。用户 Q1 确认“基本能做的都做”并要求按模块指挥执行；Q2 选择“按推荐，先做好日常反馈”；随后确认五模块方案并授权“按照你建议的模型及强度来做”。沿用 Flutter/Dart、现有布局／配色／业务流程，完善所有适用的日常反馈；玻璃折射、持续扫光、大粒子消散和未有业务的剧透／贴纸功能不在本轮。执行模块使用 GPT-6.1 Sol / high，独立集成审查使用 GPT-6 Astra / high。
 - 更新日期：2026-11-06。
-- 状态：实现已完成；本地自动验证/Android 构建 PASS；本轮远程 CI、同签装机及真机/帧率验收进行中；待合并；未正式发布。
+- 状态：实现已完成；本地自动验证/Android 构建 PASS；c3f2738 远程 CI 与同签 profile 装机 PASS；用户反馈帖子滚动低帧，正在定位并修复，真机/帧率保持待验；待合并；未正式发布。
 
 ## 目标与范围
 
@@ -65,6 +65,15 @@ MOTION-00 的公共 API 固定为：
 - 帧率：profile 模式、当前真实显示刷新率、预热后采样；记录场景、样本数、build/raster P50/P95/P99/max、超刷新预算数、呈现帧间隔和可用的实际观察。60Hz 时 build/raster P95 目标均不超过16.67ms；样本不足保持待验，冷启动/首次着色器尖峰单列。不得拿 debug、Android UI线程 gfxinfo或静态截图冒充 Flutter 帧时序。
 - 合并前核对当前 PR head 的适用产品 CI、独立审查与本轮必要设备证据；故障先修复并聚焦复验。合并后确认 main/合并 SHA 与被测产品代码对应，交付已安装包的实际版本、签名及哈希；正式生产仍未发布。
 
+### 滚动性能修复契约 v4（2026-11-06）
+
+用户反馈“滑动帖子的时候帧率很低”；本次已核对设备实际停在首页“最新”列表。目标为定位并修复可复现滚动掉帧，沿用 v1 交互和 v2 性能门槛，不改变列表模式、数据、鉴权或业务流程。先 profile 真机采样并结合源码/CPU 堆栈定位，再作有证据的最小修复；调试附加 instrumentation 的采样不充作最终性能验收。root 独占设备及唯一任务记录，执行者独立 Worktree，不控制设备/后端。
+
+- SCROLL-DIAG：Sol/high，只读审计真实 FeedScreen 的滚动构建、布局与动效链路，回报可验证触发机制及外置工作量诊断，不能把调试测试当真机帧率。
+- SCROLL-FIX：定位后派给原模块所有者，在独立分支交付修复、覆盖复现原因的适用聚焦验证；root 集成并同签升级 profile。保留原页面/数据流程及图片权限代次，禁止以关闭正常内容/动画掩盖卡顿。
+- SCROLL-REVIEW：Astra/high，独立审查修复及证据；最终设备样本覆盖固定双向滑动、预热/冷样本分列，记录真实显示刷新率及完整采样范围。任何超预算或证据不足明确保留待验。
+- PR #107 保持 Draft；完成当前 head 的产品 CI、独立审查与必要设备验收后再按已有授权合并。
+
 ### 恢复专项契约 v3（2026-11-06）
 
 - 产品 v1、装机/CI/帧率交付 v2 不变。仅允许使用已部署 `8582593` 的 `authdev recover`、既有 C operator 与 5 分钟证据有效期，显式恢复 C 一次；预期 C generation/recoverEvents 10→11，Gate FROZEN→OPEN，DB/anchor 一致。
@@ -97,10 +106,13 @@ MOTION-00 的公共 API 固定为：
 | 最终 App 完整回归 | `3f5424b`；`flutter test --no-pub test --concurrency=2 --reporter expanded` | PASS，1138 项，4 项 SKIP（3 个既有专用真实 TLS/PostgreSQL fixture、1 个需指定头像复现输入的用例）；没有失败，约 3分07秒。`E:/Hnuhole-env/tmp/telegram-motion-app-tests-final.log`。 |
 | Android 目标构建 | 同一 `3f5424b`；`flutter build apk --debug --target-platform android-arm64 --no-pub` | PASS，assembleDebug 35.5秒；`E:/Hnuhole-env/tmp/telegram-motion-android-build.log`。未改依赖/平台配置，未装机。 |
 | APK 校验与交付 | 同一被测产品源码；Android Build Tools 36.0.0 `apksigner verify --verbose`、`aapt2 dump badging` | PASS，APK v2 签名有效；包名 `org.hnuhole.hnuhole_mobile`，显示名 SpeechFUL，debug 0.1.0+1。交付文件 `E:/Hnuhole-env/deliveries/telegram-motion-20261106/SpeechFUL-motion-3f5424b-arm64-debug.apk`，114,249,644 字节；源输出与交付副本 SHA256 均为 `0d1b4c83a9047c1e5bd2d5c70a53fe1701264e735ae7f35aaf62512026d25b69`。仅证明 ARM64 目标构建，包内其他依赖 ABI 不宣称运行验收。 |
-| 远程 CI / 真机 / 帧性能 | 尚未推送、创建 PR 或操作设备 | NOT_RUN。新增测试已接入产品 CI；本地结果不冒充远程 CI、整机、帧率或生产验收。 |
+| 远程 CI | PR107 head c3f27381、base e9bfa805、测试合并67f2b0fb；Sol/high只读核查 | PASS。11适用workflow、22 job成功、1既有条件SKIP；全部22成功job实际checkout已核对（19测试合并、3精确head）。不覆盖之后产品修复。外部证据 ci-pr107-c3f27381-{final,checkouts,checks}.json。 |
+| 同签真机安装 | vivo V2323A / 10CEAG17RY003M7；profile c3f2738，产品等价3f5424b；正式main.dart、原开发origins/CA | PASS。保数据install-r，用户完成vivo本人验证；实际versionCode2026110601，证书1538fb30…，APK SHA256 ae021cc8e29e4a41f7ea6bddc6e29ce8ef2ae1ee04c2e3c0f610e856086012cf。私有原始证据 E:/Hnuhole-env/telegram-motion-device-20261106。 |
+| 开发连接恢复 | 已部署8582593，C30/V7，原WSL2运行时；用户专项授权v3 | PASS。普通resume检出anchor领先23.898ms并保护性冻结；授权后既有authdev recover仅一次EXIT0。独立核对C OPEN/gen11/recoverEvents11、DB/anchor一致；V OPEN/gen8/recoverEvents8未变；随后普通resume启动4服务、C/V ready且recoverInvoked=false。没有schema重置/迁移或业务数据清理。 |
+| 滚动问题初次采样 | 同一profile，首页最新，60Hz，固定双向滑动、预热2cycles | FAIL（性能门槛，待修复）。timeline环形buffer末4.89秒213帧：build P50/P95/P99/max=5.061/16.726/20.362/28.323ms、11超16.67；raster=2.693/5.862/9.780/23.963ms、1超预算。布局P95=13.382ms，正在进一步归因；该局部窗口不冒充完整12.63秒采样或总FPS。原始scroll-before-warm.private.json及summary。 |
 
 ## 阻碍与下一步
 
-五模块及三项审查修复已闭环，本地可交付。验证绑定产品提交 `3f5424b33c51271b6ea43c75cf714e4ce30b66a9`；其后的更新仅为本记录，不改变已测产品代码。尚未推送/创建 PR/合并/发布或操作用户设备；后续若进行真机、帧性能或远程 CI，按对应授权与实际环境继续验收。
+五模块及三项审查修复已闭环；新增帖子滚动性能反馈按v4定位，未合并。既有自动验证绑定产品提交 `3f5424b33c51271b6ea43c75cf714e4ce30b66a9`；其后的更新仅为本记录，不改变已测产品代码。已推送并创建Draft PR107、同签安装profile包；未合并/正式发布。先闭环滚动性能，再聚焦复验/新head CI与独立审查。
 
 App 环境在 dot-source 通用脚本后将当前进程 `PUB_HOSTED_URL` 设为 `https://pub.dev`；图片包独立锁使用其原镜像 `https://pub.flutter-io.cn`，均使用原锁现成缓存，未升级依赖。源配置不匹配导致的原锁预检失败不计为产品 FAIL。
