@@ -45,6 +45,7 @@ class _HhPressFeedbackState extends State<HhPressFeedback>
   late final _scale = AnimationController.unbounded(vsync: this, value: 1);
   bool _reduced = false;
   bool _syncScheduled = false;
+  double _targetScale = 1;
 
   @override
   void initState() {
@@ -88,13 +89,14 @@ class _HhPressFeedbackState extends State<HhPressFeedback>
     final target = pressed ? widget.pressedScale : 1.0;
     if (_reduced) {
       _scale.value = target;
-    } else {
+    } else if (target != _targetScale) {
       _scale.animateTo(
         target,
         duration: pressed ? HhMotion.pressIn : HhMotion.pressOut,
         curve: HhMotion.curve,
       );
     }
+    _targetScale = target;
   }
 
   @override
