@@ -300,6 +300,51 @@ void main() {
     });
   }
 
+  for (final accessible in [false, true]) {
+    testWidgets(
+      'reduced pop shows its destination immediately (accessible=$accessible)',
+      (tester) async {
+        final navigator = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(
+          MaterialApp(
+            navigatorKey: navigator,
+            theme: HhTelegramTheme.applyAppearance(
+              ThemeData(platform: TargetPlatform.iOS),
+            ),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                disableAnimations: !accessible,
+                accessibleNavigation: accessible,
+              ),
+              child: child!,
+            ),
+            home: const Scaffold(body: Text('return destination')),
+          ),
+        );
+        const detail = ValueKey('reduced-pop-detail');
+        navigator.currentState!.push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const Scaffold(key: detail, body: Text('outgoing detail')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        navigator.currentState!.pop();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(
+          tester.getTopLeft(find.byKey(detail)).dx,
+          greaterThanOrEqualTo(
+            tester.view.physicalSize.width / tester.view.devicePixelRatio,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('return destination'), findsOneWidget);
+        expect(navigator.currentState!.canPop(), isFalse);
+      },
+    );
+  }
+
   testWidgets(
     'reduced route transitions use settled frames and keep platform durations',
     (tester) async {

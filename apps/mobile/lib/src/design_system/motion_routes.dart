@@ -66,10 +66,11 @@ class _AccessiblePageTransitions extends PageTransitionsBuilder {
     // Keep the platform transition subtree (and its gesture recognizer), while
     // presenting the settled frame for autonomous reduced-motion transitions.
     final reduced = HhMotion.reduced(context) && !route.popGestureInProgress;
+    final endpoint = animation.status == AnimationStatus.reverse ? 0.0 : 1.0;
     return delegate.buildTransitions(
       route,
       context,
-      reduced ? const AlwaysStoppedAnimation(1.0) : animation,
+      reduced ? AlwaysStoppedAnimation(endpoint) : animation,
       reduced ? const AlwaysStoppedAnimation(0.0) : secondaryAnimation,
       child,
     );
