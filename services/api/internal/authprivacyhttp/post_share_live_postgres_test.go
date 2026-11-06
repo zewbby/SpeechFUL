@@ -45,23 +45,27 @@ func TestRealHTTPSPostShareDartPostgres(t *testing.T) {
 	identity := postHTTPSIdentity(t, s, owner, "分享原作者", 171)
 	created := postHTTPSJSON(t, s, "PUT", "/api/v1/post-commands/"+httpTestEncoding(16, 172), owner, "", posts.CreatePostInput{
 		ChannelID: channel, IdentityID: identity, Title: "分享接口联调", Body: "真实 HTTPS 和一次性数据库",
+		Tags: []string{"原帖标签"},
 	}, 202)
 	if _, err := s.c.PublishAcceptedPosts(context.Background(), 100); err != nil {
 		t.Fatal(err)
 	}
 	id := created["postId"].(string)
 	fixture := map[string]any{"url": server.URL, "certificatePem": string(rootPEM), "readerToken": reader, "postId": id,
-		"title": "分享接口联调", "body": "真实 HTTPS 和一次性数据库", "expectedStatus": 200}
+		"title": "分享接口联调", "body": "真实 HTTPS 和一次性数据库", "tags": []string{"原帖标签"}, "expectedStatus": 200}
 	runLiveGovernanceProbe(t, probe, fixture, "post-share")
 	edit := postHTTPSJSON(t, s, "GET", "/api/v1/me/posts/"+id+"/edit", owner, "", nil, 200)
 	s.advanceC(time.Second)
+	updatedTags := []string{"更新标签"}
 	saved := postHTTPSJSON(t, s, "PUT", "/api/v1/me/posts/"+id+"/edit-commands/"+httpTestEncoding(16, 173), owner, "", posts.EditInput{
 		Revision: edit["revision"].(string), Title: "分享链接仍不变", Body: "原帖已经更新",
+		Tags: &updatedTags,
 	}, 200)
 	if saved["state"] != "SAVED" {
 		t.Fatal("fixture edit failed")
 	}
 	fixture["title"], fixture["body"] = "分享链接仍不变", "原帖已经更新"
+	fixture["tags"] = updatedTags
 	runLiveGovernanceProbe(t, probe, fixture, "post-share")
 	var writes int
 	if err := s.cp.QueryRow(context.Background(), `SELECT

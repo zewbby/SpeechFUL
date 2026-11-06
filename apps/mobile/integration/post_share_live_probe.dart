@@ -47,7 +47,8 @@ Future<void> main(List<String> args) async {
       check(
         resolved.postId == id &&
             resolved.title == fixture['title'] &&
-            resolved.body == fixture['body'],
+            resolved.body == fixture['body'] &&
+            jsonEncode(resolved.tags) == jsonEncode(fixture['tags']),
       );
     } else {
       for (final read in [
