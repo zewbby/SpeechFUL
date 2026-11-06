@@ -1,0 +1,72 @@
+# TELEGRAM-MOTION-01 — 借鉴 Telegram 的交互动效
+
+- 模式：指挥。2026-11-06 用户明确要求“基本能做的都做，工作量太大你先划分为几个模块，然后用 orchestrator 来做”。
+- 负责人／状态维护人：当前 Session。
+- 执行 Session：按下方模块派发独立子 Agent；本入口负责唯一任务记录，不创建侧栏新聊天。
+- 分支／Worktree／PR：集成分支 `codex/feat/telegram-motion`；`E:/Hnuhole-env/source/SpeechFUL-telegram-motion`；PR 未创建。实际基线为已 fetch 的 `origin/main`，`e9bfa80595cd05621ff86bd9da8fade284150110`。执行模块使用独立分支及 Worktree。
+- 本轮规则版本：AGENTS.md 与 CONTRIBUTING.md 的最近修改提交均为 `a4d7228a0dd4b91e851746ab7f9fb37d1ec806b5`；orchestrator Skill 最近修改提交为 `454653b329b3d22a1b712c882c9ace942d5a7c16`。全部以本任务基线中的文件内容生效。任务契约版本为本文件下方 **v1**，派单时绑定承载本次文档的提交。
+- 授权依据与边界：2026-11-06 用户在 Telegram Android 最新源码研究后要求“可不可以把能应用到的应用到我的 SpeechFUL”。允许调查并落实确认后的适配；推送、PR、合并、正式部署与设备操作尚未授权。
+- 需求确认：已使用 `grill-with-docs` 组合技能核对现有源码并集中询问。用户 Q1 确认“基本能做的都做”并要求按模块指挥执行；Q2 选择“按推荐，先做好日常反馈”；随后确认五模块方案并授权“按照你建议的模型及强度来做”。沿用 Flutter/Dart、现有布局／配色／业务流程，完善所有适用的日常反馈；玻璃折射、持续扫光、大粒子消散和未有业务的剧透／贴纸功能不在本轮。执行模块使用 GPT-6.1 Sol / high，独立集成审查使用 GPT-6 Astra / high。
+- 更新日期：2026-11-06。
+- 状态：实现进行中；验证 NOT_RUN；未合并；未发布。
+
+## 目标与范围
+
+把适合 SpeechFUL 日常使用的 Telegram 动效原理映射到现有 Flutter 组件，形成一致、可中断且不阻挡操作的反馈。完整覆盖共享交互、帖子／评论、导航／面板、私信和图片查看。保留既有列表数据、滚动、身份、请求和受保护资源归属机制。
+
+## 任务契约 v1
+
+### 拆分、接口与文件所有权
+
+| ID | 目标与文件范围 | 依赖 |
+| --- | --- | --- |
+| MOTION-00 | 新增 `apps/mobile/lib/src/design_system/motion.dart` 与 `apps/mobile/test/motion_test.dart`，实现下面约定的共享 API。只写这两个文件。 | 无，优先交付可集成切片。 |
+| MOTION-01 | 集成负责人接入列表 `posts/x_feed.dart`、详情／评论共享 `design_system/detail_components.dart` 及必要的消费者和互动测试；统一赞藏选中与计数动画。维护产品 CI 测试入口。 | MOTION-00。 |
+| MOTION-02 | `navigation/`、`posts/personal_profile.dart`、`identity/settings_screen.dart`、`design_system/motion_routes.dart`、`design_system/telegram_theme.dart` 及相关导航／个人／设置测试。完善底栏图标、个人分类、现有菜单／面板与页面切换；保留 IndexedStack、返回栈和页面状态。 | MOTION-00 API；可以先读取和实现独立内容，再集成基础组件运行测试。 |
+| MOTION-03 | `messaging/` 与私信相关测试。发送按钮按压及启用状态平滑变化、新追加消息局部进入、发送状态切换；不改变受理、失败、未知与已读判定。 | MOTION-00 API；不写 `post_images.dart` 或图片包。 |
+| MOTION-04 | `packages/image_viewer/`、`posts/post_images.dart` 及 `apps/mobile/test/post_images_test.dart`。完善现有进入／退出、手势取消回弹、减少动画支持；可实现不依赖更改资源权限／新公开资源接口的缩略图衔接，失效来源直接回退现有淡入淡出。 | 保留现有资源生命周期和撤权检查；与 MOTION-03 文件隔离。 |
+
+MOTION-00 的公共 API 固定为：
+
+- `HhMotion.reduced(BuildContext)`：`disableAnimations` 或 `accessibleNavigation` 为真时返回真；`HhMotion.duration(BuildContext, Duration)` 返回对应时长或零。
+- 常量 `HhMotion.quick` 为 160ms，`HhMotion.standard` 为 220ms，`HhMotion.pressIn` 为 70ms，`HhMotion.pressOut` 为 260ms，`HhMotion.curve` 为 `Curves.easeOutCubic`。可为释放回弹另设克制的曲线。
+- `HhPressFeedback({Key? key, required Widget Function(BuildContext, WidgetStatesController) builder, bool enabled = true, double pressedScale = .96})`：把 `WidgetStatesController` 交给已有按钮；不增加抢手势的识别器，保留原始布局和点击区域，正确处理拖动取消、禁用、键盘和减少动画。不得在纯 pointer-down 时调用业务回调。
+- `HhAnimatedCount({Key? key, required String text, TextStyle? style, TextAlign textAlign = TextAlign.start})`：只改变视觉表现，支持 Unicode／本地化／RTL，动画中读屏只暴露当前文本，初次显示不播放“变化”动画。快速更新可中断，行高不跳动。
+- `HhAnimatedSelection({Key? key, required bool selected, required Widget Function(BuildContext, double) builder})`：连续 0–1 选中进度，初次展示直接使用目标值；变更可中断，减少动画即时切换。
+
+若公共 API 确需变化，先通知总指挥修改本契约版本，不能各自建立同名不兼容接口。图片包保持独立，不反向依赖 App 的 design_system。
+
+### 产品行为与验收边界
+
+- 按压反馈只响应当前操作入口；后台同步不制造一次新的“点击”回弹。赞藏填充／颜色及数字跟随既有展示状态变化，原有乐观更新、串行意图、明确失败回退和结果未知核对保持。
+- 动效局部、短促，可在连续点击、切页、切账号、前后台和系统减少动画变化时安全结束或中断；不得延迟原操作直到动画完成。
+- 导航保留各栏已加载数据、滚动和选中态，隐藏页面的 ticker 仍停止；快速切换不能叠出两份可点击页面。沿用平台返回与键盘行为。
+- 私信仅对同会话在当前底部新追加的消息做轻微进入；历史前插、重开会话、离开底部阅读、重试状态更新与后台恢复不重播历史消息。发送按钮与状态过渡不提前画成发送成功，不覆盖重试入口或清空失败草稿。
+- 图片进入／关闭动画不延后权限失效处理，不复制额外的受保护明文资源，不为效果修改保存、撤权或来源代次规则。原有手势／后台取消和失效退出仍优先。
+- 本轮不改首页静态骨架为持续扫光，不引入玻璃、灰烬或剧透新业务；无需新位图资产。实际 Flutter 组件／帧截图用于可见检查，不能拿生成图代证实现。
+- 多 Agent 可报告证据，但仅入口 Session 更新此任务文档。执行 Agent 不自行委派。
+
+## 接口与依赖
+
+- Telegram 参考为当前官方公开源码 13.1.1（7237），提交 `3de37c8cfb039452be7398909461da6288babf15`。官方安装包已更新到 13.2.0；后者尚未找到对应公开源码，不冒称已验证其新增效果。
+- 保留其他工作区所有已有差异；`SpeechFUL-global-hotlist` 存在未提交内容，本任务只采用其共享仓库中已提交的 `origin/main` 基线，在独立 Worktree 工作。
+
+## 验收标准
+
+- 赞藏、取消、连续点击、权威失败回退时，图标与计数跟随同一真实展示状态；动画期间仍可操作且语义不重复。
+- 底栏／个人分类快速切换及进入／关闭面板时，可见选中态与当前内容一致，返回仍保留原滚动和数据。
+- 私信新增与状态过渡符合上述同会话／底部条件，未知结果保留等待含义，历史与账号切换不产生假发送动画。
+- 图片打开、拖动取消、关闭及权限失效沿原完整链路工作；减少动画即时呈现，非减少动画路径平滑且有界。
+- Flutter analyze、各模块聚焦测试、集成相关回归和 Android 目标构建通过；真实设备与性能证据按实际覆盖登记，缺失必要范围保持待验。产品 CI 配置包含新增测试，远程实际执行须待推送／PR 授权。
+
+## 当前进度与证据
+
+| 项目 | 被测版本／环境 | 结果与证据 |
+| --- | --- | --- |
+| 仓库与基线 | Windows；实际源码仓库及所有 Worktree 已核对，已 fetch `origin/main` | PASS。本任务独立分支从 `e9bfa805` 建立，未触碰历史工作区内容。 |
+| 实现调查 | 同一基线，`apps/mobile` 与 `packages/image_viewer`，只读协助 Agent | PASS（事实调查）。已核对已有静态赞藏／计数、导航与个人分类、搜索、面板、私信及图片手势；不把源码检查记为产品验证。 |
+| 产品验证 | 尚未修改产品代码 | NOT_RUN。 |
+
+## 阻碍与下一步
+
+按 v1 契约启动 MOTION-00、02、03，尽早集成基础组件并推进 MOTION-01；有空闲执行位后启动 MOTION-04。当前无环境阻碍。
