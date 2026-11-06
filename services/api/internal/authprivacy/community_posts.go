@@ -23,6 +23,7 @@ type postServices struct {
 	cursors                    *posts.CursorCodec
 	commandTag, fingerprintTag [32]byte
 	editEnabled                bool
+	tagsEnabled                bool
 }
 type PostResponse struct {
 	Value                 any
@@ -58,6 +59,9 @@ func (c *Community) WithPosts(ctx context.Context, config PostConfig) (*Communit
 	clone := *c
 	clone.posts = &postServices{commands: commands, cursors: cursors}
 	if err = c.pool.QueryRow(ctx, `SELECT to_regclass('c_posts.post_edit_receipts') IS NOT NULL`).Scan(&clone.posts.editEnabled); err != nil {
+		return nil, err
+	}
+	if err = c.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='c_posts.posts'::regclass AND attname='tags' AND NOT attisdropped)`).Scan(&clone.posts.tagsEnabled); err != nil {
 		return nil, err
 	}
 	clone.posts.commandTag = postKeyCommitment("HNUHOLE/POST-COMMAND-KEY-COMMITMENT/V1", config.KeyKey)
@@ -366,6 +370,9 @@ func (c *Community) SealPostCommand(ctx context.Context, bearer [32]byte, comman
 	})
 }
 func (c *Community) executePostCommandOnce(ctx context.Context, bearer [32]byte, command string, intent posts.Intent) (PostResponse, error) {
+	if len(intent.Tags) > 0 && (c.posts == nil || !c.posts.tagsEnabled) {
+		return PostResponse{}, ErrAuthorizationUnavailable
+	}
 	if len(intent.Images) > 0 && !c.PostImagesEnabled() {
 		return PostResponse{}, ErrAuthorizationUnavailable
 	}
@@ -551,6 +558,10 @@ func (c *Community) executePostCommandOnce(ctx context.Context, bearer [32]byte,
 }
 func writePostAttempt(ctx context.Context, tx pgx.Tx, task string, version int32, generation int64, intent posts.Intent, digest [32]byte, at time.Time) error {
 	if _, err := tx.Exec(ctx, `INSERT INTO c_posts.publication_attempts(task_id,version,accepted_stop_generation,state,accepted_at,acceptance_ordinal) VALUES($1,$2,$3,'ACCEPTED',$4,nextval('c_posts.acceptance_ordinal_seq'))`, task, version, generation, at); err != nil {
+		return err
+	}
+	if len(intent.Tags) > 0 {
+		_, err := tx.Exec(ctx, `INSERT INTO c_posts.attempt_contents(task_id,version,title,body,request_digest,image_count,tags) VALUES($1,$2,$3,$4,$5,$6,$7)`, task, version, intent.Title, intent.Body, digest[:], len(intent.Images), intent.Tags)
 		return err
 	}
 	if len(intent.Images) > 0 {

@@ -583,19 +583,33 @@ class Lab:
             if code == 0 or 'stage=runtime reason=failed' not in (self.root / 'failed-deployment.private.log').read_text():
                 raise RuntimeError('invalid candidate deployment unexpectedly accepted')
             passed('failed-candidate-startup-rejected')
-            self.start(prefix='rollback-')
-            self.health()
-            self.probe('images-restart')
-            self.probe('moderation-restart')
-            self.probe('post-edit-restart')
-            passed('previous-main-binaries-run-on-current-restored-schema')
-            self.quiesce()
+            tags_migration = Path('services/api/migrations/0033_post_tags.sql')
+            if (self.source / tags_migration).is_file() and not (self.root / 'rollback-source' / tags_migration).exists():
+                # Pre-tag servers reject C33's extra column privileges at
+                # startup. Prove that refusal, then repair forward; never
+                # weaken runtime grants or claim an incompatible rollback.
+                before_refusal = self.fingerprint()
+                code = self.run([self.root / 'bin/rollback-community', '-config', path],
+                                'pre-tag-rollback-refused', check=False, timeout=25)
+                log = (self.root / 'pre-tag-rollback-refused.private.log').read_text()
+                if code == 0 or 'stage=runtime reason=failed' not in log or self.fingerprint() != before_refusal:
+                    raise RuntimeError('pre-tag rollback did not refuse safely with preserved data')
+                evidence['rollbackMode'] = 'REFUSED_C33_REQUIRES_FORWARD_REPAIR'
+                passed('pre-tag-application-rollback-refused-with-data-preserved')
+            else:
+                self.start(prefix='rollback-')
+                self.health()
+                self.probe('images-restart')
+                self.probe('moderation-restart')
+                self.probe('post-edit-restart')
+                passed('previous-main-binaries-run-on-current-restored-schema')
+                self.quiesce()
             self.start()
             self.health()
             self.probe('images-restart')
             self.probe('moderation-restart')
             self.probe('post-edit-restart')
-            passed('candidate-redeploy-after-application-rollback')
+            passed('candidate-redeploy-after-application-rollback-check')
             evidence['binarySha256'] = {p.name: sha(p) for p in (self.root / 'bin').iterdir()}
             evidence['result'] = 'PASS'
         finally:

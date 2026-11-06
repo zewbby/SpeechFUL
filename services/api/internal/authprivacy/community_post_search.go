@@ -124,7 +124,8 @@ WITH matched AS (
 		AND p.publication_ordinal <= $3
 		AND ($4::uuid IS NULL OR p.channel_id = $4)
 		AND NOT (p.channel_id = ANY($5::uuid[]))
-		AND (strpos(words.title, words.keyword) > 0 OR strpos(words.body, words.keyword) > 0)
+		AND (strpos(words.title, words.keyword) > 0 OR strpos(words.body, words.keyword) > 0
+   OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(to_jsonb(p)->'tags','[]'::jsonb)) tag WHERE strpos(lower(tag COLLATE pg_catalog."und-x-icu"),words.keyword)>0))
 ), best AS (
 	SELECT DISTINCT ON (channel_id) channel_id, post_id, relevance, published_at, publication_ordinal
 	FROM matched
@@ -226,7 +227,7 @@ const projectSearchCandidatesSQL = `
 SELECT card.*
 FROM unnest($1::uuid[]) WITH ORDINALITY AS candidate(post_id, ord)
 JOIN LATERAL (
-	SELECT p.post_id, p.channel_id, COALESCE(to_jsonb(p)->>'edited_title',x.title), p.published_at, a.state, i.deleted_at, i.nickname, i.avatar, l.short_code
+	SELECT p.post_id, p.channel_id, COALESCE(to_jsonb(p)->>'edited_title',x.title), p.published_at, a.state, i.deleted_at, i.nickname, i.avatar, l.short_code,COALESCE(to_jsonb(p)->'tags','[]'::jsonb)
 	FROM c_posts.posts p
 	JOIN c_posts.publication_tasks t ON t.post_id = p.post_id
 	JOIN c_posts.attempt_contents x ON x.task_id = t.task_id AND x.version = p.published_attempt_version
@@ -235,8 +236,12 @@ JOIN LATERAL (
 	JOIN c_posts.identity_public_labels l ON l.identity_id = i.identity_id
 	WHERE p.post_id = candidate.post_id AND p.visibility = 'PUBLISHED' AND NOT p.moderation_hidden AND x.erased_at IS NULL
 		AND ($2::uuid IS NULL OR p.channel_id = $2)
-		AND NOT (p.channel_id = ANY($3::uuid[]))
-	LIMIT 1
+        AND NOT (p.channel_id = ANY($3::uuid[]))
+        AND (strpos(lower(COALESCE(to_jsonb(p)->>'edited_title',x.title) COLLATE pg_catalog."und-x-icu"),lower($4::text COLLATE pg_catalog."und-x-icu"))>0
+          OR strpos(lower(COALESCE(to_jsonb(p)->>'edited_body',x.body) COLLATE pg_catalog."und-x-icu"),lower($4::text COLLATE pg_catalog."und-x-icu"))>0
+          OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(to_jsonb(p)->'tags','[]'::jsonb)) tag
+             WHERE strpos(lower(tag COLLATE pg_catalog."und-x-icu"),lower($4::text COLLATE pg_catalog."und-x-icu"))>0))
+ LIMIT 1
 ) card ON true
 ORDER BY candidate.ord`
 
@@ -273,7 +278,7 @@ func (c *Community) finishPostSearch(ctx context.Context, tx pgx.Tx, account uui
 	if len(ids) == 0 {
 		return page, nil
 	}
-	rows, err := tx.Query(ctx, projectSearchCandidatesSQL, ids, nullablePostID(query.ChannelID), preferences.BlockedChannelIDs)
+	rows, err := tx.Query(ctx, projectSearchCandidatesSQL, ids, nullablePostID(query.ChannelID), preferences.BlockedChannelIDs, query.Keyword)
 	if err != nil {
 		return page, err
 	}
@@ -284,7 +289,7 @@ func (c *Community) finishPostSearch(ctx context.Context, tx pgx.Tx, account uui
 		var state, short string
 		var deleted *time.Time
 		var nickname, avatar *string
-		if err := rows.Scan(&card.PostID, &card.ChannelID, &card.Title, &card.PublishedAt, &state, &deleted, &nickname, &avatar, &short); err != nil {
+		if err := rows.Scan(&card.PostID, &card.ChannelID, &card.Title, &card.PublishedAt, &state, &deleted, &nickname, &avatar, &short, &card.Tags); err != nil {
 			return page, err
 		}
 		if seen == len(ids) || card.PostID != ids[seen] {

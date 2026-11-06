@@ -77,6 +77,11 @@ GRANT UPDATE(latest_attempt_version,owner_visible) ON c_posts.publication_tasks 
 GRANT UPDATE(state,terminal_at,failure_code) ON c_posts.publication_attempts TO hnuhole_c_runtime;
 -- guard_content 仅接受一次整份擦除；授予这些列也不能改写已授权文字。
 GRANT UPDATE(title,body,erased_at) ON c_posts.attempt_contents TO hnuhole_c_runtime;
+DO $$ BEGIN IF to_regclass('c_posts.post_tag_terms') IS NOT NULL THEN
+ GRANT SELECT,INSERT,DELETE ON c_posts.post_tag_terms TO hnuhole_c_runtime;
+ GRANT UPDATE(tags) ON c_posts.posts,c_posts.attempt_contents TO hnuhole_c_runtime;
+ GRANT EXECUTE ON FUNCTION c_posts.tag_keys(text[]),c_posts.valid_tags(text[]) TO hnuhole_c_runtime;
+ END IF; END $$;
 -- 仅账号正式关闭后的墓碑收缩可通过 guard_receipt；原始结果不可改写。
 GRANT UPDATE(owner_account_id,outcome,task_id,post_id,attempt_version,task_state,error_code)
     ON c_posts.command_receipts TO hnuhole_c_runtime;

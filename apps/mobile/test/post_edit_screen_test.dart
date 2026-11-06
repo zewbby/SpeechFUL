@@ -11,6 +11,7 @@ import 'post_upload_support.dart';
 class _EditApi extends ComposerApi implements PostEditApi {
   final editReceipts = <String, PostEditResult>{};
   final commands = <String>[];
+  final submittedTags = <List<String>?>[];
   final staged = <({String commandId, String imageId, Uint8List bytes})>[];
   List<String> publicImageIds = [];
   bool allowEdit = true, rejectNext = false, loseNext = false;
@@ -41,6 +42,7 @@ class _EditApi extends ComposerApi implements PostEditApi {
         publishedAt: post.publishedAt,
         title: post.title,
         body: post.body,
+        tags: post.tags,
         editedAt: editedAt,
         imageCount: publicImageIds.length,
       ),
@@ -79,8 +81,10 @@ class _EditApi extends ComposerApi implements PostEditApi {
     required String title,
     required String body,
     List<String>? imageIds,
+    List<String>? tags,
   }) async {
     commands.add(commandId);
+    submittedTags.add(tags);
     if (rejectNext) {
       rejectNext = false;
       return composerReply(
@@ -96,6 +100,7 @@ class _EditApi extends ComposerApi implements PostEditApi {
     }
     this.title = title;
     this.body = body;
+    if (tags != null) this.tags = List.of(tags);
     this.revision = composerTask;
     if (imageIds != null) publicImageIds = imageIds;
     editedAt = composerAt.add(const Duration(minutes: 1));
@@ -123,6 +128,24 @@ class _EditApi extends ComposerApi implements PostEditApi {
 }
 
 void main() {
+  test('升级前的待核对编辑不补入标签字段或改变原提交', () async {
+    final api = _EditApi()..body = '原正文';
+    final fixture = await MediaComposerFixture.create(api: api);
+    addTearDown(fixture.close);
+    await fixture.current!.writePostEdit(composerPost, null, {
+      'commandId': AuthCrypto.randomEncoded(16),
+      'baseRevision': composerPost,
+      'title': '原标题',
+      'body': '原正文',
+      'imageCount': 0,
+      'images': <Object>[],
+    }, const {});
+    final session = fixture.posts.openPostEdit(composerPost)!;
+    final pending = (await session.pending())!;
+    expect(pending.tags, isNull);
+    await session.submit(pending);
+    expect(api.submittedTags, [null]);
+  });
   Future<void> waitFor(WidgetTester tester, Finder finder) async {
     for (var i = 0; i < 150; i++) {
       await tester.runAsync(

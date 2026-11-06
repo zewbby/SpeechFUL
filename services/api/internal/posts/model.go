@@ -33,6 +33,7 @@ func (o Operation) Valid() bool {
 }
 
 type CreatePostInput struct {
+	Tags       []string              `json:"tags,omitempty"`
 	ChannelID  string                `json:"channelId"`
 	IdentityID string                `json:"identityId"`
 	Title      string                `json:"title"`
@@ -41,6 +42,7 @@ type CreatePostInput struct {
 }
 
 type RetryInput struct {
+	Tags                   []string              `json:"tags,omitempty"`
 	ExpectedAttemptVersion int32                 `json:"expectedAttemptVersion"`
 	Title                  string                `json:"title"`
 	Body                   string                `json:"body"`
@@ -152,9 +154,10 @@ type OwnTaskSummary struct {
 }
 
 type OwnTaskContent struct {
-	Title      string `json:"title"`
-	Body       string `json:"body"`
-	ImageCount int    `json:"imageCount,omitempty"`
+	Tags       []string `json:"tags,omitempty"`
+	Title      string   `json:"title"`
+	Body       string   `json:"body"`
+	ImageCount int      `json:"imageCount,omitempty"`
 }
 
 type OwnTaskDetail struct {
@@ -201,6 +204,7 @@ func (a PublicAuthor) MarshalJSON() ([]byte, error) {
 }
 
 type PublicPostCard struct {
+	Tags        []string     `json:"tags,omitempty"`
 	PostID      string       `json:"postId"`
 	ChannelID   string       `json:"channelId"`
 	Title       string       `json:"title"`
@@ -209,6 +213,7 @@ type PublicPostCard struct {
 }
 
 type PublicPost struct {
+	Tags         []string     `json:"tags,omitempty"`
 	PostID       string       `json:"postId"`
 	ChannelID    string       `json:"channelId"`
 	Title        string       `json:"title"`

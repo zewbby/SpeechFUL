@@ -192,6 +192,7 @@ function renderCase(parent, record, reload, current, isCurrent = () => current =
       snapshot.append(row);
     }
   } else { snapshot.append(el('p', record.evidence?.body ?? '暂无可展示的文字材料。', 'body')); materialImages(snapshot, record.evidence?.images, '内容证据'); }
+  if (Array.isArray(record.evidence?.tags) && record.evidence.tags.length) snapshot.append(el('p', record.evidence.tags.map(tag => `#${tag}`).join(' '), 'meta'));
    evidence.append(snapshot); parent.append(evidence);
   const reports = section('举报材料');
   materialFeed(reports, { initial: record.reports, nextCursor: record.nextReportsCursor, path: `/api/v1/moderation/cases/${requireUUID(record.id)}/reports`, noun: '举报材料', isCurrent, renderMaterial: report => {

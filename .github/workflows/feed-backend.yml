@@ -5,6 +5,7 @@ on:
       - 'services/api/**'
       - 'infra/postgres/**'
       - 'packages/openapi/**'
+      - 'packages/post-protocol-vectors/**'
       - '.github/workflows/feed-backend.yml'
   workflow_dispatch:
 permissions:
@@ -47,7 +48,7 @@ jobs:
       - name: Host tests, formatting, build and vet
         working-directory: services/api
         run: |
-          test -z "$(gofmt -l internal/posts internal/authprivacy/community_feed*.go internal/authprivacy/community_post_interactions*.go internal/authprivacy/community_posts_read.go internal/authprivacy/community_post_search*.go internal/authprivacyhttp/feed*.go internal/authprivacyhttp/post_interactions*.go internal/authprivacyhttp/post_search*.go)"
+          test -z "$(gofmt -l internal/posts internal/authprivacy/community_feed*.go internal/authprivacy/community_post_interactions*.go internal/authprivacy/community_posts_read.go internal/authprivacy/community_post_search*.go internal/authprivacy/community_post_tags*.go internal/authprivacyhttp/post_tag*.go internal/authprivacyhttp/feed*.go internal/authprivacyhttp/post_interactions*.go internal/authprivacyhttp/post_search*.go)"
           go test -mod=readonly ./...
           test -z "$(gofmt -l internal/authprivacyhttp/post_share*.go internal/authprivacyhttp/endpoints.go internal/authprivacyhttp/posts_endpoints.go internal/authprivacyhttp/endtoend_postgres_test.go internal/authprivacyruntime/server.go)"
           test -z "$(gofmt -l internal/authprivacy/community_post_reposts*.go internal/authprivacyhttp/post_reposts*.go internal/posts/reposts.go)"

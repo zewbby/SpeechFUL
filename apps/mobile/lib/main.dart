@@ -176,6 +176,7 @@ void _runHnuholeApp(
     ),
   );
   final posts = PostController(
+    channelDirectory: () => directory.channels,
     api: postApi,
     mediaApi: postApi,
     uploadApi: postApi,

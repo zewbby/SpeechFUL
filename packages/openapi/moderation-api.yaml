@@ -1316,6 +1316,15 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorBody'
   schemas:
+    PostTags:
+      type: array
+      maxItems: 3
+      uniqueItems: true
+      description: Ordered public labels, 1-10 Unicode scalar characters each (Han, ASCII letters, digits or underscore). Case-insensitive identity; display retains spelling. Empty means no labels. A missing edit field preserves current labels. Report evidence retains labels from the reported public version; omitted when empty.
+      items:
+        type: string
+        minLength: 1
+        maxLength: 10
     UUID:
       type: string
       format: uuid
@@ -1676,6 +1685,8 @@ components:
       - body
       - images
       properties:
+        tags:
+          $ref: '#/components/schemas/PostTags'
         dmRecords:
           type: array
           maxItems: 200

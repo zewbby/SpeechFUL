@@ -10,6 +10,7 @@ import '../messaging/dm_protocol.dart';
 
 import '../auth/auth_crypto.dart';
 import 'post_api.dart';
+import 'post_tags.dart';
 import 'post_edit_api.dart';
 import 'feed_api.dart';
 import 'post_interactions_api.dart';
@@ -29,6 +30,7 @@ part 'post_upload_http.dart';
 part 'feed_http.dart';
 part 'post_interactions_http.dart';
 part 'post_reposts_http.dart';
+part 'post_tag_http.dart';
 
 /// 仅访问构造时固定的 C HTTPS origin，不跟随重定向或自动重送命令。
 class HttpPostApi
@@ -43,6 +45,7 @@ class HttpPostApi
         PostSearchApi,
         PostRankingApi,
         PostSharingApi,
+        PostTagApi,
         DmApi {
   HttpPostApi({
     required this.communityBaseUri,
@@ -113,6 +116,25 @@ class HttpPostApi
     );
   });
 
+  @override
+  Future<PostResponse<PostsPage<PostCard>>> taggedPosts({
+    required String sessionToken,
+    required String tag,
+    String? channelId,
+    String? cursor,
+    int limit = 20,
+  }) => _taggedPosts(
+    sessionToken: sessionToken,
+    tag: tag,
+    channelId: channelId,
+    cursor: cursor,
+    limit: limit,
+  );
+  @override
+  Future<PostResponse<List<String>>> suggestPostTags({
+    required String sessionToken,
+    required String prefix,
+  }) => _suggestPostTags(sessionToken: sessionToken, prefix: prefix);
   @override
   Future<PostResponse<PostRepostSnapshot>> postReposts({
     required String sessionToken,
@@ -390,6 +412,7 @@ class HttpPostApi
     required String identityId,
     required String title,
     required String body,
+    List<String> tags = const [],
   }) => _input(() {
     PostContentRules.validate(title, body);
     return _command(
@@ -402,6 +425,7 @@ class HttpPostApi
         'identityId': PostProtocol.resourceId(identityId),
         'title': title,
         'body': body,
+        if (tags.isNotEmpty) 'tags': PostTags.parse(tags),
       },
       expected: 202,
       maxRequestBytes: 262144,
@@ -518,6 +542,7 @@ class HttpPostApi
     required int expectedAttemptVersion,
     required String title,
     required String body,
+    List<String> tags = const [],
   }) => _input(() {
     PostContentRules.validate(title, body);
     return _command(
@@ -532,6 +557,7 @@ class HttpPostApi
         'expectedAttemptVersion': PostProtocol.version(expectedAttemptVersion),
         'title': title,
         'body': body,
+        if (tags.isNotEmpty) 'tags': PostTags.parse(tags),
       },
       expectedAttemptVersion: expectedAttemptVersion,
       maxRequestBytes: 262144,
@@ -659,6 +685,7 @@ class HttpPostApi
     required String title,
     required String body,
     List<String>? imageIds,
+    List<String>? tags,
   }) => _input(
     () => _send(
       sessionToken,
@@ -669,6 +696,7 @@ class HttpPostApi
         'revision': PostProtocol.resourceId(revision),
         'title': title,
         'body': body,
+        if (tags != null) 'tags': PostTags.parse(tags),
         if (imageIds != null)
           'imageIds': imageIds.map(PostProtocol.resourceId).toList(),
       },
@@ -1024,6 +1052,7 @@ class HttpPostApi
         request.maxRedirects = 0;
         request.persistentConnection = false;
         request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+        request.headers.set('X-Post-Tags', 'v1');
         request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
         for (final entry in headers.entries) {
           request.headers.set(entry.key, entry.value);

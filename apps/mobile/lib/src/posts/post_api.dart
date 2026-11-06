@@ -49,6 +49,7 @@ abstract interface class PostApi {
     required String identityId,
     required String title,
     required String body,
+    List<String> tags = const [],
   });
   Future<PostResponse<PostCommandResult>> commandResult({
     required String sessionToken,
@@ -82,6 +83,7 @@ abstract interface class PostApi {
     required int expectedAttemptVersion,
     required String title,
     required String body,
+    List<String> tags = const [],
   });
   Future<PostResponse<PostCommandResult>> hide({
     required String sessionToken,

@@ -1,5 +1,16 @@
 # 帖子发布 API 与客户端接入
 
+## 自定义标签扩展（CUSTOM-TAGS-01）
+
+- 产品边界见[标签规则](modules/tags.md)，实现、验证和发布状态见[任务记录](../tasks/CUSTOM-TAGS-01.md)。
+- CREATE／RETRY 可带有序 `tags` 数组，零至三个，每个 1–10 字；省略与空数组均表示不添加标签。非空标签使用 `HNUHOLE/POST-TAGS-COMMAND/V1` 加零字节包裹完整原文字／图片命令帧，再写入单字节数量和逐项 UTF-8 长度前缀文本。空标签保留旧命令字节与摘要。独立跨语言向量见 `packages/post-protocol-vectors/tags-v1.json`。
+- 公开内容、列表卡片及本人任务内容的标签通过 `X-Post-Tags: v1` 协商，未协商的旧响应省略该字段。编辑输入省略 `tags` 保留当前标签，空数组清空；标签与同次标题、正文和图片编辑原子提交。
+- `POST /api/v1/post-tags/posts` 接受 `{tag, channelId?, cursor?, limit?}`，返回公开卡片页。精确标签结果不写普通搜索历史，游标与关键词搜索游标不能互换。
+- `POST /api/v1/post-tags/suggestions` 接受 `{prefix}`，返回 `{items: string[]}`，最多十个公开可访问的词。下划线是字面前缀，不是 SQL 通配符。
+- 持久发布尝试保存不可变标签，公开标签及检索键随发布、编辑、下架及删除生命周期更新。触发器沿用 invoker 权限，最终业务事务保留 C Gate、会话和资源归属检查。
+
+## 既有接入说明
+
 维护日期：2026-10-18。本文从文字帖历史交付整理，适用于已接入可选图片的主线。
 机器契约以 [post-api.yaml](../../packages/openapi/post-api.yaml) 为准；图片上传、受保护读取另见
 [图片 API](../../packages/openapi/post-image-api.yaml)及[媒体契约](post-image-media-contract.md)。

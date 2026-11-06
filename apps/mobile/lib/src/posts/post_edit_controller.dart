@@ -6,6 +6,9 @@ class SubmittedPostEdit {
       baseRevision = PostJson.id(entry.data, 'baseRevision'),
       title = entry.data['title'] as String,
       body = entry.data['body'] as String,
+      tags = entry.data.containsKey('tags')
+          ? PostTags.parse(entry.data['tags'])
+          : null,
       imageCount = PostJson.integer(entry.data, 'imageCount', 0, 9),
       imageIds = (entry.data['imageIds'] as List?)?.cast<String>(),
       images = DraftPostImage.list(entry.data['images']);
@@ -14,6 +17,7 @@ class SubmittedPostEdit {
   final String commandId, baseRevision, title, body;
   final int imageCount;
   final List<String>? imageIds;
+  final List<String>? tags;
   final List<DraftPostImage> images;
 }
 
@@ -44,6 +48,7 @@ extension PublishedPostEditing on PostController {
             author: post.author,
             publishedAt: post.publishedAt,
             body: post.body,
+            tags: post.tags,
             viewCount: old.viewCount,
             imageCount: post.imageCount,
           )
@@ -123,6 +128,7 @@ class PostEditSession {
     required String title,
     required String body,
     required int imageCount,
+    List<String> tags = const [],
     List<String>? imageIds,
     List<DraftPostImage> images = const [],
     Map<String, Uint8List> originals = const {},
@@ -137,6 +143,7 @@ class PostEditSession {
         'baseRevision': baseRevision,
         'title': title,
         'body': body,
+        'tags': PostTags.parse(tags),
         'imageCount': imageCount,
         if (imageIds != null) 'imageIds': imageIds,
         'images': images.map((image) => image.toJson()).toList(),
@@ -213,6 +220,7 @@ class PostEditSession {
         revision: submission.baseRevision,
         title: submission.title,
         body: submission.body,
+        tags: submission.tags,
         imageIds: submission.imageIds,
       ),
     );

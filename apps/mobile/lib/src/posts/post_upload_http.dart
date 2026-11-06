@@ -15,6 +15,7 @@ class HttpPostUploadApi extends HttpPostApi implements PostUploadApi {
     required String title,
     required String body,
     required List<PostImageSelection> images,
+    List<String> tags = const [],
   }) => _input(() {
     PostContentRules.validate(title, body, imageCount: images.length);
     final manifest = PostImageSelection.list(
@@ -32,6 +33,7 @@ class HttpPostUploadApi extends HttpPostApi implements PostUploadApi {
         'identityId': PostProtocol.resourceId(identityId),
         'title': title,
         'body': body,
+        if (tags.isNotEmpty) 'tags': PostTags.parse(tags),
         if (manifest.isNotEmpty)
           'images': manifest.map((e) => e.toJson()).toList(),
       },
@@ -46,6 +48,7 @@ class HttpPostUploadApi extends HttpPostApi implements PostUploadApi {
     required String title,
     required String body,
     required List<PostImageSelection> images,
+    List<String> tags = const [],
   }) => _input(() {
     PostContentRules.validate(title, body, imageCount: images.length);
     final manifest = PostImageSelection.list(
@@ -65,6 +68,7 @@ class HttpPostUploadApi extends HttpPostApi implements PostUploadApi {
         'expectedAttemptVersion': expectedAttemptVersion,
         'title': title,
         'body': body,
+        if (tags.isNotEmpty) 'tags': PostTags.parse(tags),
         if (manifest.isNotEmpty)
           'images': manifest.map((e) => e.toJson()).toList(),
       },

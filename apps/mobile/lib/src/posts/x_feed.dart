@@ -1,5 +1,6 @@
 import '../localization/app_localizations.dart';
 import 'post_models.dart';
+import 'post_tag_widgets.dart';
 
 import 'package:flutter/material.dart';
 
@@ -37,6 +38,7 @@ class FeedPostView {
     required this.elapsed,
     required this.title,
     this.body = '',
+    this.tags = const [],
     this.availableActions = const {FeedAction.comment},
     this.comments,
     this.likes,
@@ -51,6 +53,7 @@ class FeedPostView {
   });
   final String id, authorId, authorName, elapsed, title;
   final String body;
+  final List<String> tags;
   final Set<FeedAction> availableActions;
   final int? comments, likes, favorites;
   final int? views;
@@ -67,6 +70,7 @@ class FeedPostView {
         elapsed: elapsed,
         title: title,
         body: body,
+        tags: tags,
         availableActions: availableActions,
         comments: comments,
         likes: likes ?? this.likes,
@@ -558,6 +562,7 @@ class HhXPostItem extends StatelessWidget {
     required this.mediaBuilder,
     this.mediaSection,
     this.repostAction,
+    this.onTag,
     this.avatarBuilder,
     required this.onPost,
     required this.onAuthor,
@@ -567,6 +572,7 @@ class HhXPostItem extends StatelessWidget {
   });
   final Widget? mediaSection;
   final Widget? repostAction;
+  final ValueChanged<String>? onTag;
   final FeedPostView post;
   final FeedMediaBuilder mediaBuilder;
   final FeedAvatarBuilder? avatarBuilder;
@@ -683,6 +689,8 @@ class HhXPostItem extends StatelessWidget {
                             style: _text(context, 17),
                           ),
                         ],
+                        if (post.tags.isNotEmpty)
+                          PostTagChips(tags: post.tags, onTap: onTag),
                         if (mediaSection != null) mediaSection!,
                         if (post.media.isNotEmpty) ...[
                           const SizedBox(height: 6),

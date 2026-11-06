@@ -1,5 +1,6 @@
 import '../identity/identity_api.dart';
 import 'post_protocol.dart';
+import 'post_tags.dart';
 
 enum PostAuthorState { active, deleted, accountClosed }
 
@@ -79,18 +80,18 @@ class PostCard {
     required this.title,
     required this.author,
     required this.publishedAt,
+    this.tags = const [],
   });
   final String postId, channelId, title;
+  final List<String> tags;
   final PostAuthor author;
   final DateTime publishedAt;
   static PostCard fromJson(Object? raw) {
-    final m = PostJson.record(raw, {
-      'postId',
-      'channelId',
-      'title',
-      'author',
-      'publishedAt',
-    });
+    final m = PostJson.record(
+      raw,
+      {'postId', 'channelId', 'title', 'author', 'publishedAt'},
+      optional: {'tags'},
+    );
     final title = PostJson.text(m, 'title', maxLength: 4096);
     PostContentRules.validateTitle(title);
     return PostCard(
@@ -99,6 +100,7 @@ class PostCard {
       title: title,
       author: PostAuthor.fromJson(m['author']),
       publishedAt: PostJson.date(m, 'publishedAt'),
+      tags: PostTags.read(m),
     );
   }
 }
@@ -110,6 +112,7 @@ class PostDetail extends PostCard {
     required super.title,
     required super.author,
     required super.publishedAt,
+    super.tags,
     required this.body,
     this.imageCount = 0,
     this.editedAt,
@@ -127,12 +130,13 @@ class PostDetail extends PostCard {
     publishedAt: publishedAt,
     imageCount: imageCount,
     editedAt: at,
+    tags: tags,
   );
   static PostDetail fromJson(Object? raw) {
     final m = PostJson.record(
       raw,
       {'postId', 'channelId', 'title', 'body', 'author', 'publishedAt'},
-      optional: {'imageCount'},
+      optional: {'imageCount', 'tags'},
     );
     final title = PostJson.text(m, 'title', maxLength: 4096);
     final imageCount = PostJson.imageCount(m);
@@ -152,6 +156,7 @@ class PostDetail extends PostCard {
       imageCount: imageCount,
       author: PostAuthor.fromJson(m['author']),
       publishedAt: PostJson.date(m, 'publishedAt'),
+      tags: PostTags.read(m),
     );
   }
 }
@@ -172,15 +177,21 @@ class OwnPostCard {
 }
 
 class PostContent {
+  final List<String> tags;
   const PostContent({
     required this.title,
     required this.body,
+    this.tags = const [],
     this.imageCount = 0,
   });
   final String title, body;
   final int imageCount;
   static PostContent fromJson(Object? raw) {
-    final m = PostJson.record(raw, {'title', 'body'}, optional: {'imageCount'});
+    final m = PostJson.record(
+      raw,
+      {'title', 'body'},
+      optional: {'imageCount', 'tags'},
+    );
     final imageCount = PostJson.imageCount(m);
     final title = PostJson.text(m, 'title', maxLength: 4096);
     final body = PostJson.text(
@@ -191,7 +202,12 @@ class PostContent {
     );
     PostContentRules.validateTitle(title);
     if (body.isNotEmpty || imageCount == 0) PostContentRules.validateBody(body);
-    return PostContent(title: title, body: body, imageCount: imageCount);
+    return PostContent(
+      title: title,
+      body: body,
+      imageCount: imageCount,
+      tags: PostTags.read(m),
+    );
   }
 }
 

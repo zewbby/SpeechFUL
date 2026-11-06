@@ -108,7 +108,7 @@ func (c *Community) SubmitReport(ctx context.Context, bearer [32]byte, request s
 				return nil, e
 			}
 		} else {
-			e = tx.QueryRow(ctx, `SELECT p.owner_account_id,t.identity_id,COALESCE(to_jsonb(p)->>'edited_title',x.title),COALESCE(to_jsonb(p)->>'edited_body',x.body),`+publicPostImageCount+`,to_jsonb(p)->>'edited_image_ids' IS NOT NULL FROM c_posts.posts p JOIN c_posts.publication_tasks t USING(post_id) JOIN c_posts.attempt_contents x ON x.task_id=t.task_id AND x.version=p.published_attempt_version WHERE p.post_id=$1 AND p.visibility='PUBLISHED' AND NOT p.moderation_hidden AND x.erased_at IS NULL FOR SHARE OF p`, input.PostID).Scan(&target, &identity, &evidence.Title, &evidence.Body, &expectedImages, &imagesEdited)
+			e = tx.QueryRow(ctx, `SELECT p.owner_account_id,t.identity_id,COALESCE(to_jsonb(p)->>'edited_title',x.title),COALESCE(to_jsonb(p)->>'edited_body',x.body),`+publicPostImageCount+`,to_jsonb(p)->>'edited_image_ids' IS NOT NULL,COALESCE(to_jsonb(p)->'tags','[]'::jsonb) FROM c_posts.posts p JOIN c_posts.publication_tasks t USING(post_id) JOIN c_posts.attempt_contents x ON x.task_id=t.task_id AND x.version=p.published_attempt_version WHERE p.post_id=$1 AND p.visibility='PUBLISHED' AND NOT p.moderation_hidden AND x.erased_at IS NULL FOR SHARE OF p`, input.PostID).Scan(&target, &identity, &evidence.Title, &evidence.Body, &expectedImages, &imagesEdited, &evidence.Tags)
 			if errors.Is(e, pgx.ErrNoRows) {
 				return nil, postError("POST_NOT_FOUND", 404)
 			}
