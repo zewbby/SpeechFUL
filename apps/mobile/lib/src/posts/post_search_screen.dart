@@ -454,90 +454,94 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildSearchField(),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      PopupMenuButton<String>(
-                        key: const ValueKey('post-search-scope'),
-                        enabled: !_historyChanging,
-                        tooltip: hhText(context, '搜索分类'),
-                        initialValue: _channelId ?? '',
-                        onSelected: (value) =>
-                            _selectScope(value.isEmpty ? null : value),
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: '',
-                            child: Text(hhText(context, '全部分类')),
-                          ),
-                          for (final channel in widget.channels)
+                if (!_discovering)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        PopupMenuButton<String>(
+                          key: const ValueKey('post-search-scope'),
+                          enabled: !_historyChanging,
+                          tooltip: hhText(context, '搜索分类'),
+                          initialValue: _channelId ?? '',
+                          onSelected: (value) =>
+                              _selectScope(value.isEmpty ? null : value),
+                          itemBuilder: (context) => [
                             PopupMenuItem(
-                              value: channel.id,
-                              child: Text(hhText(context, channel.name)),
+                              value: '',
+                              child: Text(hhText(context, '全部分类')),
                             ),
-                        ],
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          constraints: const BoxConstraints(minHeight: 44),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: HhTelegramPalette.of(context).selection,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.tag_rounded,
-                                size: 17,
-                                color: HhTelegramPalette.of(context).accent,
+                            for (final channel in widget.channels)
+                              PopupMenuItem(
+                                value: channel.id,
+                                child: Text(hhText(context, channel.name)),
                               ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  _scopeName,
-                                  style: TextStyle(
-                                    color: HhTelegramPalette.of(context).accent,
-                                    fontWeight: FontWeight.w600,
+                          ],
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: HhTelegramPalette.of(context).selection,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.tag_rounded,
+                                  size: 17,
+                                  color: HhTelegramPalette.of(context).accent,
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    _scopeName,
+                                    style: TextStyle(
+                                      color: HhTelegramPalette.of(context)
+                                          .accent,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 18,
-                                color: HhTelegramPalette.of(context).accent,
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 18,
+                                  color: HhTelegramPalette.of(context).accent,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      if (_keyword != null)
-                        for (final sort in PostSearchSort.values)
-                          ChoiceChip(
-                            key: ValueKey('post-search-sort:${sort.name}'),
-                            showCheckmark: false,
-                            side: BorderSide.none,
-                            shape: const StadiumBorder(),
-                            selectedColor: HhTelegramPalette.of(context)
-                                .selection,
-                            backgroundColor: HhTelegramPalette.of(context)
-                                .background,
-                            label: Text(
-                              hhText(
-                                context,
-                                sort == PostSearchSort.relevance ? '相关度' : '最新',
+                        if (_keyword != null)
+                          for (final sort in PostSearchSort.values)
+                            ChoiceChip(
+                              key: ValueKey('post-search-sort:${sort.name}'),
+                              showCheckmark: false,
+                              side: BorderSide.none,
+                              shape: const StadiumBorder(),
+                              selectedColor: HhTelegramPalette.of(context)
+                                  .selection,
+                              backgroundColor: HhTelegramPalette.of(context)
+                                  .background,
+                              label: Text(
+                                hhText(
+                                  context,
+                                  sort == PostSearchSort.relevance
+                                      ? '相关度'
+                                      : '最新',
+                                ),
                               ),
+                              selected: _sort == sort,
+                              onSelected: (_) => _selectSort(sort),
                             ),
-                            selected: _sort == sort,
-                            onSelected: (_) => _selectSort(sort),
-                          ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 Expanded(
                   child: _keyword != null
                       ? _buildResults()

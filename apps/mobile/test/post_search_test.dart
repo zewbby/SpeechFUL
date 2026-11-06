@@ -207,6 +207,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 450));
       expect(find.text('我搜过的关键词'), findsOneWidget);
       expect(find.text('大家都在看'), findsOneWidget);
+      expect(find.byKey(_scope), findsNothing);
       expect(
         tester.widget<TextField>(find.byKey(_input)).focusNode!.hasFocus,
         isTrue,
@@ -338,33 +339,49 @@ void main() {
     },
   );
 
-  testWidgets('changing search category reuses the pending global hot list', (
-    tester,
-  ) async {
-    final wait = Completer<PostRanking>();
-    final api = _RankingApi()..rankingFor = () => wait.future;
-    await _start(tester, api);
-    await tester.tap(find.byKey(const ValueKey('feed-search')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(api.reads, ['all']);
-    await tester.tap(find.byKey(_scope));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.text(feed.channels[1].name).last);
-    await tester.pump();
-    wait.complete(
-      PostRanking([RankedPost(_id(4), feed.channels.last.id, '同一个全站榜', 8)]),
-    );
-    await tester.pumpAndSettle();
-    expect(api.reads, ['all']);
-    expect(find.text('同一个全站榜'), findsOneWidget);
-    expect(find.text('全站热榜'), findsOneWidget);
-    await tester.enterText(find.byKey(_input), '关键词');
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
-    expect(api.queries.single.scope, feed.channels[1].id);
-  });
+  testWidgets(
+    'hot list hides category controls and stays global after scoped search',
+    (tester) async {
+      final wait = Completer<PostRanking>();
+      final api = _RankingApi()..rankingFor = () => wait.future;
+      await _start(tester, api);
+      await tester.tap(find.byKey(const ValueKey('feed-search')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(api.reads, ['all']);
+      expect(find.byKey(_scope), findsNothing);
+      expect(find.text('全部分类'), findsNothing);
+      await tester.enterText(find.byKey(_input), '关键词');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.byKey(_scope), findsOneWidget);
+      await tester.tap(find.byKey(_scope));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(feed.channels[1].name).last);
+      await tester.pumpAndSettle();
+      wait.complete(
+        PostRanking([
+          RankedPost(_id(4), feed.channels.last.id, '全站第一名', 8),
+          RankedPost(_id(5), feed.channels.first.id, '全站第二名', 7),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('全站第一名'), findsNothing);
+      expect(api.queries.last.scope, feed.channels[1].id);
+      await tester.tap(find.byTooltip('清空关键词'));
+      await tester.pumpAndSettle();
+      expect(api.reads, ['all', 'all']);
+      expect(find.byKey(_scope), findsNothing);
+      expect(find.text('全部分类'), findsNothing);
+      expect(find.text('全站热榜'), findsOneWidget);
+      expect(find.text('全站第一名'), findsOneWidget);
+      expect(find.text('全站第二名'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('全站第一名')).dy,
+        lessThan(tester.getTopLeft(find.text('全站第二名')).dy),
+      );
+    },
+  );
 
   testWidgets(
     'global hot post opens its actual category while search is scoped elsewhere',
@@ -567,12 +584,13 @@ void main() {
       );
       expect(find.byTooltip('Search posts'), findsOneWidget);
       await _open(tester);
-      expect(find.text('All categories'), findsOneWidget);
+      expect(find.text('All categories'), findsNothing);
       expect(find.text('No search history'), findsOneWidget);
 
       await _submit(tester, '自习');
       await tester.pumpAndSettle();
       expect(find.text('No matching posts'), findsOneWidget);
+      expect(find.text('All categories'), findsOneWidget);
       presentation.setLanguage(AppLanguage.japanese);
       await tester.pumpAndSettle();
       expect(find.text('一致する投稿がありません'), findsOneWidget);
@@ -664,7 +682,7 @@ void main() {
       ];
       final fixture = await _start(tester, api);
       await _open(tester);
-      expect(find.text('全部分类'), findsOneWidget);
+      expect(find.byKey(_scope), findsNothing);
       expect(api.historyReads, [null]);
       await _back(tester);
 
@@ -682,10 +700,11 @@ void main() {
           .where((call) => call.startsWith('feed:'))
           .length;
       await _open(tester);
-      expect(find.text('吐槽'), findsOneWidget);
+      expect(find.byKey(_scope), findsNothing);
       expect(api.historyReads, [null, feed.channelId]);
 
       await _submit(tester, ' 自习 ');
+      expect(find.text('吐槽'), findsOneWidget);
       await tester.pumpAndSettle();
       expect(find.text('暂无相关帖子'), findsOneWidget);
       expect(api.queries.single, (
@@ -866,9 +885,13 @@ void main() {
       expect(api.historyChanges, [(null, terms[2]), (null, null)]);
       expect(find.text('暂无搜索历史'), findsOneWidget);
 
+      await tester.enterText(find.byKey(_input), '切换分类');
+      await tester.pump();
       await tester.tap(find.byKey(_scope));
       await tester.pumpAndSettle();
       await tester.tap(find.text('避雷'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('清空关键词'));
       await tester.pumpAndSettle();
       expect(api.historyReads.last, feed.otherChannelId);
       expect(find.text('避雷历史'), findsOneWidget);
@@ -916,10 +939,15 @@ void main() {
       await _submit(tester, '切换前输入');
       await tester.tap(find.byTooltip('清空关键词'));
       await tester.pump();
+      expect(find.byKey(_scope), findsNothing);
+      await tester.enterText(find.byKey(_input), '切换后输入');
+      await tester.pump();
       await tester.tap(find.byKey(_scope));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       await tester.tap(find.text('避雷'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('清空关键词'));
       await tester.pumpAndSettle();
       expect(find.text('避雷词'), findsOneWidget);
 
@@ -955,6 +983,9 @@ void main() {
     expect(api.historyReads, [null, null]);
     expect(find.text('待删词'), findsNothing);
     expect(find.text('新词'), findsOneWidget);
+    expect(find.byKey(_scope), findsNothing);
+    await tester.enterText(find.byKey(_input), '调整范围');
+    await tester.pump();
     await tester.tap(find.byKey(_scope));
     await tester.pumpAndSettle();
     expect(find.text('避雷'), findsOneWidget);
