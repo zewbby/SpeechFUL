@@ -54,6 +54,7 @@
 | 远程回归发现与修正 | `d77b2a0` ＋仅测试夹具差异；WSL2、一次性 PG16、race | 身份／图片／信息流／治理 CI 暴露另一处 runtime 历史删列夹具，治理旧库夹具同样需先移除完整标签结构；私信与头像 Goose 测试仍硬编码 C31。均修正，3 项历史形状回归 PASS（[日志](E:/Hnuhole-env/custom-tags-validation-20261106/historical-fixtures-pr109.log)），私信和头像 fresh/upgrade 各 PASS（[退出码](E:/Hnuhole-env/custom-tags-validation-20261106/migration-regressions-pr109.json)）；未改变产品逻辑或迁移。最终 head 产品 CI 仍待验。 |
 | 日常部署准备 | 当前固定清单 `8582593`，C30/V7；原部署用户 `hnuhole` | PASS：原环境停止，已使用固定恢复器 resume 正常启动；C/V 严格 TLS ready。Gate 保持 OPEN，C generation=11/RECOVER=11、V generation=8/RECOVER=8；未调用 recover。新版本尚未升级；待远程 CI 与合并后进行停写备份、前向迁移及清单重新固定。 |
 | 发布权限审计增量 | `96a53f0` ＋明确审计差异；一次性 C/V 独立 PG 集群 | 远程发布与身份审计 FAIL 原因为矩阵未登记 `post_tag_terms` 的既有 SELECT/INSERT/DELETE 授权。精确补入该表，新增拒绝 UPDATE/REFERENCES/TRIGGER 及 recovery/business 读取的负测试。14 项 prerelease 工具与真实权限审计 PASS，见 [日志](E:/Hnuhole-env/custom-tags-validation-20261106/prerelease-role-audit-pr109.log)。该差异不扩大数据库授权。 |
+| 回退边界 | C33 相对尚无标签的服务版本 | 已从旧服务严格列授权检查确认其不兼容新增 tags UPDATE；C33 down 已明确拒绝。发布演练同步为：旧源码无 0033 时，实际旧 C 进程必须拒绝启动并保持全表／sequence 摘要不变，再重新启动候选并复验原 HTTPS 业务；兼容版本仍执行原二进制回退。真实演练待最终 CI；不声称旧服务可在 C33 运行。 |
 
 产品证据绑定上述源码提交；此后的任务记录、README 和 CI 路径触发更新不改变被测产品源码，也不提升验证范围。所有数据库与私有 CA／会话 fixture 均由任务 runner 创建和清理，未修改日常或正式业务数据。
 
