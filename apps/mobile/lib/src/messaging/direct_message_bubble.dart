@@ -395,7 +395,7 @@ class _BubbleTail extends CustomPainter {
       color != oldDelegate.color || outgoing != oldDelegate.outgoing;
 }
 
-/// Only the current authoritative status keeps actions and accessibility nodes.
+/// Only the current authoritative status keeps focus, actions and semantics.
 /// In particular, a fading failed icon cannot retry an unknown/sending message.
 class _DmStatusTransition extends StatelessWidget {
   const _DmStatusTransition({required this.state, required this.child});
@@ -417,7 +417,9 @@ class _DmStatusTransition extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           for (final old in previous)
-            IgnorePointer(child: ExcludeSemantics(child: old)),
+            ExcludeFocus(
+              child: IgnorePointer(child: ExcludeSemantics(child: old)),
+            ),
           if (current != null) current,
         ],
       ),

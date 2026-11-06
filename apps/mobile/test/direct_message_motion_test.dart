@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hnuhole_mobile/src/messaging/direct_message_models.dart';
+import 'package:hnuhole_mobile/src/messaging/direct_message_bubble.dart';
 import 'package:hnuhole_mobile/src/messaging/direct_message_timeline.dart';
 
 import 'direct_message_screen_test.dart' as chat;
@@ -290,6 +291,92 @@ void main() {
       semantics.dispose();
     },
   );
+
+  for (final state in [
+    DmSendState.unknown,
+    DmSendState.sending,
+    DmSendState.sent,
+  ]) {
+    testWidgets(
+      'fading retry loses held and traversed keyboard focus for ${state.name}',
+      (tester) async {
+        var retries = 0;
+        Widget app(DmSendState value) => MaterialApp(
+          home: Scaffold(
+            body: HhDirectMessageBubble(
+              message: message('status', outgoing: true, state: value),
+              imageBuilder: (_, _) => const SizedBox.shrink(),
+              onMenu: (_, _) {},
+              onImage: (_) {},
+              onRetry: () => retries++,
+              onReedit: () {},
+            ),
+          ),
+        );
+        await tester.pumpWidget(app(DmSendState.failed));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        // Prove that native keyboard traversal/activation works before transition.
+        expect(retries, 1);
+        retries = 0;
+        await tester.pumpWidget(app(state));
+        expect(find.byKey(const ValueKey('retry:status')), findsOneWidget);
+        // Neither retained focus nor a fresh Tab may activate the fading control.
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(retries, 0);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(retries, 0);
+        await tester.pump(const Duration(milliseconds: 170));
+        expect(find.byKey(const ValueKey('retry:status')), findsNothing);
+      },
+    );
+  }
+
+  testWidgets('fading image retry cannot retain or regain keyboard focus', (
+    tester,
+  ) async {
+    var menus = 0;
+    Widget app(DmSendState state) => MaterialApp(
+      home: Scaffold(
+        body: HhDirectMessageBubble(
+          message: DmMessage(
+            id: 'photos',
+            outgoing: true,
+            time: '12:30',
+            images: [DmImage(id: 'photo', description: 'Photo', state: state)],
+          ),
+          imageBuilder: (_, _) => const SizedBox.shrink(),
+          onMenu: (_, _) => menus++,
+          onImage: (_) {},
+          onRetry: () {},
+          onReedit: () {},
+        ),
+      ),
+    );
+    await tester.pumpWidget(app(DmSendState.failed));
+    // The image opens first in traversal order, followed by its retry button.
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(menus, 1);
+    menus = 0;
+    await tester.pumpWidget(app(DmSendState.unknown));
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(menus, 0);
+  });
 
   testWidgets(
     'image failure fade cannot reopen retry actions for an unknown image',
