@@ -9,7 +9,7 @@
 - 恢复专项授权：既有日常开发连接拒绝后，普通 resume 在 2026-11-06 02:23:47Z 检出 C DB/anchor 高水位差异并触发保护性冻结。用户随后明确选择“授权恢复，接受重新登录（推荐）”，授权按既有部署流程显式恢复 C Gate，接受 C 授权代次提升及旧 C 会话失效；不恢复 V 代次、不重置 schema 或清理业务数据。
 - 需求确认：已使用 `grill-with-docs` 组合技能核对现有源码并集中询问。用户 Q1 确认“基本能做的都做”并要求按模块指挥执行；Q2 选择“按推荐，先做好日常反馈”；随后确认五模块方案并授权“按照你建议的模型及强度来做”。沿用 Flutter/Dart、现有布局／配色／业务流程，完善所有适用的日常反馈；玻璃折射、持续扫光、大粒子消散和未有业务的剧透／贴纸功能不在本轮。执行模块使用 GPT-6.1 Sol / high，独立集成审查使用 GPT-6 Astra / high。
 - 更新日期：2026-11-06。
-- 状态：实现已完成；本地自动验证/Android 构建 PASS；c3f2738 远程 CI 与同签 profile 装机 PASS；用户反馈帖子滚动低帧，正在定位并修复，真机/帧率保持待验；待合并；未正式发布。
+- 状态：滚动修复已集成 e257b17 并同签安装0602；v2的P95门槛两组复测均达标，少量输入后布局尖峰仍保留；必要界面复验和当前head CI进行中；待合并，实时合并状态见PR107；未正式发布。
 
 ## 目标与范围
 
@@ -71,7 +71,7 @@ MOTION-00 的公共 API 固定为：
 
 - SCROLL-DIAG：Sol/high，只读审计真实 FeedScreen 的滚动构建、布局与动效链路，回报可验证触发机制及外置工作量诊断，不能把调试测试当真机帧率。
 - SCROLL-FIX：定位后派给原模块所有者，在独立分支交付修复、覆盖复现原因的适用聚焦验证；root 集成并同签升级 profile。保留原页面/数据流程及图片权限代次，禁止以关闭正常内容/动画掩盖卡顿。
-- SCROLL-REVIEW：Astra/high，独立审查修复及证据；最终设备样本覆盖固定双向滑动、预热/冷样本分列，记录真实显示刷新率及完整采样范围。任何超预算或证据不足明确保留待验。
+- SCROLL-REVIEW：Astra/high，独立审查修复及证据；最终设备样本覆盖固定双向滑动、预热/冷样本分列，记录真实显示刷新率及完整采样范围。帧性能门槛沿用v2的P95目标；超预算帧和未解释尖峰单列，不宣称每帧达标或全程满帧，未解决的重复掉帧机制保持待验。
 - PR #107 保持 Draft；完成当前 head 的产品 CI、独立审查与必要设备验收后再按已有授权合并。
 
 ### 恢复专项契约 v3（2026-11-06）
@@ -111,8 +111,24 @@ MOTION-00 的公共 API 固定为：
 | 开发连接恢复 | 已部署8582593，C30/V7，原WSL2运行时；用户专项授权v3 | PASS。普通resume检出anchor领先23.898ms并保护性冻结；授权后既有authdev recover仅一次EXIT0。独立核对C OPEN/gen11/recoverEvents11、DB/anchor一致；V OPEN/gen8/recoverEvents8未变；随后普通resume启动4服务、C/V ready且recoverInvoked=false。没有schema重置/迁移或业务数据清理。 |
 | 滚动问题初次采样 | 同一profile，首页最新，60Hz，固定双向滑动、预热2cycles | FAIL（性能门槛，待修复）。timeline环形buffer末4.89秒213帧：build P50/P95/P99/max=5.061/16.726/20.362/28.323ms、11超16.67；raster=2.693/5.862/9.780/23.963ms、1超预算。布局P95=13.382ms，正在进一步归因；该局部窗口不冒充完整12.63秒采样或总FPS。原始scroll-before-warm.private.json及summary。 |
 
+### 滚动修复与真机对比（v4补充）
+
+- 修复：Sol/high `51d23d6ecf1b024864b2b78a237a562a490513b2`，集成 `e257b1714c807ca9de86268e596c0fee9bd28d0a`，两提交产品差异0。PrimaryTabs body读取Scaffold动态MediaQuery并逐帧新建所有tab配置；拆出独立padding wrapper，稳定child由真正tabs build构造。原始外置复现首页3→18、隐藏DM2→17，修复后3→3/2→2。Sol联合55项、analyze/原锁PASS；Astra独立原始2项及导航/账号总45项PASS，无剩余可行动代码问题。真实size/insets/textScale、返回State、TickerMode及authority更新仍传播。
+- 装机：`e257b17` 正式 `lib/main.dart`、profile、ARM64，同一origins/CA/StorageScope，同签保数据install-r PASS，实际versionCode `2026110602`。证书 `1538fb30…`；APK SHA256 `d83691035a98d4e7c057010ca9cf4ca99c8d927371b1f8297014c5128461d69c`，59,623,173字节，AOT/签名校验PASS。没有卸载、清数据或注入fixture/observer。外部证据 `profile-after-build-metadata.json`。
+- 场景：同一vivo/60Hz、首页Latest/20帖，修复后准备offset2991（旧版最后测量位置3010），先访问个人/DM再回首页，预热2cycles后固定500ms双向3cycles；稳定列表再独立复样3cycles。后两组均保留，没有挑选结果。全部原始文件在 `E:/Hnuhole-env/telegram-motion-device-20261106`，不入仓。
+
+| 样本 | UI Frame P50/P95/P99/max ms；超16.67 | Raster P50/P95/P99/max ms；超16.67 | SF观测pointer包络内呈现间隔 |
+| --- | --- | --- | --- |
+| 修复前完整分段基准；394对 | 4.430/14.453/18.144/33.465；9 | 2.662/5.129/5.914/8.859；0 | 139项，P95 33.230/max49.864ms，14>25ms |
+| 修复后预热基准；379对 | 4.135/10.950/32.269/59.020；8 | 2.671/5.306/6.316/23.119；1 | 152项，P95 16.624/max33.218ms，2>25ms |
+| 修复后稳定复样；406对 | 4.313/11.988/18.275/57.628；7 | 2.762/5.657/6.841/14.266；0 | 153项，P95 16.619/max33.236ms，2>25ms |
+
+结果：后两组均 **PASS（v2 P95门槛）**，持续手势期间的呈现明显改善，仍有输入后布局尖峰；不能称每帧达标。证据为 `scroll-before-present`、`scroll-after-present`、`scroll-after-confirm` 各自的 `.summary.json` 与 `.private.json`；Astra独立复算配对、时钟单位和窗口均一致。
+
+口径：Frame为Flutter-driver统计的整个UI阶段（包含animation/build/layout/paint/postframe），不是孤立BUILD；按Frame小写b/e的id及Draw B/E配对，只算完整事件。每cycle取出清理避免环形覆盖，复合timeline覆盖范围从traceEvents取。SF取目标BLAST layer的actualPresentTime，用实际PointerEvent flow-start首末包络双端裁20ms筛选；不是physical input或总体FPS。第一组修复后59/35/33/32ms尖峰均在命令结束76–698ms后，以嵌套布局/构建为主，无GC时间重叠，仍真实保留。临时CPU/widget插桩仅用于诊断，全部flag恢复原值，不把插桩时长当验收。
+
 ## 阻碍与下一步
 
-五模块及三项审查修复已闭环；新增帖子滚动性能反馈按v4定位，未合并。既有自动验证绑定产品提交 `3f5424b33c51271b6ea43c75cf714e4ce30b66a9`；其后的更新仅为本记录，不改变已测产品代码。已推送并创建Draft PR107、同签安装profile包；未合并/正式发布。先闭环滚动性能，再聚焦复验/新head CI与独立审查。
+五模块、三项审查问题及chrome逐帧tabs重建已闭环；滚动P95已达v2门槛，仍保留输入后个别布局尖峰。既有完整自动验证绑定产品提交 `3f5424b33c51271b6ea43c75cf714e4ce30b66a9`；后续产品修复为 `e257b17` 两文件，已有上述聚焦与独立审查PASS。已推送并创建PR107、同签安装0602 profile包；待必要界面复验与当前head远程CI后按授权合并，实时合并状态以PR107为准；未正式发布。
 
 App 环境在 dot-source 通用脚本后将当前进程 `PUB_HOSTED_URL` 设为 `https://pub.dev`；图片包独立锁使用其原镜像 `https://pub.flutter-io.cn`，均使用原锁现成缓存，未升级依赖。源配置不匹配导致的原锁预检失败不计为产品 FAIL。
