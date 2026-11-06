@@ -34,7 +34,7 @@ class PostLinkInbox extends ChangeNotifier with WidgetsBindingObserver {
       invalidLink = true;
     } else {
       invalidLink = false;
-      if (pending?.target.url == target.url) return;
+      // Even the same URL is a new click, allowing a cancelled login to retry.
       pending = PendingPostLink(target, ++_sequence);
     }
     notifyListeners();

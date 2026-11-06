@@ -213,6 +213,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(AuthScreen), findsNothing);
       expect(links.pending?.target.postId, _id);
+      // A fresh click on the same link must allow retrying a cancelled login.
+      links.receive('speechful://posts/$_id');
+      await tester.pumpAndSettle();
+      expect(find.byType(AuthScreen), findsOneWidget);
+      expect(api.resolved, isEmpty);
       links.receive('speechful://posts/$_other');
       await tester.pumpAndSettle();
       await _login(tester);
