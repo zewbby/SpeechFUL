@@ -1,7 +1,7 @@
 # CUSTOM-TAGS-01 — 帖子自定义标签
 
 - 模式：常规；负责人／状态维护人：当前 Session。
-- 分支／Worktree／PR：`codex/feat/custom-tags`；`E:/Hnuhole-env/source/SpeechFUL-custom-tags`；PR 未创建。初始主线基线 `48bcbc7cf90d163597d1f8a5f5944d9a08cb3ebf`，开发期间整合主线帖子分享后端 `4a3115dad4c0ecd257afc85f3abaea3a8ea3de69`。最终产品代码提交 `64fcc2b8b7128d827be92cb0e9a1fba48c3a333e`。
+- 分支／Worktree／PR：`codex/feat/custom-tags`；`E:/Hnuhole-env/source/SpeechFUL-custom-tags`；[PR #109](https://github.com/zewbby/SpeechFUL/pull/109)。初始主线基线 `48bcbc7cf90d163597d1f8a5f5944d9a08cb3ebf`，开发期间整合主线帖子分享后端 `4a3115dad4c0ecd257afc85f3abaea3a8ea3de69`。最终产品代码提交 `64fcc2b8b7128d827be92cb0e9a1fba48c3a333e`。
 - 授权依据与边界：2026-11-06 用户要求「需求：新增 自定义标签 功能」，完成 Q1–Q6 后回复「可以，按这个方案实现。」；随后明确要求「推送，合并，部署」，授权本任务 Push、PR、检查通过后合并及部署到现有日常开发环境。保留其他工作区及正式数据，不将日常环境交付冒充生产发布。
 - 需求确认：2026-11-06 用户逐项回复 Q1–Q5，依据见下方；Q6 已由用户最终确认，以下方案无未决取舍。
 - 更新日期：2026-11-06。
@@ -50,7 +50,7 @@
 | 可见布局 | 最终标签组件；360×800、1.5 倍文字、深色主题，实际 Noto Sans SC 与 Material Icons 字体 | PASS，无溢出，已目视核对标签、删除图标、3/3 数量与完成按钮；[截图](E:/Hnuhole-env/source/SpeechFUL-custom-tags/apps/mobile/build/custom-tags-render/tag-picker-dark-large-text.png)。此证据属于 Flutter host 渲染。 |
 | Android 构建 | 最终 Flutter 产品源码；`flutter build apk --debug --no-pub --target-platform android-arm64` | PASS，[构建日志](E:/Hnuhole-env/custom-tags-validation-20261106/android-final-boundaries.log)。本地 `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk` 的 SHA256 为 `4569a9104e7c78c9b169d9fbd3a22a42abfff9635013b5fabf5b422e5c25b7a5`。未安装设备，不等同于真机验收或发布。 |
 | 历史失败及修复 | 首轮本地 SQL；修正前的 pre-0015 历史夹具未移除新增标签结构 | 原始 FAIL 保留在 `sql-affected.log`，不作为通过证据。夹具已完整移除后续标签结构以模拟旧库；同名测试在上述 `2f6e7fc` SQL 回归 PASS。 |
-| 产品 CI、设备与独立审查 | 分支未推送，PR 未创建；未安装实际设备 | NOT_RUN：远程产品 CI、真机及 iOS 验收、独立审查。已将标签 widget、图片向量、实际 Dart／HTTPS／SQL 和 Go 检查接入产品 workflow；本地结果不冒充远程 CI、成员批准或正式发布。 |
+| 产品 CI、设备与独立审查 | PR #109，首轮 head `b8a4f91`；当前仅模拟器在线 | 首轮契约 CI FAIL：接口总数预期仍为 23，实际增加两个标签接口后为 25；校正测试断言后重跑。其他产品 CI 运行中；真机、iOS 和独立审查 NOT_RUN。本地结果不冒充远程 CI、成员批准或正式发布。 |
 
 产品证据绑定上述源码提交；此后的任务记录、README 和 CI 路径触发更新不改变被测产品源码，也不提升验证范围。所有数据库与私有 CA／会话 fixture 均由任务 runner 创建和清理，未修改日常或正式业务数据。
 
