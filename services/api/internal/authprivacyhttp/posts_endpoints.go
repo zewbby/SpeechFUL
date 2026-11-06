@@ -1,6 +1,7 @@
 package authprivacyhttp
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -31,6 +32,7 @@ type FeedPreferenceBackend interface {
 }
 
 type postRoute struct {
+	includeTags      bool
 	edit             string
 	editCommand      string
 	editImage        string
@@ -59,7 +61,7 @@ func (route postRoute) allows(method string) bool {
 }
 
 func isPostPath(path string) bool {
-	if path == postSearchPath || path == postSearchHistoryPath || path == "/api/v1/me/reposts" {
+	if path == postLinkResolvePath || path == postTagPath || path == postTagSuggestionsPath || path == postSearchPath || path == postSearchHistoryPath || path == "/api/v1/me/reposts" {
 		return true
 	}
 	for _, prefix := range []string{"/api/v1/post-commands", "/api/v1/me/post-tasks", "/api/v1/me/posts", "/api/v1/me/post-composer-context", "/api/v1/posts", "/api/v1/feed", "/api/v1/me/feed-preferences", "/api/v1/me/liked-posts", "/api/v1/me/favorite-posts"} {
@@ -72,6 +74,12 @@ func isPostPath(path string) bool {
 
 func parsePostRoute(path string) (postRoute, error) {
 	switch path {
+	case postTagPath:
+		return postRoute{kind: postTagRoute, methods: "POST"}, nil
+	case postTagSuggestionsPath:
+		return postRoute{kind: postTagSuggestionsRoute, methods: "POST"}, nil
+	case postLinkResolvePath:
+		return postRoute{kind: postLinkResolveRoute, methods: "POST"}, nil
 	case "/api/v1/feed/hot-posts":
 		return postRoute{kind: hotPostsRoute, methods: "GET"}, nil
 	case postSearchPath:
@@ -86,6 +94,12 @@ func parsePostRoute(path string) (postRoute, error) {
 		return postRoute{}, errMalformed
 	}
 	parts := strings.Split(strings.TrimPrefix(path, "/api/v1/"), "/")
+	if len(parts) == 3 && parts[0] == "posts" && parts[2] == "share" {
+		if _, err := posts.ParseResourceID(parts[1]); err != nil {
+			return postRoute{}, errMalformed
+		}
+		return postRoute{kind: postShareRoute, id: parts[1], methods: "GET"}, nil
+	}
 	if len(parts) == 3 && parts[0] == "posts" && parts[2] == "repost" {
 		if _, err := posts.ParseResourceID(parts[1]); err != nil {
 			return postRoute{}, errMalformed
@@ -213,6 +227,11 @@ func (b *boundary) communityPostsPublic(w http.ResponseWriter, r *http.Request, 
 		b.postBad(w, errMalformed)
 		return
 	}
+	if values := r.Header.Values("X-Post-Tags"); len(values) > 1 || len(values) == 1 && values[0] != "v1" {
+		b.postBad(w, errMalformed)
+		return
+	}
+	route.includeTags = r.Header.Get("X-Post-Tags") == "v1" || route.kind == postTagRoute || route.kind == postTagSuggestionsRoute
 	if !route.allows(r.Method) {
 		w.Header().Set("Allow", route.methods)
 		b.postFail(w, 405, "MALFORMED_REQUEST", 0)
@@ -253,7 +272,7 @@ func (b *boundary) communityPostsPublic(w http.ResponseWriter, r *http.Request, 
 		route.editCapabilities = true
 	}
 	command := ""
-	if route.command || route.seal || r.Method == http.MethodGet || isPostSearchKind(route.kind) || route.kind == authprivacy.PostViewRecord || route.kind == authprivacy.PostFeedPreferences || isPostInteractionKind(route.kind) || isRepostKind(route.kind) {
+	if route.command || route.seal || r.Method == http.MethodGet || route.kind == postLinkResolveRoute || isPostSearchKind(route.kind) || route.kind == authprivacy.PostViewRecord || route.kind == authprivacy.PostFeedPreferences || isPostInteractionKind(route.kind) || isRepostKind(route.kind) {
 		if hasHeader(r.Header, "Idempotency-Key") {
 			b.postBad(w, errMalformed)
 			return
@@ -271,6 +290,14 @@ func (b *boundary) communityPostsPublic(w http.ResponseWriter, r *http.Request, 
 	}
 	if backend == nil {
 		b.postFail(w, 503, "SERVICE_UNAVAILABLE", 0)
+		return
+	}
+	if route.kind == postTagRoute || route.kind == postTagSuggestionsRoute {
+		b.communityPostTags(w, r, backend, bearer, route)
+		return
+	}
+	if route.kind == postShareRoute || route.kind == postLinkResolveRoute {
+		b.communityPostSharing(w, r, backend, bearer, route)
 		return
 	}
 	if isPostSearchKind(route.kind) {
@@ -510,7 +537,7 @@ func validFeedPreferences(input posts.FeedPreferences) bool {
 func postIntent(r *http.Request, route postRoute) (posts.Intent, error) {
 	intent := posts.Intent{Operation: route.operation}
 	if route.command {
-		object, err := readRequestObject(r, posts.MaxRequestBytes, []string{"channelId", "identityId", "title", "body"}, []string{"images"})
+		object, err := readRequestObject(r, posts.MaxRequestBytes, []string{"channelId", "identityId", "title", "body"}, []string{"images", "tags"})
 		if err != nil {
 			return intent, err
 		}
@@ -522,6 +549,10 @@ func postIntent(r *http.Request, route postRoute) (posts.Intent, error) {
 		intent.Body, e4 = stringField(object, "body")
 		if e1 != nil || e2 != nil || e3 != nil || e4 != nil {
 			return intent, errMalformed
+		}
+		intent.Tags, err = parsePostTags(object)
+		if err != nil {
+			return intent, err
 		}
 		intent.Images, err = parsePostImages(object)
 		if err != nil {
@@ -543,7 +574,7 @@ func postIntent(r *http.Request, route postRoute) (posts.Intent, error) {
 		}
 		var optional []string
 		if route.operation == posts.Retry {
-			optional = []string{"images"}
+			optional = []string{"images", "tags"}
 		}
 		object, err := readRequestObject(r, limit, required, optional)
 		if err != nil {
@@ -561,6 +592,10 @@ func postIntent(r *http.Request, route postRoute) (posts.Intent, error) {
 			intent.Body, e2 = stringField(object, "body")
 			if e1 != nil || e2 != nil {
 				return intent, errMalformed
+			}
+			intent.Tags, err = parsePostTags(object)
+			if err != nil {
+				return intent, err
 			}
 			intent.Images, err = parsePostImages(object)
 			if err != nil {
@@ -745,6 +780,17 @@ func (b *boundary) writePostResponse(w http.ResponseWriter, response authprivacy
 		}
 	}
 	encoded, err := json.Marshal(value)
+	if err == nil && !route.includeTags && bytes.Contains(encoded, []byte(`"tags":`)) {
+		// Older mobile versions reject unknown DTO keys. Strip only after the
+		// closed public DTO has passed validation, preserving numeric precision.
+		decoder := json.NewDecoder(bytes.NewReader(encoded))
+		decoder.UseNumber()
+		var legacy any
+		if err = decoder.Decode(&legacy); err == nil {
+			stripPostTagFields(legacy)
+			encoded, err = json.Marshal(legacy)
+		}
+	}
 	if err != nil {
 		b.postFail(w, 503, "SERVICE_UNAVAILABLE", 0)
 		return
@@ -772,6 +818,9 @@ func (b *boundary) writePostResponse(w http.ResponseWriter, response authprivacy
 
 // 先限定实际 DTO 类型再校验内容，不能把 backend 的任意 row/map 直接序列化。
 func strictPostValue(value any, route postRoute) (any, error) {
+	if route.kind == postShareRoute {
+		return strictPostShareLink(value, route.id)
+	}
 	if route.edit != "" {
 		return strictPostEditValue(value, route)
 	}
@@ -875,7 +924,7 @@ func strictPostValue(value any, route postRoute) (any, error) {
 		}
 		result.Items = append([]posts.FeedPost{}, result.Items...)
 		for i, post := range result.Items {
-			if route.id != "" && post.ChannelID != route.id || post.ViewCount < 0 || !validPublicPostCard(posts.PublicPostCard{PostID: post.PostID, ChannelID: post.ChannelID, Title: post.Title, Author: post.Author, PublishedAt: post.PublishedAt}) || posts.ValidateContentWithImages(post.Title, post.Body, post.ImageCount) != nil {
+			if route.id != "" && post.ChannelID != route.id || post.ViewCount < 0 || !validPublicPostCard(posts.PublicPostCard{PostID: post.PostID, ChannelID: post.ChannelID, Title: post.Title, Author: post.Author, PublishedAt: post.PublishedAt, Tags: post.Tags}) || posts.ValidateContentWithImages(post.Title, post.Body, post.ImageCount) != nil {
 				return nil, errMalformed
 			}
 			if post.ImageSizes != nil {
@@ -893,9 +942,11 @@ func strictPostValue(value any, route postRoute) (any, error) {
 			}
 		}
 		return result, nil
+	case postTagSuggestionsRoute:
+		return strictTagSuggestions(value)
 	case postSearchHistoryRoute:
 		return strictPostSearchHistory(value)
-	case postSearchRoute, authprivacy.PostChannelFeed, authprivacy.PostLikedList, authprivacy.PostFavoriteList:
+	case postTagRoute, postSearchRoute, authprivacy.PostChannelFeed, authprivacy.PostLikedList, authprivacy.PostFavoriteList:
 		result, ok := value.(posts.FeedPage)
 		if p, yes := value.(*posts.FeedPage); yes && p != nil {
 			result, ok = *p, true
@@ -903,11 +954,11 @@ func strictPostValue(value any, route postRoute) (any, error) {
 		if !ok || result.Items == nil || !validPostPageSize(len(result.Items), route.limit) || !validNullablePostCursor(result.NextCursor) {
 			return nil, errMalformed
 		}
-		if route.kind == postSearchRoute && len(result.Items) == 0 && result.NextCursor != nil {
+		if (route.kind == postSearchRoute || route.kind == postTagRoute) && len(result.Items) == 0 && result.NextCursor != nil {
 			return nil, errMalformed
 		}
 		for _, post := range result.Items {
-			if (route.kind == authprivacy.PostChannelFeed || route.kind == postSearchRoute && route.id != "") && post.ChannelID != route.id || !validPublicPostCard(post) {
+			if (route.kind == authprivacy.PostChannelFeed || (route.kind == postSearchRoute || route.kind == postTagRoute) && route.id != "") && post.ChannelID != route.id || !validPublicPostCard(post) {
 				return nil, errMalformed
 			}
 		}
@@ -917,7 +968,7 @@ func strictPostValue(value any, route postRoute) (any, error) {
 		if p, yes := value.(*posts.PublicPostResponse); yes && p != nil {
 			result, ok = *p, true
 		}
-		if !ok || result.Post.PostID != route.id || !validPublicPostCard(posts.PublicPostCard{PostID: result.Post.PostID, ChannelID: result.Post.ChannelID, Title: result.Post.Title, Author: result.Post.Author, PublishedAt: result.Post.PublishedAt}) || posts.ValidateContentWithImages(result.Post.Title, result.Post.Body, result.Post.ImageCount) != nil {
+		if !ok || result.Post.PostID != route.id || !validPublicPostCard(posts.PublicPostCard{PostID: result.Post.PostID, ChannelID: result.Post.ChannelID, Title: result.Post.Title, Author: result.Post.Author, PublishedAt: result.Post.PublishedAt, Tags: result.Post.Tags}) || posts.ValidateContentWithImages(result.Post.Title, result.Post.Body, result.Post.ImageCount) != nil {
 			return nil, errMalformed
 		}
 		return result, nil
@@ -957,7 +1008,7 @@ func validPostPageSize(size, limit int) bool {
 func validNullablePostCursor(value *string) bool { return value == nil || validPostCursor(*value) }
 
 func validPublicPostCard(post posts.PublicPostCard) bool {
-	if !postValidID(post.PostID) || !postValidID(post.ChannelID) || !validPostTime(post.PublishedAt) || posts.ValidateContent(post.Title, "正文") != nil {
+	if !postValidID(post.PostID) || !postValidID(post.ChannelID) || !validPostTime(post.PublishedAt) || posts.ValidateContent(post.Title, "正文") != nil || !posts.ValidTags(post.Tags) {
 		return false
 	}
 	if post.Author.State == "ACTIVE" && (!utf8.ValidString(post.Author.Nickname) || len(post.Author.Nickname) > 512) {
@@ -976,7 +1027,7 @@ func validOwnPostTask(detail posts.OwnTaskDetail) bool {
 	if !postValidID(task.TaskID) || !postValidID(task.PostID) || !postValidID(task.ChannelID) || !postValidID(task.IdentityID) || task.AttemptVersion < 1 || !validPostTime(task.AcceptedAt) || !task.ServerSortAt.Equal(task.AcceptedAt) || !validPostTime(task.ServerSortAt) || task.ContentAvailable != (detail.Content != nil) {
 		return false
 	}
-	if detail.Content != nil && posts.ValidateContentWithImages(detail.Content.Title, detail.Content.Body, detail.Content.ImageCount) != nil {
+	if detail.Content != nil && posts.ValidateContentWithImages(detail.Content.Title, detail.Content.Body, detail.Content.ImageCount) != nil || detail.Content != nil && !posts.ValidTags(detail.Content.Tags) {
 		return false
 	}
 	// 已公开任务可核对其公开文字，但不能重建 pending/failed 卡片或维护权限。
@@ -1001,4 +1052,18 @@ func validOwnPostTask(detail posts.OwnTaskDetail) bool {
 		return task.TerminalAt != nil && validPostTime(*task.TerminalAt) && task.FailureCode == nil && !task.CanRetry && !task.CanHide && !task.CanCancel && !task.Visible && (task.State != posts.Cancelled || detail.Content == nil)
 	}
 	return false
+}
+
+func stripPostTagFields(value any) {
+	switch value := value.(type) {
+	case map[string]any:
+		delete(value, "tags")
+		for _, child := range value {
+			stripPostTagFields(child)
+		}
+	case []any:
+		for _, child := range value {
+			stripPostTagFields(child)
+		}
+	}
 }

@@ -425,7 +425,7 @@ func e2eNewServicesWithTLSLifetime(t *testing.T, lifetime time.Duration, configu
 	for _, setup := range configure {
 		s.c = setup(s.c)
 	}
-	cEndpoints, err := NewCommunityEndpoints(CommunityOptions{Backend: s.c, Passwords: passwords, InternalPeer: cPeer, AllowedOrigins: []string{"https://app.invalid"}, Limits: limits()})
+	cEndpoints, err := NewCommunityEndpoints(CommunityOptions{PublicOrigin: postShareTestOrigin, Backend: s.c, Passwords: passwords, InternalPeer: cPeer, AllowedOrigins: []string{"https://app.invalid"}, Limits: limits()})
 	if err != nil {
 		t.Fatal(err)
 	}

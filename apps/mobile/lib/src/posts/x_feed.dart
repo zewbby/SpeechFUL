@@ -1,8 +1,10 @@
 import '../localization/app_localizations.dart';
 import 'post_models.dart';
+import 'post_tag_widgets.dart';
 
 import 'package:flutter/material.dart';
 
+import '../design_system/motion.dart';
 import '../design_system/telegram_theme.dart';
 import '../navigation/app_navigation.dart';
 import '../navigation/feed_chrome.dart';
@@ -36,6 +38,7 @@ class FeedPostView {
     required this.elapsed,
     required this.title,
     this.body = '',
+    this.tags = const [],
     this.availableActions = const {FeedAction.comment},
     this.comments,
     this.likes,
@@ -50,6 +53,7 @@ class FeedPostView {
   });
   final String id, authorId, authorName, elapsed, title;
   final String body;
+  final List<String> tags;
   final Set<FeedAction> availableActions;
   final int? comments, likes, favorites;
   final int? views;
@@ -66,6 +70,7 @@ class FeedPostView {
         elapsed: elapsed,
         title: title,
         body: body,
+        tags: tags,
         availableActions: availableActions,
         comments: comments,
         likes: likes ?? this.likes,
@@ -557,6 +562,7 @@ class HhXPostItem extends StatelessWidget {
     required this.mediaBuilder,
     this.mediaSection,
     this.repostAction,
+    this.onTag,
     this.avatarBuilder,
     required this.onPost,
     required this.onAuthor,
@@ -566,6 +572,7 @@ class HhXPostItem extends StatelessWidget {
   });
   final Widget? mediaSection;
   final Widget? repostAction;
+  final ValueChanged<String>? onTag;
   final FeedPostView post;
   final FeedMediaBuilder mediaBuilder;
   final FeedAvatarBuilder? avatarBuilder;
@@ -682,6 +689,8 @@ class HhXPostItem extends StatelessWidget {
                             style: _text(context, 17),
                           ),
                         ],
+                        if (post.tags.isNotEmpty)
+                          PostTagChips(tags: post.tags, onTap: onTag),
                         if (mediaSection != null) mediaSection!,
                         if (post.media.isNotEmpty) ...[
                           const SizedBox(height: 6),
@@ -860,11 +869,7 @@ class HhXPostItem extends StatelessWidget {
     bool selected,
   ) {
     final p = HhTelegramPalette.of(context);
-    final color = selected
-        ? action == FeedAction.like
-              ? p.error
-              : p.accent
-        : p.secondary;
+    final selectedColor = action == FeedAction.like ? p.error : p.accent;
     final busy = post.busyActions.contains(action);
     final enabled = !busy && post.availableActions.contains(action);
     final stacked = MediaQuery.textScalerOf(context).scale(12) > 16;
@@ -892,57 +897,85 @@ class HhXPostItem extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           excludeFromSemantics: true,
           onTap: () {},
-          child: TextButton(
-            key: ValueKey('${action.name}:${post.id}'),
-            onPressed: enabled ? () => onAction(action) : null,
-            style: TextButton.styleFrom(
-              minimumSize: const Size(48, 48),
-              padding: EdgeInsets.zero,
-              alignment: Alignment.center,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: LayoutBuilder(
-              builder: (context, box) {
-                final glyph = CustomPaint(
-                  key: ValueKey('action-glyph:${action.name}:${post.id}'),
-                  size: const Size(20, 20),
-                  painter: _FeedActionGlyph(action, color, selected),
-                );
-                if (stacked) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      glyph,
-                      if (count != null)
-                        Text(count, style: _text(context, 12, color: color)),
-                    ],
-                  );
-                }
-                return SizedBox(
-                  width: box.maxWidth,
-                  height: 48,
-                  child: Stack(
-                    clipBehavior: Clip.none,
+          child: HhPressFeedback(
+            enabled: enabled,
+            builder: (context, states) => TextButton(
+              key: ValueKey('${action.name}:${post.id}'),
+              statesController: states,
+              onPressed: enabled ? () => onAction(action) : null,
+              style:
+                  TextButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    padding: EdgeInsets.zero,
                     alignment: Alignment.center,
-                    children: [
-                      glyph,
-                      if (count != null)
-                        Positioned(
-                          left: box.maxWidth / 2 + 13,
-                          top: 16,
-                          child: _actionCount(
-                            context,
-                            count,
-                            color,
-                            box.maxWidth,
-                          ),
-                        ),
-                    ],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ).copyWith(
+                    animationDuration: HhMotion.duration(
+                      context,
+                      HhMotion.quick,
+                    ),
                   ),
-                );
-              },
+              child: HhAnimatedSelection(
+                selected: selected,
+                builder: (context, selection) {
+                  final color = Color.lerp(
+                    p.secondary,
+                    selectedColor,
+                    selection,
+                  )!;
+                  return LayoutBuilder(
+                    builder: (context, box) {
+                      final glyph = CustomPaint(
+                        key: ValueKey('action-glyph:${action.name}:${post.id}'),
+                        size: const Size(20, 20),
+                        painter: _FeedActionGlyph(
+                          action,
+                          color,
+                          selected,
+                          selectionProgress: selection,
+                        ),
+                      );
+                      if (stacked) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            glyph,
+                            if (count != null)
+                              HhAnimatedCount(
+                                text: count,
+                                style: _text(context, 12, color: color),
+                              ),
+                          ],
+                        );
+                      }
+                      return SizedBox(
+                        width: box.maxWidth,
+                        height: 48,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.center,
+                          children: [
+                            glyph,
+                            if (count != null)
+                              Positioned(
+                                left: box.maxWidth / 2 + 13,
+                                top: 16,
+                                child: _actionCount(
+                                  context,
+                                  count,
+                                  color,
+                                  box.maxWidth,
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -993,7 +1026,10 @@ class HhXPostItem extends StatelessWidget {
     child: FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
-      child: Text(value, style: _text(context, 12, color: color)),
+      child: HhAnimatedCount(
+        text: value,
+        style: _text(context, 12, color: color),
+      ),
     ),
   );
 
@@ -1029,10 +1065,16 @@ class _ViewsGlyph extends CustomPainter {
 
 /// One stroke system for the compact feed actions; hit boxes remain 48dp.
 class _FeedActionGlyph extends CustomPainter {
-  const _FeedActionGlyph(this.action, this.color, this.selected);
+  const _FeedActionGlyph(
+    this.action,
+    this.color,
+    this.selected, {
+    this.selectionProgress,
+  });
   final FeedAction action;
   final Color color;
   final bool selected;
+  final double? selectionProgress;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1044,6 +1086,7 @@ class _FeedActionGlyph extends CustomPainter {
       ..strokeWidth = 1.7
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
+    final fill = selectionProgress ?? (selected ? 1.0 : 0.0);
     switch (action) {
       case FeedAction.comment:
         canvas.drawPath(
@@ -1066,7 +1109,12 @@ class _FeedActionGlyph extends CustomPainter {
           ..cubicTo(15.5, 1.3, 22, 2.4, 22, 7.8)
           ..cubicTo(22, 13.4, 14.2, 19.1, 12, 21)
           ..close();
-        if (selected) canvas.drawPath(heart, Paint()..color = color);
+        if (fill > 0) {
+          canvas.drawPath(
+            heart,
+            Paint()..color = color.withValues(alpha: color.a * fill),
+          );
+        }
         canvas.drawPath(heart, pen);
       case FeedAction.bookmark:
         final bookmark = Path()
@@ -1076,7 +1124,12 @@ class _FeedActionGlyph extends CustomPainter {
           ..lineTo(12, 17)
           ..lineTo(6, 21)
           ..close();
-        if (selected) canvas.drawPath(bookmark, Paint()..color = color);
+        if (fill > 0) {
+          canvas.drawPath(
+            bookmark,
+            Paint()..color = color.withValues(alpha: color.a * fill),
+          );
+        }
         canvas.drawPath(bookmark, pen);
       case FeedAction.share:
         canvas.drawLine(const Offset(7.1, 10.8), const Offset(16.8, 5.6), pen);
@@ -1096,7 +1149,8 @@ class _FeedActionGlyph extends CustomPainter {
   bool shouldRepaint(covariant _FeedActionGlyph oldDelegate) =>
       oldDelegate.action != action ||
       oldDelegate.color != color ||
-      oldDelegate.selected != selected;
+      oldDelegate.selected != selected ||
+      oldDelegate.selectionProgress != selectionProgress;
 }
 
 String localizedPostAuthor(BuildContext context, PostAuthor author) =>

@@ -3,6 +3,7 @@ import '../localization/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
+import '../design_system/motion.dart';
 import 'feed_chrome.dart';
 
 enum AppDestination { home, messages, directMessages, personal }
@@ -53,23 +54,36 @@ class HhAppNavigation extends StatelessWidget {
                 Expanded(
                   child: Semantics(
                     selected: selected == destination,
-                    child: IconButton(
-                      key: ValueKey('destination:${destination.name}'),
-                      tooltip: switch (destination) {
-                        AppDestination.home => hhText(context, '首页'),
-                        AppDestination.messages => hhText(context, '消息'),
-                        AppDestination.directMessages => hhText(context, '私信'),
-                        AppDestination.personal => hhText(context, '我的'),
-                      },
-                      onPressed: () {
-                        if (selected != destination) onSelected(destination);
-                      },
-                      icon: CustomPaint(
-                        size: const Size(27, 27),
-                        painter: HhNavigationGlyph(
-                          destination,
-                          selected == destination ? p.action : p.ink,
-                          selected == destination,
+                    child: HhPressFeedback(
+                      builder: (context, states) => IconButton(
+                        statesController: states,
+                        key: ValueKey('destination:${destination.name}'),
+                        tooltip: switch (destination) {
+                          AppDestination.home => hhText(context, '首页'),
+                          AppDestination.messages => hhText(context, '消息'),
+                          AppDestination.directMessages => hhText(
+                            context,
+                            '私信',
+                          ),
+                          AppDestination.personal => hhText(context, '我的'),
+                        },
+                        onPressed: () {
+                          if (selected != destination) onSelected(destination);
+                        },
+                        icon: HhAnimatedSelection(
+                          selected: selected == destination,
+                          builder: (context, progress) => Transform.scale(
+                            scale: 1 + .06 * progress,
+                            child: CustomPaint(
+                              size: const Size(27, 27),
+                              painter: HhNavigationGlyph(
+                                destination,
+                                Color.lerp(p.ink, p.action, progress)!,
+                                selected == destination,
+                                fillProgress: progress,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -86,10 +100,16 @@ class HhAppNavigation extends StatelessWidget {
 
 /// Code-native vectors matching the supplied bell and single speech bubble.
 class HhNavigationGlyph extends CustomPainter {
-  const HhNavigationGlyph(this.destination, this.color, this.selected);
+  const HhNavigationGlyph(
+    this.destination,
+    this.color,
+    this.selected, {
+    this.fillProgress,
+  });
   final AppDestination destination;
   final Color color;
   final bool selected;
+  final double? fillProgress;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -101,8 +121,14 @@ class HhNavigationGlyph extends CustomPainter {
       ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
+    final fill = fillProgress ?? (selected ? 1.0 : 0.0);
     void shape(Path path) {
-      if (selected) canvas.drawPath(path, Paint()..color = color);
+      if (fill > 0) {
+        canvas.drawPath(
+          path,
+          Paint()..color = color.withValues(alpha: color.a * fill),
+        );
+      }
       canvas.drawPath(path, pen);
     }
 
@@ -152,8 +178,14 @@ class HhNavigationGlyph extends CustomPainter {
             ..close(),
         );
       case AppDestination.personal:
-        final paint = selected ? (Paint()..color = color) : pen;
-        canvas.drawCircle(const Offset(14, 8.5), 4.5, paint);
+        if (fill > 0) {
+          canvas.drawCircle(
+            const Offset(14, 8.5),
+            4.5,
+            Paint()..color = color.withValues(alpha: color.a * fill),
+          );
+        }
+        canvas.drawCircle(const Offset(14, 8.5), 4.5, pen);
         shape(
           Path()
             ..moveTo(4, 25)
@@ -171,5 +203,6 @@ class HhNavigationGlyph extends CustomPainter {
   bool shouldRepaint(covariant HhNavigationGlyph oldDelegate) =>
       destination != oldDelegate.destination ||
       color != oldDelegate.color ||
+      fillProgress != oldDelegate.fillProgress ||
       selected != oldDelegate.selected;
 }

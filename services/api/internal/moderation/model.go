@@ -178,6 +178,7 @@ type DMEvidenceRecord struct {
 	Retracted  bool   `json:"retracted"`
 }
 type Evidence struct {
+	Tags      []string           `json:"tags,omitempty"`
 	DMRecords []DMEvidenceRecord `json:"dmRecords,omitempty"`
 	Title     string             `json:"title"`
 	Body      string             `json:"body"`

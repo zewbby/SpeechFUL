@@ -40,6 +40,7 @@ class ComposerPicker implements PostPhotoPicker {
 
 class ComposerApi implements PostApi, PostUploadApi {
   List<PostImageSelection> images = [];
+  List<String> tags = [];
   final receipts = <String, PostCommandResult>{};
   final putIndices = <int>[];
   final received = <int, Uint8List>{};
@@ -69,7 +70,12 @@ class ComposerApi implements PostApi, PostUploadApi {
     failureCode: state == PostTaskState.failed ? 'PUBLICATION_FAILED' : null,
     content: state == PostTaskState.cancelled
         ? null
-        : PostContent(title: title, body: body, imageCount: images.length),
+        : PostContent(
+            title: title,
+            body: body,
+            imageCount: images.length,
+            tags: tags,
+          ),
   );
   @override
   Future<PostResponse<PostCommandResult>> createWithImages({
@@ -80,9 +86,11 @@ class ComposerApi implements PostApi, PostUploadApi {
     required String title,
     required String body,
     required List<PostImageSelection> images,
+    List<String> tags = const [],
   }) async {
     creates++;
     this.images = List.of(images);
+    this.tags = List.of(tags);
     this.title = title;
     this.body = body;
     identity = identityId;
@@ -112,11 +120,13 @@ class ComposerApi implements PostApi, PostUploadApi {
     required String title,
     required String body,
     required List<PostImageSelection> images,
+    List<String> tags = const [],
   }) async {
     retries++;
     version++;
     received.clear();
     this.images = List.of(images);
+    this.tags = List.of(tags);
     this.title = title;
     this.body = body;
     state = PostTaskState.accepted;
@@ -240,6 +250,7 @@ class ComposerApi implements PostApi, PostUploadApi {
       title: title,
       body: body,
       imageCount: images.length,
+      tags: tags,
       author: const PostAuthor(
         state: PostAuthorState.active,
         avatar: 'default-v1',

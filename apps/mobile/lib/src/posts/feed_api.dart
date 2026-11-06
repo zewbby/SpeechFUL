@@ -1,6 +1,7 @@
 import 'post_api.dart';
 import 'post_models.dart';
 import 'post_protocol.dart';
+import 'post_tags.dart';
 
 /// New public feed projection; legacy PostCard/Detail remain strict and unchanged.
 class FeedPost extends PostCard {
@@ -10,6 +11,7 @@ class FeedPost extends PostCard {
     required super.title,
     required super.author,
     required super.publishedAt,
+    super.tags,
     required this.body,
     required this.viewCount,
     this.imageCount = 0,
@@ -30,7 +32,7 @@ class FeedPost extends PostCard {
         'publishedAt',
         'viewCount',
       },
-      optional: {'imageCount', 'imageSizes'},
+      optional: {'imageCount', 'imageSizes', 'tags'},
     );
     final title = PostJson.text(m, 'title', maxLength: 4096);
     final imageCount = PostJson.imageCount(m);
@@ -72,6 +74,7 @@ class FeedPost extends PostCard {
       viewCount: PostJson.integer(m, 'viewCount', 0, 9223372036854775807),
       imageCount: imageCount,
       imageSizes: sizes,
+      tags: PostTags.read(m),
     );
   }
 }

@@ -32,7 +32,12 @@ void main() {
     }
   }
 
-  Future<void> open(WidgetTester tester, ViewerController c) async {
+  Future<void> open(
+    WidgetTester tester,
+    ViewerController c, {
+    ValueNotifier<MediaQueryData>? media,
+    bool settle = true,
+  }) async {
     tester.view.physicalSize = const Size(400, 720);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -45,6 +50,13 @@ void main() {
       RepaintBoundary(
         key: const ValueKey('capture'),
         child: MaterialApp(
+          builder: media == null
+              ? null
+              : (context, child) => ValueListenableBuilder<MediaQueryData>(
+                  valueListenable: media,
+                  builder: (context, data, _) =>
+                      MediaQuery(data: data, child: child!),
+                ),
           home: Scaffold(
             backgroundColor: const Color(0xffff00ff),
             body: Builder(
@@ -70,8 +82,13 @@ void main() {
       ),
     );
     await tester.tap(find.text('原页面'));
-    await frames(tester, 16);
-    expect(c.status, ViewerLoadStatus.ready);
+    if (settle) {
+      await frames(tester, 16);
+      expect(c.status, ViewerLoadStatus.ready);
+    } else {
+      await tester.pump();
+      await tester.pump();
+    }
   }
 
   Rect viewport(WidgetTester tester) =>
@@ -95,6 +112,187 @@ void main() {
       await File('$folder/$name.png').writeAsBytes(bytes!.buffer.asUint8List());
     });
     image.dispose();
+  }
+
+  testWidgets('route enters with a short fade and reacts to reduced motion', (
+    tester,
+  ) async {
+    final media = ValueNotifier(const MediaQueryData());
+    addTearDown(media.dispose);
+    final c = ViewerController(items: [item('a')]);
+    await open(tester, c, media: media, settle: false);
+    final fade = find.byKey(const ValueKey('viewer-route-fade'));
+    expect(tester.widget<FadeTransition>(fade).opacity.value, 0);
+    await tester.pump(const Duration(milliseconds: 45));
+    expect(
+      tester.widget<FadeTransition>(fade).opacity.value,
+      inExclusiveRange(.25, 1),
+    );
+    media.value = const MediaQueryData(disableAnimations: true);
+    await tester.pump();
+    expect(fade, findsNothing);
+    expect(find.byType(HnuImageViewer), findsOneWidget);
+    media.value = const MediaQueryData();
+    await tester.pump();
+    expect(fade, findsNothing);
+    await frames(tester);
+    expect(c.status, ViewerLoadStatus.ready);
+  });
+
+  for (final accessible in [false, true]) {
+    testWidgets(
+      'reduced motion ($accessible) skips entry, return and exit tweens',
+      (tester) async {
+        final media = ValueNotifier(
+          MediaQueryData(
+            disableAnimations: !accessible,
+            accessibleNavigation: accessible,
+          ),
+        );
+        addTearDown(media.dispose);
+        final c = ViewerController(items: [item('a')]);
+        await open(tester, c, media: media, settle: false);
+        expect(find.byKey(const ValueKey('viewer-route-fade')), findsNothing);
+        await frames(tester);
+        final g = await tester.startGesture(viewport(tester).center);
+        await g.moveBy(const Offset(0, 60));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(alpha(tester), lessThan(1));
+        final scale = tester.widget<Transform>(
+          find
+              .descendant(
+                of: find.byKey(const ValueKey('viewer-dismiss-transform')),
+                matching: find.byType(Transform),
+              )
+              .first,
+        );
+        expect(scale.transform.entry(0, 0), 1);
+        await g.cancel();
+        await tester.pump();
+        expect(alpha(tester), 1);
+        expect(c.active, isTrue);
+
+        final exit = await tester.startGesture(viewport(tester).center);
+        await exit.moveBy(const Offset(0, -180));
+        await exit.up();
+        await tester.pump();
+        expect(c.closeReason, ViewerCloseReason.gesture);
+        await tester.pump();
+        expect(find.byType(HnuImageViewer), findsNothing);
+        await tester.pump(const Duration(milliseconds: 100));
+      },
+    );
+  }
+
+  testWidgets(
+    'pointer cancellation returns smoothly and a new pull takes over',
+    (tester) async {
+      final c = ViewerController(items: [item('a')]);
+      await open(tester, c);
+      final g = await tester.startGesture(viewport(tester).center);
+      await g.moveBy(const Offset(0, 90));
+      await tester.pump();
+      final held = alpha(tester);
+      await g.cancel();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 70));
+      expect(alpha(tester), inExclusiveRange(held, 1));
+      final before = tester
+          .widget<Transform>(
+            find.byKey(const ValueKey('viewer-dismiss-transform')),
+          )
+          .transform
+          .getTranslation()
+          .y;
+      final next = await tester.startGesture(viewport(tester).center);
+      await tester.pump();
+      expect(
+        tester
+            .widget<Transform>(
+              find.byKey(const ValueKey('viewer-dismiss-transform')),
+            )
+            .transform
+            .getTranslation()
+            .y,
+        before,
+      );
+      await next.moveBy(const Offset(0, 60));
+      await tester.pump();
+      expect(
+        tester
+            .widget<Transform>(
+              find.byKey(const ValueKey('viewer-dismiss-transform')),
+            )
+            .transform
+            .getTranslation()
+            .y,
+        closeTo(before + 60, .001),
+      );
+      await next.cancel();
+      await frames(tester);
+      expect(alpha(tester), 1);
+      expect(c.active, isTrue);
+    },
+  );
+
+  for (final close in [false, true]) {
+    testWidgets('enabling reduced motion finishes a pending settle ($close)', (
+      tester,
+    ) async {
+      final media = ValueNotifier(const MediaQueryData());
+      addTearDown(media.dispose);
+      final c = ViewerController(items: [item('a')]);
+      await open(tester, c, media: media);
+      final g = await tester.startGesture(viewport(tester).center);
+      await g.moveBy(Offset(0, close ? 180 : 60));
+      if (close) {
+        await g.up();
+      } else {
+        await g.cancel();
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(c.active, isTrue);
+      expect(alpha(tester), lessThan(1));
+      media.value = const MediaQueryData(accessibleNavigation: true);
+      await tester.pump();
+      await tester.pump();
+      if (close) {
+        expect(c.closeReason, ViewerCloseReason.gesture);
+        await tester.pump();
+        expect(find.byType(HnuImageViewer), findsNothing);
+      } else {
+        expect(c.active, isTrue);
+        expect(alpha(tester), 1);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final horizontal in [false, true]) {
+    testWidgets(
+      'a new ${horizontal ? 'page swipe' : 'tap'} during return cannot inherit a dismissal',
+      (tester) async {
+        final c = ViewerController(items: [item('a'), item('b')]);
+        await open(tester, c);
+        final pull = await tester.startGesture(viewport(tester).center);
+        await pull.moveBy(const Offset(0, 180));
+        await tester.pump();
+        await pull.cancel();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 10));
+        final next = await tester.startGesture(viewport(tester).center);
+        if (horizontal) {
+          await next.moveBy(const Offset(-300, 0));
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await next.up();
+        await frames(tester);
+        expect(c.active, isTrue);
+        expect(alpha(tester), 1);
+        expect(c.index, horizontal ? 1 : 0);
+      },
+    );
   }
 
   for (final direction in [-1.0, 1.0]) {

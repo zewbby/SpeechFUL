@@ -19,6 +19,7 @@ x-final-authorization: C Gate, current session generation/status/deadline, resou
 paths:
   /api/v1/post-commands/{commandId}:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/CommandID'
     put:
       operationId: acceptTextPostCommand
@@ -82,6 +83,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/post-commands/{commandId}/seal:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/CommandID'
     post:
       operationId: sealUnobservedPostCommand
@@ -122,6 +124,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/post-tasks:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     get:
       operationId: listOwnPendingAndFailedPostTasks
       summary: List this account's visible pending and failed cards
@@ -153,6 +157,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/post-tasks/{taskId}:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/TaskID'
     get:
       operationId: getOwnPostTask
@@ -181,6 +186,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/post-tasks/{taskId}/cancel:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/TaskID'
     post:
       operationId: cancelOwnPostTask
@@ -224,6 +230,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/post-tasks/{taskId}/retry:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/TaskID'
     post:
       operationId: retryOwnFailedPostTask
@@ -268,6 +275,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/post-tasks/{taskId}/hide:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/TaskID'
     post:
       operationId: hideOwnFailedPostTask
@@ -310,6 +318,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/channels/{channelId}/posts:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/ChannelID'
     get:
       operationId: listLatestChannelPosts
@@ -342,6 +351,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/posts/{postId}:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/PostID'
     get:
       operationId: getPublishedPost
@@ -368,6 +378,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/posts:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     get:
       operationId: listOwnPublishedPosts
       summary: List published posts of this account's still-active identities
@@ -403,6 +415,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/liked-posts:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     get:
       operationId: listLikedPosts
       summary: List this account's liked public posts, shared across its identities
@@ -429,6 +443,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/favorite-posts:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     get:
       operationId: listFavoritePosts
       summary: List this account's favorited public posts, shared across its identities
@@ -456,6 +472,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/posts/{postId}/capabilities:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/PostID'
     get:
       operationId: getOwnPostCapabilities
@@ -490,6 +507,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/posts/{postId}/edit:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/PostID'
     get:
       operationId: readPublishedPostEdit
@@ -517,6 +535,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/posts/{postId}/edit-commands/{commandId}:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/PostID'
     - $ref: '#/components/parameters/CommandID'
     get:
@@ -581,6 +600,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/posts/{postId}/edit-commands/{commandId}/images/{imageId}:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/PostID'
     - $ref: '#/components/parameters/CommandID'
     - name: imageId
@@ -640,6 +660,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/posts/{postId}/delete:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/PostID'
     post:
       operationId: deleteOwnPublishedPost
@@ -671,6 +692,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/post-composer-context:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     get:
       operationId: getOwnPostComposerContext
       summary: Read own authoritative default posting identity
@@ -693,6 +716,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/post-search:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     post:
       operationId: searchPosts
       summary: Search visible posts by title and body
@@ -738,6 +763,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/me/post-search-history:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     get:
       operationId: listPostSearchHistory
       summary: List this account's recent searches for one scope
@@ -798,6 +825,92 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/post-tags/posts:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
+    post:
+      operationId: listExactPostTag
+      summary: Browse currently accessible posts with one exact public label
+      description: Case-insensitive exact tag identity. All channels are mixed by original publication time then publication ordinal descending; optional channelId narrows that scope. Applies current account blocked channels and live visibility. Cursor binds account, normalized tag, channel, limit and preference revision with a 30-minute expiry and fixed publication ceiling. Does not record search history. No query string or Idempotency-Key.
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [tag]
+              properties:
+                tag: {type: string, minLength: 1, maxLength: 10}
+                channelId: {$ref: '#/components/schemas/ResourceID'}
+                cursor: {type: string, minLength: 1, maxLength: 1024, pattern: '^[A-Za-z0-9_-]+$'}
+                limit: {type: integer, minimum: 1, maximum: 50, default: 20}
+      responses:
+        '200':
+          description: Exact tag results, with tags; empty is a successful empty page
+          headers:
+            Session-Expires-At: {$ref: '#/components/headers/SessionExpiresAt'}
+            Server-Time: {$ref: '#/components/headers/ServerTime'}
+            Cache-Control: {$ref: '#/components/headers/NoStore'}
+            X-Request-ID: {$ref: '#/components/headers/RequestId'}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FeedPage'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/post-tags/suggestions:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
+    post:
+      operationId: suggestExistingPostTags
+      summary: Suggest existing visible labels by a literal prefix
+      description: Returns up to ten distinct case-insensitive labels in deterministic key order. Suggestions derive only from currently published accessible posts outside blocked channels. No draft or hidden labels, usage counts, account selectors, query string or Idempotency-Key. An underscore is a literal character.
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [prefix]
+              properties:
+                prefix: {type: string, minLength: 1, maxLength: 10}
+      responses:
+        '200':
+          description: Visible reusable labels, including a successful empty list
+          headers:
+            Session-Expires-At: {$ref: '#/components/headers/SessionExpiresAt'}
+            Server-Time: {$ref: '#/components/headers/ServerTime'}
+            Cache-Control: {$ref: '#/components/headers/NoStore'}
+            X-Request-ID: {$ref: '#/components/headers/RequestId'}
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 10
+                    items: {type: string, minLength: 1, maxLength: 10}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
 components:
   securitySchemes:
     bearerAuth:
@@ -805,6 +918,12 @@ components:
       scheme: bearer
       bearerFormat: canonical-unpadded-base64url-32-bytes
   parameters:
+    PostTagsVersion:
+      name: X-Post-Tags
+      in: header
+      required: false
+      description: Opt in to public label fields. Existing response DTOs omit tags without this header.
+      schema: {type: string, enum: [v1]}
     CommandID:
       name: commandId
       in: path
@@ -891,6 +1010,15 @@ components:
       schema:
         $ref: '#/components/schemas/UTCDateTime'
   schemas:
+    PostTags:
+      type: array
+      maxItems: 3
+      uniqueItems: true
+      description: Ordered public labels, 1-10 Unicode scalar characters each (Han, ASCII letters, digits or underscore). Case-insensitive identity; display retains spelling. Empty means no labels. A missing edit field preserves current labels. Existing response DTOs include this field only for X-Post-Tags v1 clients; omitted when empty.
+      items:
+        type: string
+        minLength: 1
+        maxLength: 10
     PostSearchKeyword:
       type: string
       minLength: 1
@@ -1053,6 +1181,8 @@ components:
       - title
       - body
       properties:
+        tags:
+          $ref: '#/components/schemas/PostTags'
         channelId:
           $ref: '#/components/schemas/ResourceID'
         identityId:
@@ -1074,6 +1204,8 @@ components:
       - title
       - body
       properties:
+        tags:
+          $ref: '#/components/schemas/PostTags'
         expectedAttemptVersion:
           $ref: '#/components/schemas/AttemptVersion'
         title:
@@ -1377,6 +1509,8 @@ components:
       - title
       - body
       properties:
+        tags:
+          $ref: '#/components/schemas/PostTags'
         title:
           $ref: '#/components/schemas/Title'
         body:
@@ -1486,6 +1620,8 @@ components:
       - author
       - publishedAt
       properties:
+        tags:
+          $ref: '#/components/schemas/PostTags'
         postId:
           $ref: '#/components/schemas/ResourceID'
         channelId:
@@ -1507,6 +1643,8 @@ components:
       - author
       - publishedAt
       properties:
+        tags:
+          $ref: '#/components/schemas/PostTags'
         postId:
           $ref: '#/components/schemas/ResourceID'
         channelId:
@@ -1573,6 +1711,8 @@ components:
       additionalProperties: false
       required: [revision, title, body]
       properties:
+        tags:
+          $ref: '#/components/schemas/PostTags'
         revision:
           $ref: '#/components/schemas/ResourceID'
         title:

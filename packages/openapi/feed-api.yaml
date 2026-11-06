@@ -37,6 +37,8 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/Error' }
   /api/v1/feed/interactions:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     post:
       operationId: readFeedInteractionSummaries
       summary: Read current counts and own account state for up to 50 posts
@@ -75,6 +77,7 @@ paths:
         '503': { $ref: '#/components/responses/Error' }
   /api/v1/posts/{postId}/interactions:
     parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
       - { $ref: '#/components/parameters/PostID' }
     get:
       operationId: readPostInteractions
@@ -90,6 +93,7 @@ paths:
         '503': { $ref: '#/components/responses/Error' }
   /api/v1/posts/{postId}/like:
     parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
       - { $ref: '#/components/parameters/PostID' }
     put:
       operationId: setPostLike
@@ -134,6 +138,7 @@ paths:
         '503': { $ref: '#/components/responses/Error' }
   /api/v1/posts/{postId}/favorite:
     parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
       - { $ref: '#/components/parameters/PostID' }
     put:
       operationId: setPostFavorite
@@ -170,6 +175,8 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/Error' }
   /api/v1/feed:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     get:
       operationId: getChronologicalFeed
       summary: List published posts across channels, after account blocking
@@ -224,6 +231,8 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/Error' }
   /api/v1/me/feed-preferences:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     get:
       operationId: getOwnFeedPreferences
       summary: Read the current account's blocked channels
@@ -267,6 +276,7 @@ paths:
         '503': { $ref: '#/components/responses/Error' }
   /api/v1/posts/{postId}/views:
     parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
       - name: postId
         in: path
         required: true
@@ -306,6 +316,12 @@ paths:
         '503': { $ref: '#/components/responses/Error' }
 components:
   parameters:
+    PostTagsVersion:
+      name: X-Post-Tags
+      in: header
+      required: false
+      description: Opt in to public label fields. Existing response DTOs omit tags without this header.
+      schema: {type: string, enum: [v1]}
     InteractionVersion:
       name: If-Interaction-Version
       in: header
@@ -352,6 +368,15 @@ components:
       required: true
       schema: { type: integer, minimum: 1, maximum: 86400 }
   schemas:
+    PostTags:
+      type: array
+      maxItems: 3
+      uniqueItems: true
+      description: Ordered public labels, 1-10 Unicode scalar characters each (Han, ASCII letters, digits or underscore). Case-insensitive identity; display retains spelling. Empty means no labels. A missing edit field preserves current labels. Existing response DTOs include this field only for X-Post-Tags v1 clients; omitted when empty.
+      items:
+        type: string
+        minLength: 1
+        maxLength: 10
     GlobalHotPosts:
       type: object
       additionalProperties: false
@@ -438,6 +463,8 @@ components:
       additionalProperties: false
       required: [postId, channelId, title, body, author, publishedAt, viewCount]
       properties:
+        tags:
+          $ref: '#/components/schemas/PostTags'
         postId: { $ref: '#/components/schemas/ResourceID' }
         channelId: { $ref: '#/components/schemas/ResourceID' }
         title: { type: string, minLength: 1, x-max-grapheme-clusters: 15 }

@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:hnuhole_image_viewer/image_viewer.dart';
 
+import '../design_system/motion.dart';
+
 /// The host authorizes both providers and the complete original resolver.
 /// A thumbnail is only a preview; [item] must load the full viewing resource.
 class PostImage {
@@ -438,13 +440,16 @@ class _PostImagesSectionState extends State<PostImagesSection>
             clipBehavior: Clip.antiAlias,
             borderRadius: BorderRadius.circular(4),
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: InkWell(
-              key: ValueKey(('post-image', group.images[index].item.id)),
-              onTap: () => _open(index),
-              child: ExcludeSemantics(
-                child: _PostThumbnail(
-                  key: ValueKey(group.images[index]),
-                  image: group.images[index],
+            child: HhPressFeedback(
+              builder: (context, states) => InkWell(
+                key: ValueKey(('post-image', group.images[index].item.id)),
+                statesController: states,
+                onTap: () => _open(index),
+                child: ExcludeSemantics(
+                  child: _PostThumbnail(
+                    key: ValueKey(group.images[index]),
+                    image: group.images[index],
+                  ),
                 ),
               ),
             ),
@@ -530,13 +535,19 @@ class _PostImagesSectionState extends State<PostImagesSection>
               onTap: () {},
               child:
                   placeholder ??
-                  InkWell(
-                    key: ValueKey(('feed-image', group!.images[index].item.id)),
-                    onTap: () => _open(index),
-                    child: _PostThumbnail(
-                      key: ValueKey(group.images[index]),
-                      image: group.images[index],
-                      fit: sizes.length == 1 ? BoxFit.cover : BoxFit.contain,
+                  HhPressFeedback(
+                    builder: (context, states) => InkWell(
+                      key: ValueKey((
+                        'feed-image',
+                        group!.images[index].item.id,
+                      )),
+                      statesController: states,
+                      onTap: () => _open(index),
+                      child: _PostThumbnail(
+                        key: ValueKey(group.images[index]),
+                        image: group.images[index],
+                        fit: sizes.length == 1 ? BoxFit.cover : BoxFit.contain,
+                      ),
                     ),
                   ),
             ),

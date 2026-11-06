@@ -24,6 +24,8 @@ import 'post_models.dart';
 import 'post_media_api.dart';
 
 import 'post_protocol.dart';
+import 'post_tags.dart';
+import '../channels/channel.dart';
 import 'post_upload_api.dart';
 import 'post_upload_models.dart';
 import 'post_photo_picker.dart';
@@ -66,7 +68,9 @@ class PostDraftEditor {
     this.bufferId,
     this.bufferRevision = 0,
     List<DraftPostImage>? images,
-  }) : images = images ?? [];
+    List<String> tags = const [],
+  }) : tags = PostTags.normalizeAll(tags),
+       images = images ?? [];
   final String id, channelId, accountId;
   final int authorityVersion;
   final bool isRetry;
@@ -80,6 +84,7 @@ class PostDraftEditor {
   bool persisted, saved = false, saving = false, submitted = false;
   String? error;
   final List<DraftPostImage> images;
+  List<String> tags;
   final _originals = <String, Uint8List>{};
   bool mediaBusy = false, mediaTouched = false, pickerPending = false;
   String? mediaError;
@@ -149,6 +154,7 @@ class PostController extends ChangeNotifier {
     this._mediaApi,
     this._uploadApi,
     this._photoPicker,
+    this.channelDirectory,
   }) : _clock = clock ?? DateTime.now,
        _newId = newId ?? (() => AuthCrypto.randomEncoded(16)) {
     _sessions.addListener(_authorityChanged);
@@ -178,6 +184,9 @@ class PostController extends ChangeNotifier {
   String? timelineChannelId, timelineCursor, timelineError, preferencesError;
   bool timelineLoading = false, preferencesSaving = false;
   Future<void> _preferenceWrites = Future.value();
+  final List<Channel> Function()? channelDirectory;
+  List<Channel> get postTagChannels =>
+      available ? (channelDirectory?.call() ?? const []) : const [];
   final PostApi _api;
   final PostMediaApi? _mediaApi;
   final PostUploadApi? _uploadApi;
@@ -963,6 +972,7 @@ class PostController extends ChangeNotifier {
           revision: entry.revision,
           persisted: true,
           images: DraftPostImage.list(entry.data['images']),
+          tags: PostTags.parse(entry.data['tags']),
         )
         ..saved = true
         ..mediaError = entry.data['pickerInterrupted'] == true
@@ -979,6 +989,7 @@ class PostController extends ChangeNotifier {
     'identityId': e.identityId,
     'title': e.title,
     'body': e.body,
+    'tags': e.tags,
     'editedAt': _clock().toUtc().toIso8601String(),
     if (e.taskId != null) 'taskId': e.taskId,
     if (e.attemptVersion != null) 'attemptVersion': e.attemptVersion,
@@ -1045,6 +1056,7 @@ class PostController extends ChangeNotifier {
       e.saved =
           e.title == data['title'] &&
           e.body == data['body'] &&
+          listEquals(e.tags, PostTags.parse(data['tags'])) &&
           e.identityId == data['identityId'] &&
           jsonEncode(e.images.map((e) => e.toJson()).toList()) ==
               jsonEncode(data['images'] ?? []);
@@ -1179,12 +1191,14 @@ class PostController extends ChangeNotifier {
               'expectedAttemptVersion': e.attemptVersion!,
               'title': e.title,
               'body': e.body,
+              'tags': e.tags,
             }
           : <String, dynamic>{
               'channelId': e.channelId,
               'identityId': e.identityId!,
               'title': e.title,
               'body': e.body,
+              'tags': e.tags,
             };
       final selections = [
         for (final image in e.images) image.selection!.toJson(),
@@ -1192,21 +1206,24 @@ class PostController extends ChangeNotifier {
       if (selections.isNotEmpty) payload['images'] = selections;
       final operation = e.isRetry ? PostOperation.retry : PostOperation.create;
       final digest = PostProtocol.digest(
-        PostProtocol.withImages(
-          e.isRetry
-              ? PostProtocol.retry(
-                  taskId: e.taskId!,
-                  expectedAttemptVersion: e.attemptVersion!,
-                  title: e.title,
-                  body: e.body,
-                )
-              : PostProtocol.create(
-                  channelId: e.channelId,
-                  identityId: e.identityId!,
-                  title: e.title,
-                  body: e.body,
-                ),
-          selections,
+        PostProtocol.withTags(
+          PostProtocol.withImages(
+            e.isRetry
+                ? PostProtocol.retry(
+                    taskId: e.taskId!,
+                    expectedAttemptVersion: e.attemptVersion!,
+                    title: e.title,
+                    body: e.body,
+                  )
+                : PostProtocol.create(
+                    channelId: e.channelId,
+                    identityId: e.identityId!,
+                    title: e.title,
+                    body: e.body,
+                  ),
+            selections,
+          ),
+          e.tags,
         ),
       );
       final intent = StoredPostIntent(
@@ -1326,6 +1343,7 @@ class PostController extends ChangeNotifier {
             identityId: p['identityId'] as String,
             title: p['title'] as String,
             body: p['body'] as String,
+            tags: PostTags.parse(p['tags']),
             images: PostImageSelection.list(p['images']),
           ),
         'CREATE' => await _api.create(
@@ -1335,6 +1353,7 @@ class PostController extends ChangeNotifier {
           identityId: p['identityId'] as String,
           title: p['title'] as String,
           body: p['body'] as String,
+          tags: PostTags.parse(p['tags']),
         ),
         'RETRY' when p['images'] is List && (p['images'] as List).isNotEmpty =>
           await _uploadApi!.retryWithImages(
@@ -1344,6 +1363,7 @@ class PostController extends ChangeNotifier {
             expectedAttemptVersion: p['expectedAttemptVersion'] as int,
             title: p['title'] as String,
             body: p['body'] as String,
+            tags: PostTags.parse(p['tags']),
             images: PostImageSelection.list(p['images']),
           ),
         'RETRY' => await _api.retry(
@@ -1353,6 +1373,7 @@ class PostController extends ChangeNotifier {
           expectedAttemptVersion: p['expectedAttemptVersion'] as int,
           title: p['title'] as String,
           body: p['body'] as String,
+          tags: PostTags.parse(p['tags']),
         ),
         'CANCEL' => await _api.cancel(
           sessionToken: a.token,
@@ -1658,6 +1679,7 @@ class PostController extends ChangeNotifier {
       if (!task.contentAvailable) {
         data.remove('title');
         data.remove('body');
+        data.remove('tags');
       }
     }
     if ({
@@ -1669,6 +1691,7 @@ class PostController extends ChangeNotifier {
     }.contains(state)) {
       data.remove('title');
       data.remove('body');
+      data.remove('tags');
     }
     if (!_current(a)) return;
     // 同一命令的并发核对可遇CAS竞争；下次核对读取最新revision即可，不重发。
@@ -1982,6 +2005,7 @@ class PostController extends ChangeNotifier {
         bufferId: bufferId,
         bufferRevision: buffer?.revision ?? 0,
         images: images,
+        tags: PostTags.parse(buffer?.data['tags'] ?? task.content!.tags),
       )..saved = buffer != null;
     } catch (error) {
       _failure(error, a);
@@ -2006,6 +2030,7 @@ class PostController extends ChangeNotifier {
       'identityId': task.identityId,
       'title': task.content?.title ?? '',
       'body': task.content?.body ?? '',
+      'tags': task.content?.tags ?? const <String>[],
       'editedAt': task.serverSortAt.toIso8601String(),
       'taskId': task.taskId,
       'postId': task.postId,
@@ -2183,6 +2208,7 @@ class PostController extends ChangeNotifier {
       final editor = newDraft(entry.data['channelId'] as String)
         ..title = entry.data['title'] as String? ?? ''
         ..body = entry.data['body'] as String? ?? ''
+        ..tags = PostTags.parse(entry.data['tags'])
         ..identityId = entry.data['identityId'] as String?;
       editor.images.addAll(DraftPostImage.list(entry.data['images']));
       editor.mediaTouched = editor.images.isNotEmpty;

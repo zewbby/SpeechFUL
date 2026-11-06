@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
+import '../design_system/motion.dart';
 import '../design_system/telegram_theme.dart';
 import '../localization/app_localizations.dart';
 import 'direct_message_models.dart';
@@ -101,44 +102,49 @@ class HhDirectMessageBubble extends StatelessWidget {
           ],
         );
         final children = <Widget>[
-          if (message.outgoing && message.state != DmSendState.sent)
-            SizedBox(
-              width: 48,
-              height: 48,
-              child: message.state == DmSendState.failed
-                  ? IconButton(
-                      key: ValueKey('retry:${message.id}'),
-                      tooltip: hhText(context, '发送失败，选择是否重发'),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 48,
-                        minHeight: 48,
-                      ),
-                      onPressed: onRetry,
-                      icon: Icon(
-                        Icons.error_outline_rounded,
-                        color: palette.error,
-                        size: 21,
-                      ),
-                    )
-                  : Semantics(
-                      label: hhText(context, '正在发送，结果尚未确认'),
-                      child: Center(
-                        child: MediaQuery.disableAnimationsOf(context)
-                            ? Icon(
-                                Icons.timelapse_rounded,
-                                size: 19,
-                                color: palette.secondary,
-                              )
-                            : SizedBox(
-                                width: 15,
-                                height: 15,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.8,
-                                  color: palette.secondary,
-                                ),
+          if (message.outgoing)
+            _DmStatusTransition(
+              state: message.state,
+              child: message.state == DmSendState.sent
+                  ? const SizedBox.shrink()
+                  : SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: message.state == DmSendState.failed
+                          ? IconButton(
+                              key: ValueKey('retry:${message.id}'),
+                              tooltip: hhText(context, '发送失败，选择是否重发'),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 48,
+                                minHeight: 48,
                               ),
-                      ),
+                              onPressed: onRetry,
+                              icon: Icon(
+                                Icons.error_outline_rounded,
+                                color: palette.error,
+                                size: 21,
+                              ),
+                            )
+                          : Semantics(
+                              label: hhText(context, '正在发送，结果尚未确认'),
+                              child: Center(
+                                child: HhMotion.reduced(context)
+                                    ? Icon(
+                                        Icons.timelapse_rounded,
+                                        size: 19,
+                                        color: palette.secondary,
+                                      )
+                                    : SizedBox(
+                                        width: 15,
+                                        height: 15,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1.8,
+                                          color: palette.secondary,
+                                        ),
+                                      ),
+                              ),
+                            ),
                     ),
             ),
           bubble,
@@ -285,28 +291,29 @@ class HhDirectMessageBubble extends StatelessWidget {
                         fit: StackFit.expand,
                         children: [
                           imageBuilder(context, image),
-                          if (image.state == DmSendState.failed)
-                            Align(
-                              alignment: Alignment.bottomRight,
-                              child: IconButton(
-                                key: ValueKey('retry-image:${image.id}'),
-                                tooltip: hhText(context, '此图片发送失败，查看操作'),
-                                onPressed: () => onMenu(image.id, anchor),
-                                icon: Icon(Icons.error, color: palette.error),
-                              ),
-                            ),
-                          if (image.state == DmSendState.sending ||
-                              image.state == DmSendState.unknown)
-                            const Align(
-                              alignment: Alignment.bottomRight,
-                              child: Padding(
-                                padding: EdgeInsets.all(8),
-                                child: Icon(
-                                  Icons.schedule,
-                                  color: Colors.white,
+                          Align(
+                            alignment: Alignment.bottomRight,
+                            child: _DmStatusTransition(
+                              state: image.state,
+                              child: switch (image.state) {
+                                DmSendState.failed => IconButton(
+                                  key: ValueKey('retry-image:${image.id}'),
+                                  tooltip: hhText(context, '此图片发送失败，查看操作'),
+                                  onPressed: () => onMenu(image.id, anchor),
+                                  icon: Icon(Icons.error, color: palette.error),
                                 ),
-                              ),
+                                DmSendState.sending ||
+                                DmSendState.unknown => const Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Icon(
+                                    Icons.schedule,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                _ => const SizedBox.shrink(),
+                              },
                             ),
+                          ),
                           if (selectedImageId == image.id)
                             DecoratedBox(
                               decoration: BoxDecoration(
@@ -386,4 +393,37 @@ class _BubbleTail extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BubbleTail oldDelegate) =>
       color != oldDelegate.color || outgoing != oldDelegate.outgoing;
+}
+
+/// Only the current authoritative status keeps focus, actions and semantics.
+/// In particular, a fading failed icon cannot retry an unknown/sending message.
+class _DmStatusTransition extends StatelessWidget {
+  const _DmStatusTransition({required this.state, required this.child});
+  final DmSendState? state;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    if (HhMotion.reduced(context)) return child;
+    return AnimatedSwitcher(
+      duration: HhMotion.quick,
+      switchInCurve: HhMotion.curve,
+      switchOutCurve: HhMotion.curve,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        alwaysIncludeSemantics: true,
+        child: child,
+      ),
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.center,
+        children: [
+          for (final old in previous)
+            ExcludeFocus(
+              child: IgnorePointer(child: ExcludeSemantics(child: old)),
+            ),
+          if (current != null) current,
+        ],
+      ),
+      child: KeyedSubtree(key: ValueKey(state), child: child),
+    );
+  }
 }

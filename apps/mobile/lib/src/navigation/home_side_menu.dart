@@ -2,6 +2,8 @@ import '../localization/app_localizations.dart';
 
 import 'package:flutter/material.dart';
 
+import '../design_system/motion.dart';
+
 /// Moves the whole home surface, including navigation, to reveal settings.
 /// Child horizontal recognizers keep priority over this ancestor recognizer.
 class HomeSideMenu extends StatefulWidget {
@@ -26,6 +28,7 @@ class HomeSideMenuState extends State<HomeSideMenu>
   );
   double _width = 0;
   bool _dragging = false;
+  double _target = 0;
 
   Future<void> open() async {
     if (!widget.enabled) return;
@@ -37,7 +40,8 @@ class HomeSideMenuState extends State<HomeSideMenu>
 
   Future<void> _animate(double target) async {
     if (!mounted || (target > 0 && !widget.enabled)) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    _target = target;
+    if (HhMotion.reduced(context)) {
       _motion.value = target;
       return;
     }
@@ -50,6 +54,7 @@ class HomeSideMenuState extends State<HomeSideMenu>
 
   void _beginDrag(DragStartDetails details) {
     if (!widget.enabled) return;
+    _motion.stop();
     _dragging = true;
   }
 
@@ -77,10 +82,19 @@ class HomeSideMenuState extends State<HomeSideMenu>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (HhMotion.reduced(context) && !_dragging && _motion.isAnimating) {
+      _motion.value = _target;
+    }
+  }
+
+  @override
   void didUpdateWidget(HomeSideMenu oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!widget.enabled) {
       _dragging = false;
+      _target = 0;
       _motion.value = 0;
     }
   }

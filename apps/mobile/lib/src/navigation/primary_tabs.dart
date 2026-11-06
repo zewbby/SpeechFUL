@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_navigation.dart';
 import 'feed_chrome.dart';
@@ -58,8 +59,20 @@ class PrimaryTabsState extends State<PrimaryTabs> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _CoveredRouteInsets(child: Builder(builder: _buildTabs));
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    // Upper routes override this region; popping exposes the tabs' style again.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: brightness == Brightness.dark
+            ? Brightness.light
+            : Brightness.dark,
+        statusBarBrightness: brightness,
+      ),
+      child: _CoveredRouteInsets(child: Builder(builder: _buildTabs)),
+    );
+  }
 
   Widget _buildTabs(BuildContext context) => PopScope(
     canPop: _selected == AppDestination.home,
@@ -72,33 +85,26 @@ class PrimaryTabsState extends State<PrimaryTabs> {
       menuBuilder: widget.homeMenu ?? (_) => const SizedBox.shrink(),
       child: Scaffold(
         extendBody: _selected == AppDestination.home,
-        body: Builder(
-          builder: (bodyContext) => MediaQuery(
-            // extendBody adds the navigation's height to body padding. Home draws
-            // under the sliding bar and needs only the real system safe inset.
-            // Other tabs already have a shortened Scaffold body, just as before.
-            data: MediaQuery.of(bodyContext).copyWith(
-              padding: MediaQuery.paddingOf(context).copyWith(
-                bottom: _selected == AppDestination.home
-                    ? MediaQuery.paddingOf(context).bottom
-                    : 0,
-              ),
-            ),
-            child: FeedChromeScope(
-              controller: _chrome,
-              child: IndexedStack(
-                index: _selected.index,
-                children: [
-                  for (final destination in AppDestination.values)
-                    TickerMode(
-                      key: ValueKey((widget.window, destination)),
-                      enabled: destination == _selected,
-                      child: _visited.contains(destination)
-                          ? Builder(builder: widget.builders[destination]!)
-                          : const SizedBox.shrink(),
-                    ),
-                ],
-              ),
+        body: _PrimaryTabsBodyInsets(
+          padding: MediaQuery.paddingOf(context).copyWith(
+            bottom: _selected == AppDestination.home
+                ? MediaQuery.paddingOf(context).bottom
+                : 0,
+          ),
+          child: FeedChromeScope(
+            controller: _chrome,
+            child: IndexedStack(
+              index: _selected.index,
+              children: [
+                for (final destination in AppDestination.values)
+                  TickerMode(
+                    key: ValueKey((widget.window, destination)),
+                    enabled: destination == _selected,
+                    child: _visited.contains(destination)
+                        ? Builder(builder: widget.builders[destination]!)
+                        : const SizedBox.shrink(),
+                  ),
+              ],
             ),
           ),
         ),
@@ -110,6 +116,21 @@ class PrimaryTabsState extends State<PrimaryTabs> {
         ),
       ),
     ),
+  );
+}
+
+/// Scaffold's extendBody padding follows the sliding navigation every frame.
+/// Correct that padding without recreating the retained tab subtree. Real media
+/// changes still propagate through MediaQuery to the descendants that use them.
+class _PrimaryTabsBodyInsets extends StatelessWidget {
+  const _PrimaryTabsBodyInsets({required this.padding, required this.child});
+  final EdgeInsets padding;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(padding: padding),
+    child: child,
   );
 }
 

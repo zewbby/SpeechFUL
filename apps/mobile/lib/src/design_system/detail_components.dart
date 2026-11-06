@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../posts/x_feed.dart';
 import '../identity/identity_avatar.dart';
+import 'motion.dart';
 
 /// Vector contours shared by the accepted preview and real detail screen.
 const detailIconInk = Color(0xFF59666D);
@@ -89,51 +90,71 @@ class DetailAction extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) {
-    final color = selected
-        ? (action == FeedAction.like
-              ? const Color(0xFFCC2929)
-              : Theme.of(context).colorScheme.primary)
-        : (Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFFA1B2C2)
-              : detailIconInk);
+    final selectedColor = action == FeedAction.like
+        ? const Color(0xFFCC2929)
+        : Theme.of(context).colorScheme.primary;
+    final baseColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFA1B2C2)
+        : detailIconInk;
+    final color = selected ? selectedColor : baseColor;
     return Semantics(
       label: count == null ? label : '$label，$count',
       button: true,
       toggled: action == FeedAction.like || action == FeedAction.bookmark
           ? selected
           : null,
-      child: TextButton(
-        key: buttonKey,
-        style:
-            TextButton.styleFrom(
-              foregroundColor: color,
-              disabledForegroundColor: color,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              minimumSize: const Size(48, 48),
-            ).copyWith(
-              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              splashFactory: NoSplash.splashFactory,
-            ),
-        onPressed: onPressed,
-        child: ExcludeSemantics(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: size,
-                height: size,
-                child: CustomPaint(
-                  painter: DetailGlyph(action, color, selected),
-                ),
+      child: HhPressFeedback(
+        enabled: onPressed != null,
+        builder: (context, states) => TextButton(
+          key: buttonKey,
+          statesController: states,
+          style:
+              TextButton.styleFrom(
+                foregroundColor: color,
+                disabledForegroundColor: color,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: const Size(48, 48),
+              ).copyWith(
+                animationDuration: HhMotion.duration(context, HhMotion.quick),
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+                splashFactory: NoSplash.splashFactory,
               ),
-              if (count != null) ...[
-                const SizedBox(width: 7),
-                Text(
-                  count!,
-                  style: detailType(context, size < 24 ? 12 : 14, color: color),
-                ),
-              ],
-            ],
+          onPressed: onPressed,
+          child: ExcludeSemantics(
+            child: HhAnimatedSelection(
+              selected: selected,
+              builder: (context, selection) {
+                final color = Color.lerp(baseColor, selectedColor, selection)!;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: size,
+                      height: size,
+                      child: CustomPaint(
+                        painter: DetailGlyph(
+                          action,
+                          color,
+                          selected,
+                          selectionProgress: selection,
+                        ),
+                      ),
+                    ),
+                    if (count != null) ...[
+                      const SizedBox(width: 7),
+                      HhAnimatedCount(
+                        text: count!,
+                        style: detailType(
+                          context,
+                          size < 24 ? 12 : 14,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -142,10 +163,16 @@ class DetailAction extends StatelessWidget {
 }
 
 class DetailGlyph extends CustomPainter {
-  const DetailGlyph(this.action, this.color, this.selected);
+  const DetailGlyph(
+    this.action,
+    this.color,
+    this.selected, {
+    this.selectionProgress,
+  });
   final FeedAction action;
   final Color color;
   final bool selected;
+  final double? selectionProgress;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -157,6 +184,7 @@ class DetailGlyph extends CustomPainter {
       ..strokeWidth = 1.75
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
+    final fill = selectionProgress ?? (selected ? 1.0 : 0.0);
     switch (action) {
       case FeedAction.comment:
         canvas.drawPath(
@@ -179,7 +207,12 @@ class DetailGlyph extends CustomPainter {
           ..cubicTo(15.35, 2.65, 21, 3.7, 21, 8.65)
           ..cubicTo(21, 13.65, 14.4, 18.7, 12, 20.5)
           ..close();
-        if (selected) canvas.drawPath(heart, Paint()..color = color);
+        if (fill > 0) {
+          canvas.drawPath(
+            heart,
+            Paint()..color = color.withValues(alpha: color.a * fill),
+          );
+        }
         canvas.drawPath(heart, pen);
       case FeedAction.bookmark:
         final bookmark = Path()
@@ -192,7 +225,12 @@ class DetailGlyph extends CustomPainter {
           ..lineTo(4, 5.3)
           ..quadraticBezierTo(4, 3.3, 6, 3.3)
           ..close();
-        if (selected) canvas.drawPath(bookmark, Paint()..color = color);
+        if (fill > 0) {
+          canvas.drawPath(
+            bookmark,
+            Paint()..color = color.withValues(alpha: color.a * fill),
+          );
+        }
         canvas.drawPath(bookmark, pen);
       case FeedAction.share:
         canvas.drawLine(
@@ -220,7 +258,8 @@ class DetailGlyph extends CustomPainter {
   bool shouldRepaint(covariant DetailGlyph oldDelegate) =>
       oldDelegate.action != action ||
       oldDelegate.color != color ||
-      oldDelegate.selected != selected;
+      oldDelegate.selected != selected ||
+      oldDelegate.selectionProgress != selectionProgress;
 }
 
 enum DetailChrome { back, more, image, expand }

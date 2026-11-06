@@ -4,6 +4,8 @@ import 'package:hnuhole_image_viewer/image_viewer.dart';
 
 import '../auth/auth_presentation.dart';
 import '../design_system/telegram_theme.dart';
+import '../design_system/motion.dart';
+import '../design_system/motion_routes.dart';
 import '../localization/app_localizations.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -113,25 +115,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.only(top: 12, bottom: 24),
         children: [
           for (final entry in entries)
-            ListTile(
-              key: ValueKey('settings-${entry.id}'),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 22,
-                vertical: 6,
-              ),
-              minLeadingWidth: 26,
-              horizontalTitleGap: 20,
-              leading: Icon(entry.icon, size: 24, color: p.secondary),
-              title: Text(
-                hhText(context, entry.title),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: p.ink,
-                  height: 1.35,
+            HhPressFeedback(
+              pressedScale: .985,
+              builder: (context, states) => ListTile(
+                statesController: states,
+                key: ValueKey('settings-${entry.id}'),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 6,
                 ),
+                minLeadingWidth: 26,
+                horizontalTitleGap: 20,
+                leading: Icon(entry.icon, size: 24, color: p.secondary),
+                title: Text(
+                  hhText(context, entry.title),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: p.ink,
+                    height: 1.35,
+                  ),
+                ),
+                onTap: () => _select(entry),
               ),
-              onTap: () => _select(entry),
             ),
         ],
       ),
@@ -243,22 +249,42 @@ class _LanguageSettingsState extends State<_LanguageSettings> {
               for (final language in AppLanguage.values)
                 Semantics(
                   selected: controller.language == language,
-                  child: ListTile(
-                    key: ValueKey('settings-language-${language.code}'),
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      language.nativeName,
-                      style: const TextStyle(fontSize: 17),
+                  child: HhPressFeedback(
+                    pressedScale: .985,
+                    builder: (context, states) => ListTile(
+                      statesController: states,
+                      key: ValueKey('settings-language-${language.code}'),
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        language.nativeName,
+                        style: const TextStyle(fontSize: 17),
+                      ),
+                      trailing: HhAnimatedSelection(
+                        selected: controller.language == language,
+                        builder: (context, progress) => ExcludeSemantics(
+                          child: Stack(
+                            children: [
+                              Icon(
+                                Icons.radio_button_unchecked,
+                                color: Color.lerp(
+                                  p.secondary,
+                                  p.accent,
+                                  progress,
+                                ),
+                              ),
+                              Opacity(
+                                opacity: progress,
+                                child: Icon(
+                                  Icons.radio_button_checked,
+                                  color: p.accent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      onTap: () => _choose(controller, language),
                     ),
-                    trailing: Icon(
-                      controller.language == language
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      color: controller.language == language
-                          ? p.accent
-                          : p.secondary,
-                    ),
-                    onTap: () => _choose(controller, language),
                   ),
                 ),
               if (_message != null)
@@ -300,24 +326,27 @@ class _FeedbackSettings extends StatelessWidget {
           style: TextStyle(fontSize: 18),
         ),
         const SizedBox(height: 20),
-        OutlinedButton.icon(
-          key: const ValueKey('settings-feedback-copy'),
-          icon: const Icon(Icons.copy_outlined),
-          label: Text(hhText(context, '复制邮箱')),
-          onPressed: () async {
-            String message;
-            try {
-              await Clipboard.setData(const ClipboardData(text: email));
-              message = '邮箱已复制';
-            } catch (_) {
-              message = '复制失败，请重试';
-            }
-            if (context.mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(hhText(context, message))));
-            }
-          },
+        HhPressFeedback(
+          builder: (context, states) => OutlinedButton.icon(
+            statesController: states,
+            key: const ValueKey('settings-feedback-copy'),
+            icon: const Icon(Icons.copy_outlined),
+            label: Text(hhText(context, '复制邮箱')),
+            onPressed: () async {
+              String message;
+              try {
+                await Clipboard.setData(const ClipboardData(text: email));
+                message = '邮箱已复制';
+              } catch (_) {
+                message = '复制失败，请重试';
+              }
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(hhText(context, message))),
+                );
+              }
+            },
+          ),
         ),
       ],
     ),
@@ -382,6 +411,7 @@ class _SupportSettingsState extends State<_SupportSettings>
 
   Future<void> _expand() => showDialog<void>(
     context: context,
+    animationStyle: HhMotionRoutes.popup(context),
     builder: (dialog) => Dialog.fullscreen(
       child: Scaffold(
         appBar: AppBar(title: Text(hhText(dialog, '支付宝收款码'))),
@@ -413,15 +443,19 @@ class _SupportSettingsState extends State<_SupportSettings>
       key: const ValueKey('settings-support-page'),
       padding: const EdgeInsets.all(22),
       children: [
-        InkWell(
-          key: const ValueKey('settings-support-code'),
-          onTap: _expand,
-          child: AspectRatio(
-            aspectRatio: 2 / 3,
-            child: Image.asset(
-              asset,
-              fit: BoxFit.contain,
-              semanticLabel: hhText(context, '支付宝收款码'),
+        HhPressFeedback(
+          pressedScale: .99,
+          builder: (context, states) => InkWell(
+            statesController: states,
+            key: const ValueKey('settings-support-code'),
+            onTap: _expand,
+            child: AspectRatio(
+              aspectRatio: 2 / 3,
+              child: Image.asset(
+                asset,
+                fit: BoxFit.contain,
+                semanticLabel: hhText(context, '支付宝收款码'),
+              ),
             ),
           ),
         ),
@@ -438,11 +472,15 @@ class _SupportSettingsState extends State<_SupportSettings>
           style: const TextStyle(height: 1.5),
         ),
         const SizedBox(height: 16),
-        OutlinedButton.icon(
-          key: const ValueKey('settings-support-save'),
-          onPressed: _busy ? null : _save,
-          icon: const Icon(Icons.save_alt_rounded),
-          label: Text(hhText(context, _busy ? '保存中…' : '保存收款码')),
+        HhPressFeedback(
+          enabled: !_busy,
+          builder: (context, states) => OutlinedButton.icon(
+            statesController: states,
+            key: const ValueKey('settings-support-save'),
+            onPressed: _busy ? null : _save,
+            icon: const Icon(Icons.save_alt_rounded),
+            label: Text(hhText(context, _busy ? '保存中…' : '保存收款码')),
+          ),
         ),
         if (_message != null)
           Padding(

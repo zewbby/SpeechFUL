@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hnuhole_image_viewer/image_viewer.dart';
+import 'package:hnuhole_mobile/src/design_system/motion.dart';
 import 'package:hnuhole_mobile/src/posts/post_api.dart';
 import 'package:hnuhole_mobile/src/posts/post_images.dart';
 
@@ -85,6 +86,106 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: child)));
     await frames(tester);
   }
+
+  for (final feed in [false, true]) {
+    testWidgets(
+      'thumbnail press stays local and cancellation opens nothing ($feed)',
+      (tester) async {
+        final authority = _Authority(), access = ValueNotifier(true);
+        final media = group(access);
+        await mount(
+          tester,
+          SizedBox(
+            width: 320,
+            child: PostImagesSection(
+              postId: 'post-a',
+              loadImages: (_) async => media,
+              authority: authority,
+              isCurrent: () => authority.current,
+              feedPreview: feed,
+            ),
+          ),
+        );
+        final tile = find.byKey(
+          ValueKey((feed ? 'feed-image' : 'post-image', 'ordinary-v1')),
+        );
+        final press = find.ancestor(
+          of: tile,
+          matching: find.byType(HhPressFeedback),
+        );
+        final transform = find.descendant(
+          of: press,
+          matching: find.byType(Transform),
+        );
+        final size = tester.getSize(tile);
+        final gesture = await tester.startGesture(tester.getCenter(tile));
+        await tester.pump();
+        // Horizontal feed scroll arbitration preserves InkWell's native delay.
+        await tester.pump(const Duration(milliseconds: 120));
+        await tester.pump(HhMotion.pressIn);
+        expect(
+          tester.widget<Transform>(transform.first).transform.entry(0, 0),
+          .96,
+        );
+        expect(find.byType(HnuImageViewer), findsNothing);
+        expect(tester.getSize(tile), size);
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<Transform>(transform.first).transform.entry(0, 0),
+          1,
+        );
+        expect(find.byType(HnuImageViewer), findsNothing);
+        await tester.tap(tile);
+        await frames(tester);
+        expect(find.byType(HnuImageViewer), findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+        await frames(tester);
+        authority.dispose();
+        access.dispose();
+      },
+    );
+  }
+
+  testWidgets('reduced motion opens from thumbnail and revocation still wins', (
+    tester,
+  ) async {
+    final authority = _Authority(), access = ValueNotifier(true);
+    final media = group(access);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: child!,
+        ),
+        home: Scaffold(body: section(authority, (_) async => media)),
+      ),
+    );
+    await frames(tester);
+    await tester.tap(find.byKey(const ValueKey(('post-image', 'ordinary-v1'))));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(HnuImageViewer), findsOneWidget);
+    expect(find.byKey(const ValueKey('viewer-route-fade')), findsNothing);
+    await frames(tester);
+    final viewer = tester.widget<HnuImageViewer>(find.byType(HnuImageViewer));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('viewer-pages'))),
+    );
+    await gesture.moveBy(const Offset(0, 100));
+    await tester.pump();
+    access.value = false;
+    await tester.pump();
+    expect(viewer.controller.closeReason, ViewerCloseReason.accessInvalidated);
+    expect(find.byKey(const ValueKey('viewer-pages')), findsNothing);
+    await gesture.cancel();
+    await frames(tester);
+    expect(find.byType(HnuImageViewer), findsNothing);
+    expect(find.text('图片已不可访问'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    authority.dispose();
+    access.dispose();
+  });
 
   testWidgets(
     'comment single image fills its 160dp frame and retry stays horizontal',

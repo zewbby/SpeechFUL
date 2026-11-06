@@ -121,21 +121,28 @@ def check_contract(spec, vectors, media_vectors):
                 if status.startswith("2"):
                     for name in ("Session-Expires-At", "Server-Time"):
                         assert resolve(spec, response["headers"][name])["required"] is True
-    assert len(operations) == len(set(operations)) == 23
+    assert len(operations) == len(set(operations)) == 25
     for path, methods in (
         ("/api/v1/post-search", {"post": "searchPosts"}),
         ("/api/v1/me/post-search-history", {"get": "listPostSearchHistory", "post": "changePostSearchHistory"}),
     ):
-        assert {method: op["operationId"] for method, op in spec["paths"][path].items()} == methods
+        assert {method: op["operationId"] for method, op in spec["paths"][path].items() if method != "parameters"} == methods
     assert {'readPublishedPostEdit', 'readPostEditResult', 'savePublishedPostEdit',
             'stagePublishedPostEditImage'} <= set(operations)
     for path, method in (("/api/v1/post-commands/{commandId}", "put"), ("/api/v1/me/post-tasks/{taskId}/retry", "post")):
         assert spec["paths"][path][method]["requestBody"]["x-max-bytes"] == 262144
     schemas = spec["components"]["schemas"]
+    assert spec['paths']['/api/v1/post-tags/posts']['post']['operationId'] == 'listExactPostTag'
+    assert spec['paths']['/api/v1/post-tags/suggestions']['post']['operationId'] == 'suggestExistingPostTags'
+    assert schemas['PostTags']['maxItems'] == 3
+    assert schemas['PostTags']['items']['maxLength'] == 10
+    for tagged in ('CreatePostInput', 'RetryInput', 'PublicPostCard', 'PublicPost', 'OwnTaskContent', 'PostEditInput'):
+        assert schemas[tagged]['properties']['tags'] == {'$ref': '#/components/schemas/PostTags'}
+        assert 'tags' not in schemas[tagged]['required']
     edit = schemas['PostEditInput']
     assert edit['additionalProperties'] is False
     assert set(edit['required']) == {'revision', 'title', 'body'}
-    assert set(edit['properties']) == {'revision', 'title', 'body', 'imageIds'}
+    assert set(edit['properties']) == {'revision', 'title', 'body', 'imageIds', 'tags'}
     assert edit['properties']['revision'] == {'$ref': '#/components/schemas/ResourceID'}
     assert edit['properties']['imageIds']['maxItems'] == 9
     assert edit['properties']['imageIds']['uniqueItems'] is True
@@ -158,12 +165,12 @@ def check_contract(spec, vectors, media_vectors):
         assert schemas[name]["x-max-grapheme-clusters"] == count
         assert schemas[name]["x-max-utf8-bytes"] == byte_limit
         assert schemas[name]["x-unicode-version"] == "16.0.0"
-    assert set(schemas["RetryInput"]["properties"]) == {"expectedAttemptVersion", "title", "body", "images"}
+    assert set(schemas["RetryInput"]["properties"]) == {"expectedAttemptVersion", "title", "body", "images", "tags"}
     assert set(schemas["RetryInput"]["required"]) == {"expectedAttemptVersion", "title", "body"}
     assert not {"identityId", "channelId"}.intersection(schemas["RetryInput"]["properties"])
     create = resolve(spec, spec["paths"]["/api/v1/post-commands/{commandId}"]["put"]["requestBody"])
     create_schema = resolve(spec, create["content"]["application/json"]["schema"])
-    assert set(create_schema["properties"]) == {"channelId", "identityId", "title", "body", "images"}
+    assert set(create_schema["properties"]) == {"channelId", "identityId", "title", "body", "images", "tags"}
     assert set(create_schema["required"]) == {"channelId", "identityId", "title", "body"}
     for content in (create_schema, schemas["RetryInput"]):
         assert content["additionalProperties"] is False

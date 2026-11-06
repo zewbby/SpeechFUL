@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../design_system/motion.dart';
 import '../design_system/telegram_theme.dart';
 import '../identity/identity_avatar.dart';
 import '../localization/app_localizations.dart';
@@ -215,22 +216,57 @@ class HhDirectMessageComposer extends StatelessWidget {
                 SizedBox(
                   width: 48,
                   height: 48,
-                  child: IconButton.filled(
-                    key: const ValueKey('dm-send'),
-                    tooltip: hhText(context, '发送消息'),
-                    onPressed: ready ? onSend : null,
-                    style: IconButton.styleFrom(
-                      backgroundColor: p.action,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: p.action.withValues(alpha: .12),
-                      disabledForegroundColor: p.secondary,
+                  child: HhAnimatedSelection(
+                    selected: ready,
+                    builder: (context, progress) => HhPressFeedback(
+                      enabled: ready,
+                      builder: (context, states) => IconButton.filled(
+                        key: const ValueKey('dm-send'),
+                        statesController: states,
+                        tooltip: hhText(context, '发送消息'),
+                        onPressed: ready ? onSend : null,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Color.lerp(
+                            p.action.withValues(alpha: .12),
+                            p.action,
+                            progress,
+                          ),
+                          foregroundColor: Color.lerp(
+                            p.secondary,
+                            Colors.white,
+                            progress,
+                          ),
+                          disabledBackgroundColor: Color.lerp(
+                            p.action.withValues(alpha: .12),
+                            p.action,
+                            progress,
+                          ),
+                          disabledForegroundColor: Color.lerp(
+                            p.secondary,
+                            Colors.white,
+                            progress,
+                          ),
+                        ),
+                        icon: queueing
+                            ? HhMotion.reduced(context)
+                                  ? const Icon(
+                                      Icons.timelapse_rounded,
+                                      size: 24,
+                                    )
+                                  : SizedBox.square(
+                                      dimension: 19,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color.lerp(
+                                          p.secondary,
+                                          Colors.white,
+                                          progress,
+                                        ),
+                                      ),
+                                    )
+                            : const Icon(Icons.send_rounded, size: 24),
+                      ),
                     ),
-                    icon: queueing
-                        ? const SizedBox.square(
-                            dimension: 19,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send_rounded, size: 24),
                   ),
                 ),
               ],

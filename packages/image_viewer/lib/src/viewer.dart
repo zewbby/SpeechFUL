@@ -17,6 +17,11 @@ part 'viewer_surface.dart';
 part 'viewer_resources.dart';
 part 'viewer_preview.dart';
 
+// Keep this package independent of the App's motion tokens.
+bool _reducedMotion(BuildContext context) =>
+    MediaQuery.disableAnimationsOf(context) ||
+    MediaQuery.accessibleNavigationOf(context);
+
 /// Keeps the calling page painted beneath the viewer's interactive dismissal.
 /// The viewer completes its exit animation before notifying the route owner.
 class HnuImageViewerRoute extends PageRouteBuilder<void> {
@@ -29,8 +34,37 @@ class HnuImageViewerRoute extends PageRouteBuilder<void> {
         pageBuilder: (context, animation, secondaryAnimation) =>
             builder(context),
         transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-            FadeTransition(opacity: animation, child: child),
+            _ViewerRouteTransition(animation: animation, child: child),
       );
+}
+
+class _ViewerRouteTransition extends StatefulWidget {
+  const _ViewerRouteTransition({required this.animation, required this.child});
+  final Animation<double> animation;
+  final Widget child;
+
+  @override
+  State<_ViewerRouteTransition> createState() => _ViewerRouteTransitionState();
+}
+
+class _ViewerRouteTransitionState extends State<_ViewerRouteTransition> {
+  bool _skipMotion = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Once entry has been skipped, changing the preference back must not
+    // partially hide the already visible image and replay its entrance.
+    _skipMotion = _reducedMotion(context) || _skipMotion;
+    return _skipMotion
+        ? widget.child
+        : FadeTransition(
+            key: const ValueKey('viewer-route-fade'),
+            opacity: widget.animation.drive(
+              CurveTween(curve: Curves.easeOutCubic),
+            ),
+            child: widget.child,
+          );
+  }
 }
 
 /// A complete viewing surface. The caller owns navigation and controllers.
