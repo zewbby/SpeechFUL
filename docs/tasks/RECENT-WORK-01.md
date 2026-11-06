@@ -2,7 +2,7 @@
 
 - 模式：常规
 - 负责人／状态维护人：当前 Session
-- 分支／Worktree／PR：`codex/docs/recent-work`；`E:/Hnuhole-env/source/SpeechFUL-recent-work`；PR 未创建；基线 `be6d07ab2c35c859d7176569e1a99b5e1ec74de5`（origin/main）
+- 分支／Worktree／PR：`codex/docs/recent-work`；`E:/Hnuhole-env/source/SpeechFUL-recent-work`；[PR #110](https://github.com/zewbby/SpeechFUL/pull/110)；基线 `be6d07ab2c35c859d7176569e1a99b5e1ec74de5`（origin/main）
 - 授权依据与边界：用户要求将近期工作移出 README，并于后续消息明确授权“提交并推送，创建 PR，检查通过后合并”；授权覆盖本任务提交、推送、PR 和通过检查后的合并，不涉及部署。
 - 需求确认：删除 README 的 Related Work 进展列表，迁移到独立 Markdown 文档；README 保留稳定入口；无未决取舍。
 - 更新日期：2026-11-06
@@ -27,4 +27,4 @@
 
 ## 阻碍与下一步
 
-无阻碍；按用户授权提交、推送、创建 PR，并在适用检查通过后合并；PR 中保留实时检查及合并证据。
+已提交并推送，PR #110 已创建；在适用检查通过后按用户授权合并。实时 CI 与最终合并状态见 PR，本文保留送审时状态，不提前宣告合并。
