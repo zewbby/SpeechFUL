@@ -94,6 +94,7 @@ BEGIN
             allowed := allowed OR (relation.relname IN ('post_view_totals','post_daily_views','feed_preferences') AND privilege IN ('SELECT','INSERT'))
               OR (relation.relname='post_edit_receipts' AND privilege IN ('SELECT','INSERT'))
               OR (relation.relname='post_edit_media' AND privilege IN ('SELECT','INSERT','DELETE'))
+              OR (relation.relname='post_tag_terms' AND privilege IN ('SELECT','INSERT','DELETE'))
               OR (relation.relname='ranking_snapshots' AND privilege IN ('SELECT','INSERT','DELETE'))
               OR (relation.relname='ranking_posts' AND privilege IN ('SELECT','INSERT'))
               OR (relation.relname='ranking_channel_data' AND privilege IN ('SELECT','INSERT','DELETE'))
