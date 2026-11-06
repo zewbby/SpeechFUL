@@ -140,24 +140,46 @@ class HhAnimatedCount extends StatefulWidget {
 class _HhAnimatedCountState extends State<HhAnimatedCount>
     with SingleTickerProviderStateMixin {
   late final _progress = AnimationController(vsync: this, value: 1);
-  String? _previous;
+  late List<_CountLayer> _layers;
   bool _reduced = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _layers = [_CountLayer.steady(widget.text)];
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reduced = HhMotion.reduced(context);
-    if (_reduced) _progress.value = 1;
+    if (_reduced) {
+      _layers = [_CountLayer.steady(widget.text)];
+      _progress.value = 1;
+    }
   }
 
   @override
   void didUpdateWidget(HhAnimatedCount oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.text == oldWidget.text) return;
-    _previous = oldWidget.text;
     if (_reduced) {
+      _layers = [_CountLayer.steady(widget.text)];
       _progress.value = 1;
     } else {
+      final progress = HhMotion.curve.transform(_progress.value);
+      // Retarget the actual visible mixture, including an earlier value that
+      // becomes current again. Resetting an old/new pair would flash the last
+      // requested text at full opacity when a request is quickly rolled back.
+      // Opacity rounds to 8-bit alpha; discard only fully invisible layers.
+      _layers = [
+        for (final layer in _layers)
+          if (layer.opacityAt(progress) > .5 / 255)
+            layer.retarget(progress, selected: layer.text == widget.text),
+      ];
+      if (!_layers.any((layer) => layer.text == widget.text)) {
+        _layers.add(_CountLayer.incoming(widget.text));
+      }
       _progress.duration = HhMotion.quick;
       _progress.forward(from: 0);
     }
@@ -188,21 +210,12 @@ class _HhAnimatedCountState extends State<HhAnimatedCount>
               child: Stack(
                 alignment: AlignmentDirectional.centerStart,
                 children: [
-                  // The current string alone determines width and line height.
-                  FractionalTranslation(
-                    translation: Offset(0, .16 * (1 - progress)),
-                    child: Opacity(opacity: progress, child: text(widget.text)),
-                  ),
-                  if (_previous != null && progress < 1)
-                    Positioned.fill(
-                      child: FractionalTranslation(
-                        translation: Offset(0, -.16 * progress),
-                        child: Opacity(
-                          opacity: 1 - progress,
-                          child: text(_previous!),
-                        ),
-                      ),
-                    ),
+                  // Preserve paint order as well as opacity and translation.
+                  // Only the current string determines width and line height.
+                  for (final layer in _layers)
+                    if (layer.text == widget.text ||
+                        layer.opacityAt(progress) > .5 / 255)
+                      _countLayer(layer, progress, text(layer.text)),
                 ],
               ),
             );
@@ -212,10 +225,52 @@ class _HhAnimatedCountState extends State<HhAnimatedCount>
     );
   }
 
+  Widget _countLayer(_CountLayer layer, double progress, Widget text) {
+    final child = FractionalTranslation(
+      translation: Offset(0, layer.offsetAt(progress)),
+      child: Opacity(opacity: layer.opacityAt(progress), child: text),
+    );
+    return layer.text == widget.text
+        ? KeyedSubtree(key: ValueKey(layer.text), child: child)
+        : Positioned.fill(key: ValueKey(layer.text), child: child);
+  }
+
   @override
   void dispose() {
     _progress.dispose();
     super.dispose();
+  }
+}
+
+class _CountLayer {
+  const _CountLayer(
+    this.text,
+    this.startOpacity,
+    this.startOffset,
+    this.targetOpacity,
+    this.targetOffset,
+  );
+
+  const _CountLayer.steady(String text) : this(text, 1, 0, 1, 0);
+  const _CountLayer.incoming(String text) : this(text, 0, .16, 1, 0);
+
+  final String text;
+  final double startOpacity, startOffset, targetOpacity, targetOffset;
+
+  double opacityAt(double progress) =>
+      startOpacity + (targetOpacity - startOpacity) * progress;
+  double offsetAt(double progress) =>
+      startOffset + (targetOffset - startOffset) * progress;
+
+  _CountLayer retarget(double progress, {required bool selected}) {
+    final offset = offsetAt(progress);
+    return _CountLayer(
+      text,
+      opacityAt(progress),
+      offset,
+      selected ? 1 : 0,
+      selected ? 0 : offset - .16,
+    );
   }
 }
 

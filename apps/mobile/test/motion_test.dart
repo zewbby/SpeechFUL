@@ -312,7 +312,7 @@ void main() {
     },
   );
 
-  testWidgets('rapid count updates keep at most two whole Unicode strings', (
+  testWidgets('rapid count updates preserve whole Unicode strings', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -339,9 +339,8 @@ void main() {
           matching: find.byType(Text),
         ),
       );
-      expect(texts.length, lessThanOrEqualTo(2));
-      expect(texts.first.data, next);
-      expect(texts.first.textAlign, TextAlign.end);
+      expect(texts.where((text) => text.data == next), hasLength(1));
+      expect(texts.every((text) => text.textAlign == TextAlign.end), isTrue);
     }
     await tester.pumpAndSettle();
     expect(find.text('١٦'), findsOneWidget);
@@ -355,6 +354,124 @@ void main() {
       TextDirection.rtl,
     );
     expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
+
+  testWidgets('rapid rollback preserves visible opacity and displacement', (
+    tester,
+  ) async {
+    var count = '9';
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return HhAnimatedCount(text: count);
+          },
+        ),
+      ),
+    );
+    ({double opacity, Offset position}) frame(String text) => (
+      opacity: tester
+          .widget<Opacity>(
+            find
+                .ancestor(of: find.text(text), matching: find.byType(Opacity))
+                .first,
+          )
+          .opacity,
+      position: tester
+          .widget<FractionalTranslation>(
+            find
+                .ancestor(
+                  of: find.text(text),
+                  matching: find.byType(FractionalTranslation),
+                )
+                .first,
+          )
+          .translation,
+    );
+    rebuild(() => count = '10');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    final before9 = frame('9');
+    final before10 = frame('10');
+    expect(before9.position.dy, lessThan(0));
+    expect(before10.position.dy, greaterThan(0));
+    rebuild(() => count = '9');
+    await tester.pump();
+    expect(frame('9'), before9);
+    expect(frame('10'), before10);
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(frame('9').opacity, greaterThan(before9.opacity));
+    expect(frame('10').opacity, lessThan(before10.opacity));
+    expect(frame('9').position.dy.abs(), lessThan(before9.position.dy.abs()));
+    await tester.pumpAndSettle();
+    expect(find.text('10'), findsNothing);
+    expect(frame('9'), (opacity: 1.0, position: Offset.zero));
+  });
+
+  testWidgets('new count targets preserve all currently visible layers', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    var count = '9';
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return HhAnimatedCount(text: count);
+          },
+        ),
+      ),
+    );
+    Map<String, (double, Offset)> frames() => {
+      for (final widget in tester.widgetList<Text>(
+        find.descendant(
+          of: find.byType(HhAnimatedCount),
+          matching: find.byType(Text),
+        ),
+      ))
+        widget.data!: (
+          tester
+              .widget<Opacity>(
+                find
+                    .ancestor(
+                      of: find.text(widget.data!),
+                      matching: find.byType(Opacity),
+                    )
+                    .first,
+              )
+              .opacity,
+          tester
+              .widget<FractionalTranslation>(
+                find
+                    .ancestor(
+                      of: find.text(widget.data!),
+                      matching: find.byType(FractionalTranslation),
+                    )
+                    .first,
+              )
+              .translation,
+        ),
+    };
+    for (final target in ['10', '11', '12', '10', '13', '9']) {
+      final before = frames();
+      rebuild(() => count = target);
+      await tester.pump();
+      final after = frames();
+      for (final entry in before.entries) {
+        if (entry.value.$1 > .5 / 255) {
+          expect(after[entry.key], entry.value, reason: entry.key);
+        }
+      }
+      expect(find.bySemanticsLabel(target), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    await tester.pumpAndSettle();
+    expect(frames(), {'9': (1.0, Offset.zero)});
     semantics.dispose();
   });
 
