@@ -455,7 +455,7 @@ Future<Map<String, Object>> runCommunityStage1(
     await control('pause-posts');
     await tap(find.byIcon(Icons.add));
     await input('post-title-input', '单机文字验收');
-    await input('post-body-input', '中文与换行\n原身份、原通道 👩‍💻');
+    await input('post-body-input', '中文与换行\n原身份、原分类 👩‍💻');
     await tap(find.text('下一步'));
     await wait(
       () => find.byIcon(Icons.expand_more).evaluate().isNotEmpty,
@@ -536,7 +536,7 @@ Future<Map<String, Object>> runCommunityStage1(
     // The personal failed card opens the existing retry composer directly.
     // The separate task-detail retry action is not on this navigation path.
     await wait(
-      () => find.text('身份和通道保持不变').evaluate().isNotEmpty,
+      () => find.text('身份和分类保持不变').evaluate().isNotEmpty,
       'immutable retry identity and channel',
     );
     await control('drop-retry');
@@ -576,7 +576,7 @@ Future<Map<String, Object>> runCommunityStage1(
       () => find.byTooltip('删除帖子').evaluate().isNotEmpty,
       'actual detail',
     );
-    expect(find.text('中文与换行\n原身份、原通道 👩‍💻'), findsOneWidget);
+    expect(find.text('中文与换行\n原身份、原分类 👩‍💻'), findsOneWidget);
     await back();
     await tap(find.text('我的'));
     await wait(

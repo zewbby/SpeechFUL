@@ -833,7 +833,7 @@ class _DeviceApp extends StatelessWidget {
         if (lab.page == 'posts') {
           body = PersonalPostsScreen(
             controller: lab.posts,
-            channelNames: {lab.f['channelId'] as String: '合成验收通道'},
+            channelNames: {lab.f['channelId'] as String: '合成验收分类'},
             onManageIdentities: () async {},
             onAuthenticationRequired: () {},
             showNavigation: false,

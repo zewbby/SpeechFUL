@@ -4,16 +4,8 @@ extension PostSearchController on PostController {
   bool get supportsPostSearch => _api is PostSearchApi;
   bool get supportsPostRankings => _api is PostRankingApi;
 
-  Future<PostRanking> hotPosts(String channelId) => _withDiscoveryAuthority(
-    (token) => (_api as PostRankingApi).hotPosts(
-      sessionToken: token,
-      channelId: channelId,
-    ),
-    optional: true,
-  );
-
-  Future<List<String>> channelOrder() => _withDiscoveryAuthority(
-    (token) => (_api as PostRankingApi).channelOrder(sessionToken: token),
+  Future<PostRanking> hotPosts() => _withDiscoveryAuthority(
+    (token) => (_api as PostRankingApi).hotPosts(sessionToken: token),
     optional: true,
   );
 

@@ -857,7 +857,7 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                 const Divider(),
                                 const SizedBox(height: 20),
                                 Text(
-                                  hhText(context, '通道'),
+                                  hhText(context, '分类'),
                                   style: const TextStyle(
                                     color: PostTheme.muted,
                                   ),
@@ -879,7 +879,7 @@ class _PostComposerScreenState extends State<PostComposerScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  hhText(context, '身份和通道保持不变'),
+                                  hhText(context, '身份和分类保持不变'),
                                   style: const TextStyle(
                                     color: PostTheme.muted,
                                   ),
@@ -1204,7 +1204,7 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
                                           : hhText(context, '请选择身份')),
                                 ),
                                 subtitle: widget.editor.isRetry
-                                    ? Text(hhText(context, '重试保留原身份和通道'))
+                                    ? Text(hhText(context, '重试保留原身份和分类'))
                                     : Text(hhText(context, '用于本次发布')),
                                 trailing: widget.editor.isRetry
                                     ? null
@@ -1335,7 +1335,7 @@ class _PersonalPostsScreenState extends State<PersonalPostsScreen>
           builder: (_) => PostComposerScreen(
             controller: widget.controller,
             editor: editor,
-            channelName: widget.channelNames[editor.channelId] ?? '原通道',
+            channelName: widget.channelNames[editor.channelId] ?? '原分类',
             onManageIdentities: widget.onManageIdentities,
             onAuthenticationRequired: widget.onAuthenticationRequired,
           ),
@@ -1355,7 +1355,7 @@ class _PersonalPostsScreenState extends State<PersonalPostsScreen>
           builder: (_) => PostComposerScreen(
             controller: widget.controller,
             editor: editor,
-            channelName: widget.channelNames[editor.channelId] ?? '原通道',
+            channelName: widget.channelNames[editor.channelId] ?? '原分类',
             onManageIdentities: widget.onManageIdentities,
             onAuthenticationRequired: widget.onAuthenticationRequired,
           ),
@@ -1638,7 +1638,7 @@ class _PostTaskScreenState extends State<_PostTaskScreen> {
         builder: (_) => PostComposerScreen(
           controller: widget.controller,
           editor: editor,
-          channelName: widget.channelNames[editor.channelId] ?? '原通道',
+          channelName: widget.channelNames[editor.channelId] ?? '原分类',
           onManageIdentities: widget.onManageIdentities,
           onAuthenticationRequired: widget.onAuthenticationRequired,
         ),
@@ -1657,7 +1657,7 @@ class _PostTaskScreenState extends State<_PostTaskScreen> {
         builder: (_) => PostComposerScreen(
           controller: widget.controller,
           editor: editor,
-          channelName: widget.channelNames[editor.channelId] ?? '原通道',
+          channelName: widget.channelNames[editor.channelId] ?? '原分类',
           onManageIdentities: widget.onManageIdentities,
           onAuthenticationRequired: widget.onAuthenticationRequired,
         ),

@@ -53,7 +53,7 @@ func TestFeedRankingsRedisPostgres(t *testing.T) {
 	first := publish(channel, "重复讨论")
 	advance(time.Minute)
 	newer := publish(channel, "新帖子")
-	publish(second, "另一通道")
+	other := publish(second, "另一分类")
 	comment := func(token [32]byte, id uuid.UUID) string {
 		t.Helper()
 		r := commentTextSend(t, l, token, postTestKey(t), comments.Intent{Operation: comments.Create, TaskID: uuid.NewString(), PostID: first, IdentityID: id.String(), Body: "讨论"})
@@ -94,7 +94,7 @@ func TestFeedRankingsRedisPostgres(t *testing.T) {
 	}
 	hot := func(want ...string) {
 		t.Helper()
-		response, e := l.c.ReadRankings(ctx, b.SessionToken, channel)
+		response, e := l.c.ReadRankings(ctx, b.SessionToken)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -107,7 +107,7 @@ func TestFeedRankingsRedisPostgres(t *testing.T) {
 		}
 	}
 	build()
-	hot(newer, first) // equal base score; author interactions and duplicate replies count zero extra.
+	hot(newer, first, other) // equal base score; author interactions and duplicate replies count zero extra.
 	locked, e := l.cp.Begin(ctx)
 	if e != nil {
 		t.Fatal(e)
@@ -122,27 +122,23 @@ func TestFeedRankingsRedisPostgres(t *testing.T) {
 	if e = locked.Rollback(ctx); e != nil {
 		t.Fatal(e)
 	}
-	order, e := l.c.ReadRankings(ctx, b.SessionToken, "")
-	if e != nil || order.Value.(posts.ChannelRanking).ChannelIDs[0] != channel {
-		t.Fatal("channel participation order", e)
-	}
 	otherComment := comment(d.SessionToken, di)
 	build()
-	hot(first, newer)
+	hot(first, newer, other)
 	deleted := commentTextSend(t, l, d.SessionToken, postTestKey(t), comments.Intent{Operation: comments.DeleteComment, CommentID: otherComment})
 	if deleted.State != "APPLIED" {
 		t.Fatal("comment delete fixture did not commit", deleted.State)
 	}
 	build()
-	hot(newer, first)
+	hot(newer, first, other)
 
 	// SQL remains authoritative for visibility and preferences on old Redis order.
 	mustExec(t, l.cp, `UPDATE c_posts.posts SET moderation_hidden=true WHERE post_id=$1`, newer)
-	hot(first)
+	hot(first, other)
 	if _, e := l.c.ReplaceFeedPreferences(ctx, b.SessionToken, posts.FeedPreferences{BlockedChannelIDs: []string{channel}}); e != nil {
 		t.Fatal(e)
 	}
-	hot()
+	hot(other)
 	if _, e := l.c.ReplaceFeedPreferences(ctx, b.SessionToken, posts.FeedPreferences{BlockedChannelIDs: []string{}}); e != nil {
 		t.Fatal(e)
 	}
@@ -150,24 +146,39 @@ func TestFeedRankingsRedisPostgres(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	present := future
 	future.Bucket = control.clock.now().Truncate(rankings.Interval).Add(rankings.Interval)
 	future.Version = rankings.Version(future.Generation, future.Bucket)
+	// Make the future cache complete, so the final trusted-time check, rather
+	// than a missing Redis key, must force the SQL fallback.
+	batch, e := readRankingBlock(ctx, l.cp, present, future.Channels, 0)
+	if e != nil {
+		t.Fatal(e)
+	}
+	sortRankingCandidates(batch)
+	entries := make([]rankings.Entry, len(batch))
+	for i, item := range batch {
+		entries[i] = rankings.Entry{Rank: int64(i + 1), PostID: item.id}
+	}
+	if e := cache.Stage(ctx, future, "all", entries); e != nil {
+		t.Fatal(e)
+	}
 	if e := cache.Publish(ctx, future); e != nil {
 		t.Fatal(e)
 	}
 	// Private candidate lookup cannot authorize a future-dated public board.
-	current, e := l.c.ReadRankings(ctx, b.SessionToken, "")
-	if e != nil || !current.Value.(posts.ChannelRanking).AsOf.Before(future.Bucket) {
+	current, e := l.c.ReadRankings(ctx, b.SessionToken)
+	if e != nil || !current.Value.(posts.PostRanking).AsOf.Before(future.Bucket) {
 		t.Fatal("future cache did not fall back to the authorized SQL snapshot", e)
 	}
 	if e := cache.Close(); e != nil {
 		t.Fatal(e)
 	}
-	hot(first)
+	hot(first, other)
 	if e := l.gate.Freeze(ctx, "rankings authorization regression"); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := l.c.ReadRankings(ctx, b.SessionToken, channel); e == nil {
+	if _, e := l.c.ReadRankings(ctx, b.SessionToken); e == nil {
 		t.Fatal("frozen Gate released a cached ranking")
 	}
 }

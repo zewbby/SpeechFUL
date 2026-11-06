@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	Interval  = 5 * time.Minute
-	MaxAge    = 3 * Interval
-	cacheTTL  = 6 * Interval
-	ReadLimit = 64
+	Interval        = 5 * time.Minute
+	MaxAge          = 3 * Interval
+	cacheTTL        = 6 * Interval
+	ReadLimit       = 64
+	GlobalReadLimit = 7 * ReadLimit
 )
 
 type Snapshot struct {
@@ -56,7 +57,7 @@ type Cache struct {
 }
 
 func NewCache(options *redis.Options, environment string) *Cache {
-	return &Cache{client: redis.NewClient(options), prefix: "hnuhole:channel-rankings:v1:" + environment + ":"}
+	return &Cache{client: redis.NewClient(options), prefix: "hnuhole:channel-rankings:v2:" + environment + ":"}
 }
 
 func (c *Cache) Close() error { return c.client.Close() }
@@ -113,7 +114,7 @@ func (c *Cache) Snapshot(ctx context.Context) (Snapshot, error) {
 }
 
 func (c *Cache) Candidates(ctx context.Context, snapshot Snapshot, channel string, count int64) ([]string, error) {
-	limit := min(count, ReadLimit)
+	limit := min(count, GlobalReadLimit)
 	if limit == 0 {
 		return []string{}, nil
 	}

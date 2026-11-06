@@ -977,7 +977,7 @@ void main() {
     c.dispose();
   });
 
-  testWidgets('从我的恢复草稿发布成功后交还原通道，返回不重置分页', (tester) async {
+  testWidgets('从我的恢复草稿发布成功后交还原分类，返回不重置分页', (tester) async {
     final c = _WidgetPosts()
       ..personal = [localItem('draft')]
       ..restored = (editor()
@@ -1183,7 +1183,7 @@ void main() {
     });
   }
 
-  testWidgets('成功浮层仅消费当前通道新权威事件，旧事件和其他通道不弹', (tester) async {
+  testWidgets('成功浮层仅消费当前分类新权威事件，旧事件和其他分类不弹', (tester) async {
     final c = _WidgetPosts()
       ..publicationNotice = const PostPublicationNotice(
         sequence: 1,
@@ -1234,7 +1234,7 @@ void main() {
     c.dispose();
   });
 
-  testWidgets('明确失败卡片直达绑定编辑，确认重试返回原通道', (tester) async {
+  testWidgets('明确失败卡片直达绑定编辑，确认重试返回原分类', (tester) async {
     final task = PostTask(
       taskId: _postId,
       postId: _postId,
@@ -1292,7 +1292,7 @@ void main() {
     await tester.tap(find.text('失败文字'));
     await tester.pumpAndSettle();
     expect(find.text('编辑草稿'), findsOneWidget);
-    expect(find.text('身份和通道保持不变'), findsOneWidget);
+    expect(find.text('身份和分类保持不变'), findsOneWidget);
     expect(find.text('下一步'), findsNothing);
     expect(find.byIcon(Icons.lock_outline), findsNWidgets(2));
     expect(c.publications, 0);

@@ -242,18 +242,18 @@ void main() {
       tester.widget<HhXPostFeed>(find.byType(HhXPostFeed)).latestSelected,
       isFalse,
     );
-    expect(find.text('切换通道'), findsNothing);
+    expect(find.text('选择分类'), findsNothing);
     expect(
       f.api.calls.where((s) => s == 'feed:recommended:first:20'),
       hasLength(3),
     );
     await tester.tap(find.byKey(const ValueKey('feed-channel-picker')));
     await tester.pumpAndSettle();
-    expect(find.text('切换通道'), findsOneWidget);
+    expect(find.text('选择分类'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('choose-channel:$channelId')));
     await tester.pumpAndSettle();
     expect(f.controller.timelineChannelId, channelId);
-    expect(find.text('切换通道'), findsNothing);
+    expect(find.text('选择分类'), findsNothing);
   });
 
   testWidgets(
@@ -442,13 +442,13 @@ void main() {
       try {
         await tester.pumpWidget(screen(f));
         await tester.pumpAndSettle();
-        expect(find.byTooltip('选择通道写帖子'), findsOneWidget);
+        expect(find.byTooltip('选择分类写帖子'), findsOneWidget);
         expect(
           tester
               .getSemantics(find.byKey(const ValueKey('feed-compose')))
               .getSemanticsData()
               .tooltip,
-          '选择通道写帖子',
+          '选择分类写帖子',
         );
         await tester.tap(find.byKey(const ValueKey('feed-channel-picker')));
         await tester.pumpAndSettle();
@@ -715,7 +715,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('block-channel:$channelId')));
     await tester.pumpAndSettle();
     expect(f.api.blocked, {channelId});
-    expect(find.text('已屏蔽 1 个通道'), findsOneWidget);
+    expect(find.text('已屏蔽 1 个分类'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('reset-blocks')));
     await tester.pumpAndSettle();
     expect(f.api.blocked, isEmpty);
@@ -737,10 +737,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('feed-channel-picker')));
     await tester.pumpAndSettle();
-    expect(find.text('切换通道'), findsOneWidget);
+    expect(find.text('选择分类'), findsOneWidget);
     await f.auth.sessions.logout();
     await tester.pumpAndSettle();
-    expect(find.text('切换通道'), findsNothing);
+    expect(find.text('选择分类'), findsNothing);
     expect(
       find.byKey(const ValueKey('choose-channel:$channelId')),
       findsNothing,

@@ -95,3 +95,45 @@ func TestFeedRankingCachePublicationAndEviction(t *testing.T) {
 		t.Fatal("evicted or incomplete set looked like an empty ranking")
 	}
 }
+
+func TestFeedRankingV2ACLUpgradePostgres(t *testing.T) {
+	socket := os.Getenv("RANKING_REDIS_SOCKET")
+	if socket == "" {
+		t.Skip("dedicated rankings Redis fixture not requested")
+	}
+	ctx := context.Background()
+	admin := redis.NewClient(&redis.Options{Network: "unix", Addr: socket})
+	defer admin.Close()
+	environment, user, password := uuid.NewString(), "rank_test_"+uuid.NewString(), uuid.NewString()
+	oldPrefix := "~hnuhole:channel-rankings:v1:" + environment + ":*"
+	newPrefix := "~hnuhole:channel-rankings:v2:" + environment + ":*"
+	if err := admin.Do(ctx, "ACL", "SETUSER", user, "on", ">"+password, oldPrefix, "+@connection", "+get", "+set", "+zadd", "+zrange", "+expire", "+multi", "+exec", "+discard", "+eval", "+evalsha").Err(); err != nil {
+		t.Fatal(err)
+	}
+	defer admin.Do(ctx, "ACL", "DELUSER", user)
+	c := NewCache(&redis.Options{Network: "unix", Addr: socket, Username: user, Password: password}, environment)
+	defer c.Close()
+	bucket := time.Now().UTC().Truncate(Interval)
+	snapshot := Snapshot{Generation: 1, Bucket: bucket, Channels: []string{uuid.NewString()}, Counts: []int64{1}}
+	snapshot.Version = Version(1, bucket)
+	entry := Entry{Rank: 1, PostID: uuid.NewString()}
+	if err := c.Stage(ctx, snapshot, "all", []Entry{entry}); err == nil {
+		t.Fatal("v1-only ACL unexpectedly authorized v2")
+	}
+	if err := admin.Do(ctx, "ACL", "SETUSER", user, newPrefix).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Stage(ctx, snapshot, "all", []Entry{entry}); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Publish(ctx, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Snapshot(ctx); err != nil {
+		t.Fatal(err)
+	}
+	ids, err := c.Candidates(ctx, snapshot, "all", 1)
+	if err != nil || len(ids) != 1 || ids[0] != entry.PostID {
+		t.Fatal("v2 ACL did not allow full ranking lifecycle", err)
+	}
+}

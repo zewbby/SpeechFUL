@@ -245,6 +245,12 @@ const communitySettingsTranslations = <String, (String, String, String)>{
     '検索履歴を読み込めませんでした',
   ),
   '暂无搜索历史': ('沒有搜尋記錄', 'No search history', '検索履歴がありません'),
+  '已屏蔽 {count} 个分类': (
+    '已封鎖 {count} 個分類',
+    '{count} categories blocked',
+    '{count}個のカテゴリをブロック中',
+  ),
+  '全站热榜': ('全站熱榜', 'Trending across all categories', '全カテゴリの人気投稿'),
   '大家都在看': ('大家都在看', 'What people are reading', 'みんなが読んでいる投稿'),
   '暂时无法加载热榜': ('暫時無法載入熱門榜', 'Could not load trending posts', '人気投稿を読み込めませんでした'),
   '热榜刷新失败，请重试': (
@@ -262,7 +268,7 @@ const communitySettingsTranslations = <String, (String, String, String)>{
   '删除「{keyword}」': ('刪除「{keyword}」', 'Delete “{keyword}”', '「{keyword}」を削除'),
   '收起': ('收合', 'Collapse', '折りたたむ'),
   '展开': ('展開', 'Show more', 'もっと表示'),
-  '搜索当前通道': ('搜尋目前頻道', 'Search this channel', 'このチャンネルを検索'),
+  '搜索当前分类': ('搜尋目前分類', 'Search this category', 'このカテゴリを検索'),
   '收藏': ('收藏', 'Bookmarks', 'ブックマーク'),
   '收起全文': ('收起全文', 'Show less', '全文を折りたたむ'),
   '收起回复': ('收起回覆', 'Collapse replies', '返信を折りたたむ'),
@@ -434,16 +440,16 @@ const communitySettingsTranslations = <String, (String, String, String)>{
     'ログイン状態を確認してください',
   ),
   '请重新登录': ('請重新登入', 'Sign in again', '再度ログインしてください'),
-  '调整屏蔽设置': ('調整封鎖設定', 'Adjust blocked channels', 'ブロック設定を変更'),
+  '调整屏蔽设置': ('調整封鎖設定', 'Adjust blocked categories', 'ブロック設定を変更'),
   '调整正文与评论区域高度': (
     '調整內文與評論區域高度',
     'Adjust body and comment panel heights',
     '本文とコメント欄の高さを調整',
   ),
-  '身份和通道保持不变': (
-    '身分與頻道保持不變',
-    'Identity and channel stay the same',
-    '名前とチャンネルは変更されません',
+  '身份和分类保持不变': (
+    '身分與分類保持不變',
+    'Identity and category stay the same',
+    '名前とカテゴリは変更されません',
   ),
   '身份设置': ('身分設定', 'Identity settings', '名前の設定'),
   '身份读取失败，请重试。': (
@@ -468,8 +474,8 @@ const communitySettingsTranslations = <String, (String, String, String)>{
   '选择一张图片': ('選擇一張圖片', 'Choose an image', '画像を選ぶ'),
   '选择发言身份': ('選擇發言身分', 'Choose a posting identity', '投稿名を選ぶ'),
   '选择身份': ('選擇身分', 'Choose identity', '名前を選ぶ'),
-  '选择通道': ('選擇頻道', 'Choose channel', 'チャンネルを選ぶ'),
-  '通道': ('頻道', 'Channel', 'チャンネル'),
+  '选择分类': ('選擇分類', 'Choose category', 'カテゴリを選ぶ'),
+  '分类': ('分類', 'Category', 'カテゴリ'),
   '重新加载': ('重新載入', 'Reload', '再読み込み'),
   '重新加载图片': ('重新載入圖片', 'Reload image', '画像を再読み込み'),
   '重新核对设置': ('重新核對設定', 'Check settings again', '設定を確認し直す'),
@@ -480,10 +486,10 @@ const communitySettingsTranslations = <String, (String, String, String)>{
   '重新选择第{v0}张图片': ('重新選擇第{v0}張圖片', 'Reselect image {v0}', '画像{v0}を選び直す'),
   '重置': ('重設', 'Reset', 'リセット'),
   '重试': ('重試', 'Retry', '再試行'),
-  '重试保留原身份和通道': (
-    '重試保留原身分與頻道',
-    'Retry keeps the original identity and channel',
-    '再試行では元の名前とチャンネルを保持します',
+  '重试保留原身份和分类': (
+    '重試保留原身分與分類',
+    'Retry keeps the original identity and category',
+    '再試行では元の名前とカテゴリを保持します',
   ),
   '重试回复': ('重試回覆', 'Retry reply', '返信を再試行'),
   '重试核对': ('重試核對', 'Retry check', '確認を再試行'),
@@ -586,7 +592,6 @@ const communitySettingsTranslations = <String, (String, String, String)>{
     '保存できません。再試行、文章のコピー、または破棄して終了してください。',
   ),
   '内容不可用': ('內容不可用', 'Content unavailable', '内容は利用できません'),
-  '切换通道': ('切換通道', 'Switch channel', 'チャンネルを切り替え'),
   '前往原帖恢复': ('前往原帖恢復', 'Restore in original post', '元の投稿で復元'),
   '原任务结果待核对，暂不更换对象。': (
     '原任務結果待覈對，暫不更換對象。',
@@ -621,7 +626,7 @@ const communitySettingsTranslations = <String, (String, String, String)>{
     'Original identity unavailable. Check the task or choose another identity for the draft.',
     '元の名前は無効です。処理を確認するか、下書きの名前を選び直してください。',
   ),
-  '原通道': ('原通道', 'Original channel', '元のチャンネル'),
+  '原分类': ('原分類', 'Original category', '元のカテゴリ'),
   '原重试结果尚未核对完成，请先核对，不能另发新尝试。': (
     '原重試結果尚未覈對完成，請先覈對，不能另發新嘗試。',
     'Check the previous retry result before making another attempt.',
@@ -670,10 +675,10 @@ const communitySettingsTranslations = <String, (String, String, String)>{
     'Your identity in this post is no longer available. You cannot reply.',
     'この投稿での名前は利用できないため、返信できません。',
   ),
-  '开启后隐藏对应通道的帖子': (
-    '開啓後隱藏對應通道的帖子',
-    'Hide posts from the selected channels',
-    '選択したチャンネルの投稿を非表示',
+  '开启后隐藏对应分类的帖子': (
+    '開啓後隱藏對應分類的帖子',
+    'Hide posts from the selected categories',
+    '選択したカテゴリの投稿を非表示',
   ),
   '当前任务不能重试，请核对最新状态。': (
     '當前任務不能重試，請覈對最新狀態。',
@@ -691,7 +696,7 @@ const communitySettingsTranslations = <String, (String, String, String)>{
     'Posting is unavailable. The original operation is kept.',
     '現在投稿できません。元の操作は保持されています。',
   ),
-  '当前通道不可用。': ('當前通道不可用。', 'This channel is unavailable.', 'このチャンネルは利用できません。'),
+  '当前分类不可用。': ('當前分類不可用。', 'This category is unavailable.', 'このカテゴリは利用できません。'),
   '恢复未发送内容': ('恢復未發送內容', 'Restore unsent content', '未送信の内容を復元'),
   '我的身份': ('我的身份', 'My identity', '自分の名前'),
   '所选身份': ('所選身份', 'Selected identity', '選択した名前'),
@@ -818,10 +823,10 @@ const communitySettingsTranslations = <String, (String, String, String)>{
     'この端末では元形式の画像選択を利用できません。文章と保存済み画像は保持されています。',
   ),
   '此身份': ('此身份', 'This identity', 'この名前'),
-  '点击名称，直接进入对应通道': (
-    '點擊名稱，直接進入對應通道',
-    'Tap a name to open its channel',
-    '名前をタップしてチャンネルを開く',
+  '点击名称，直接进入对应分类': (
+    '點擊名稱，直接進入對應分類',
+    'Tap a name to open its category',
+    '名前をタップしてカテゴリを開く',
   ),
   '热度读取失败': ('熱度讀取失敗', 'Could not load popularity', '人気度を読み込めません'),
   '登录或恢复': ('登錄或恢復', 'Sign in or recover', 'ログインまたは復元'),
@@ -868,10 +873,10 @@ const communitySettingsTranslations = <String, (String, String, String)>{
     'Check the original task first. Content and target are kept.',
     '先に元の処理結果を確認してください。内容と返信先は保持されています。',
   ),
-  '请先核对原任务；重试只能使用原身份、通道和当前失败版本。': (
-    '請先覈對原任務；重試只能使用原身份、通道和當前失敗版本。',
-    'Check the original task first. Retry uses the original identity, channel and current failed version.',
-    '先に元の処理を確認してください。再試行では元の名前、チャンネル、現在の失敗バージョンのみ使用できます。',
+  '请先核对原任务；重试只能使用原身份、分类和当前失败版本。': (
+    '請先覈對原任務；重試只能使用原身份、分類和當前失敗版本。',
+    'Check the original task first. Retry uses the original identity, category and current failed version.',
+    '先に元の処理を確認してください。再試行では元の名前、カテゴリ、現在の失敗バージョンのみ使用できます。',
   ),
   '请先选择有效身份。': (
     '請先選擇有效身份。',
@@ -962,14 +967,14 @@ const communitySettingsTranslations = <String, (String, String, String)>{
     'This comment is unavailable.',
     'このコメントは現在表示できません。',
   ),
-  '选择发布通道': ('選擇發佈通道', 'Choose posting channel', '投稿先のチャンネルを選ぶ'),
-  '选择本次新帖所属的通道': (
-    '選擇本次新帖所屬的通道',
-    'Choose a channel for this post',
-    '今回の投稿先のチャンネルを選ぶ',
+  '选择帖子分类': ('選擇帖子分類', 'Choose posting category', '投稿先のカテゴリを選ぶ'),
+  '选择本次新帖所属的分类': (
+    '選擇本次新帖所屬的分類',
+    'Choose a category for this post',
+    '今回の投稿先のカテゴリを選ぶ',
   ),
-  '选择通道写帖子': ('選擇通道寫帖子', 'Choose a channel to write', 'チャンネルを選んで投稿'),
-  '选择通道发帖': ('選擇通道發帖', 'Choose a channel to post', 'チャンネルを選んで投稿'),
+  '选择分类写帖子': ('選擇分類寫帖子', 'Choose a category to write', 'カテゴリを選んで投稿'),
+  '选择分类发帖': ('選擇分類發帖', 'Choose a category to post', 'カテゴリを選んで投稿'),
   '部分图片无法读取或不符合格式、大小限制，请重新选择或移除。': (
     '部分圖片無法讀取或不符合格式、大小限制，請重新選擇或移除。',
     'Some images cannot be read or exceed format or size limits. Reselect or remove them.',

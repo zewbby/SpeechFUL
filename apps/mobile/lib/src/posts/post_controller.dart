@@ -48,7 +48,7 @@ class PostPublicationNotice {
   final String postId, channelId;
 }
 
-/// 编辑输入只属于创建它的授权窗口；已受理重试永远保留原身份和通道。
+/// 编辑输入只属于创建它的授权窗口；已受理重试永远保留原身份和分类。
 class PostDraftEditor {
   PostDraftEditor({
     required this.id,
@@ -1167,7 +1167,7 @@ class PostController extends ChangeNotifier {
             task.attemptVersion != e.attemptVersion ||
             task.channelId != e.channelId ||
             task.identityId != e.identityId) {
-          e.error = '请先核对原任务；重试只能使用原身份、通道和当前失败版本。';
+          e.error = '请先核对原任务；重试只能使用原身份、分类和当前失败版本。';
           return false;
         }
         e.revision = original.revision;
@@ -1239,7 +1239,7 @@ class PostController extends ChangeNotifier {
         }
       }
       await _refreshLocal(a);
-      // 只有原提交上下文确实写入 SQLite 后，确认页才可以返回通道。
+      // 只有原提交上下文确实写入 SQLite 后，确认页才可以返回分类。
       unawaited(_send(a, entry));
       return true;
     } catch (error) {
@@ -2257,7 +2257,7 @@ class PostController extends ChangeNotifier {
     'POST_IDENTITY_UNAVAILABLE' => '原身份已失效，请核对任务或重新选择草稿身份。',
     'TASK_NOT_RETRYABLE' => '当前任务不能重试，请核对最新状态。',
     'POSTING_RESTRICTED' || 'ACCOUNT_CLOSING' => '当前暂不能发布，原操作已保留。',
-    'POST_CHANNEL_UNAVAILABLE' => '当前通道不可用。',
+    'POST_CHANNEL_UNAVAILABLE' => '当前分类不可用。',
     _ => '服务端未接受这次操作，请核对原结果。',
   };
 

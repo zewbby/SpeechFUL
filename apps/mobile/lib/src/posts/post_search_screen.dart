@@ -83,10 +83,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       _controller.authorityVersion == _epoch;
   String get _scopeName => hhText(context, _channels[_channelId] ?? '全部分类');
   bool get _hasRanking =>
-      _channelId != null &&
-      _controller.supportsPostRankings &&
-      widget.onOpenRankedPost != null &&
-      !_controller.blockedChannelIds.contains(_channelId);
+      _controller.supportsPostRankings && widget.onOpenRankedPost != null;
   bool get _discovering =>
       _keyword == null && trimPostSearchKeyword(_input.text).isEmpty;
 
@@ -194,7 +191,6 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
       _history = const [];
       _historyLoading = _historyError = _historyExpanded = false;
       _channelId = channelId;
-      _clearRanking();
     });
     if (_keyword != null) {
       unawaited(_loadResults());
@@ -212,21 +208,19 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   void _loadDiscovery() {
     if (_discoveryScroll.hasClients) _discoveryScroll.jumpTo(0);
     unawaited(_readHistory());
-    unawaited(_readRanking());
+    if (_ranking == null) unawaited(_readRanking());
   }
 
   Future<void> _readRanking() async {
     if (!_current || !_hasRanking || !_discovering || _rankingLoading) return;
-    final channel = _channelId!;
     final request = ++_rankingRequest;
     setState(() {
       _rankingLoading = true;
       _rankingError = false;
     });
-    bool current() =>
-        _current && request == _rankingRequest && _channelId == channel;
+    bool current() => _current && request == _rankingRequest;
     try {
-      final value = await _controller.hotPosts(channel);
+      final value = await _controller.hotPosts();
       if (current()) setState(() => _ranking = value);
     } on Object {
       if (current()) setState(() => _rankingError = true);
@@ -236,22 +230,21 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   }
 
   Future<void> _openRankedPost(RankedPost post) async {
-    final channel = _channelId;
     if (!_current ||
         !_hasRanking ||
         _rankedPostOpen ||
-        channel == null ||
+        _controller.blockedChannelIds.contains(post.channelId) ||
         _controller.isPostDeleted(post.postId)) {
       return;
     }
     _rankedPostOpen = true;
     try {
       _focus.unfocus();
-      await widget.onOpenRankedPost!(context, post.postId, channel);
+      await widget.onOpenRankedPost!(context, post.postId, post.channelId);
     } finally {
       _rankedPostOpen = false;
     }
-    if (!_current || _channelId != channel || !_discovering) return;
+    if (!_current || !_discovering) return;
     if (_discoveryScroll.hasClients) _discoveryScroll.jumpTo(0);
     if (_rankingLoading) {
       ++_rankingRequest;
@@ -761,7 +754,12 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   Widget _buildDiscovery() {
     final rows = _hasRanking
         ? _ranking?.items
-              .where((post) => !_controller.isPostDeleted(post.postId))
+              .where(
+                (post) =>
+                    !_controller.isPostDeleted(post.postId) &&
+                    !_controller.blockedChannelIds.contains(post.channelId) &&
+                    _channels.containsKey(post.channelId),
+              )
               .toList(growable: false)
         : null;
     final scroll = CustomScrollView(
@@ -797,7 +795,7 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
   }
 
   Widget _rankingHeader(List<RankedPost>? rows) => _reveal(
-    ValueKey('post-search-hot-heading:$_channelId'),
+    const ValueKey('post-search-hot-heading:global'),
     SizedBox(
       width: double.infinity,
       child: Column(
@@ -811,6 +809,14 @@ class _PostSearchScreenState extends State<PostSearchScreen> {
               hhText(context, '大家都在看'),
               style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hhText(context, '全站热榜'),
+            style: TextStyle(
+              fontSize: 12,
+              color: HhTelegramPalette.of(context).secondary,
             ),
           ),
           const SizedBox(height: 14),

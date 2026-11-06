@@ -340,7 +340,7 @@ void main() {
           await tester.pumpWidget(
             MaterialApp(
               navigatorKey: navigator,
-              home: const Scaffold(body: Text('原通道')),
+              home: const Scaffold(body: Text('原分类')),
             ),
           );
           unawaited(
@@ -416,7 +416,7 @@ void main() {
           );
           await tester.tap(find.text('确认发布'));
           await r.wait(
-            () => e.submitted && find.text('原通道').evaluate().isNotEmpty,
+            () => e.submitted && find.text('原分类').evaluate().isNotEmpty,
             'durable intent returns original channel',
           );
           r.passed('J03-production-confirmation-durable-intent-and-return');

@@ -264,7 +264,7 @@ class HhXPostFeed extends StatelessWidget {
                           ),
                           IconButton(
                             key: const ValueKey('feed-channel-picker'),
-                            tooltip: hhText(context, '选择通道'),
+                            tooltip: hhText(context, '选择分类'),
                             onPressed: onBack,
                             icon: Icon(
                               Icons.keyboard_arrow_down_rounded,

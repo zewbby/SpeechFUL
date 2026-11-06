@@ -157,8 +157,8 @@ class _ChannelPicker extends StatelessWidget {
       child: Column(
         children: [
           _Header(
-            includeRecommended ? '切换通道' : '选择发布通道',
-            includeRecommended ? '点击名称，直接进入对应通道' : '选择本次新帖所属的通道',
+            includeRecommended ? '选择分类' : '选择帖子分类',
+            includeRecommended ? '点击名称，直接进入对应分类' : '选择本次新帖所属的分类',
           ),
           Expanded(
             child: ListView.builder(
@@ -257,7 +257,13 @@ class _BlockFilterState extends State<_BlockFilter> {
         children: [
           _Header(
             '屏蔽内容',
-            _blocked.isEmpty ? '开启后隐藏对应通道的帖子' : '已屏蔽 ${_blocked.length} 个通道',
+            _blocked.isEmpty
+                ? '开启后隐藏对应分类的帖子'
+                : hhText(
+                    context,
+                    '已屏蔽 {count} 个分类',
+                    args: {'count': '${_blocked.length}'},
+                  ),
           ),
           Expanded(
             child: ListView.builder(

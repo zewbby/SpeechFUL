@@ -32,21 +32,15 @@ func (c *Community) BeginRankingForeground() func() {
 }
 
 // ReadRankings uses Redis only before opening the final Gate transaction.
-// Empty channel means directory order, not an all-channel posts leaderboard.
-func (c *Community) ReadRankings(ctx context.Context, bearer [32]byte, channel string) (PostResponse, error) {
+func (c *Community) ReadRankings(ctx context.Context, bearer [32]byte) (PostResponse, error) {
 	if c.rankings == nil {
 		return PostResponse{}, rankingsUnavailable()
 	}
 	finishForeground := c.rankings.ForegroundStarted()
 	defer finishForeground()
-	if channel != "" {
-		if _, err := posts.ParseResourceID(channel); err != nil {
-			return PostResponse{}, postError("MALFORMED_REQUEST", 400)
-		}
-	}
 	ctx, cancel := context.WithTimeout(ctx, rankingReadBudget)
 	defer cancel()
-	response, err := c.readRankings(ctx, bearer, channel)
+	response, err := c.readRankings(ctx, bearer)
 	if errors.Is(err, errRankingSnapshotInvalid) {
 		return PostResponse{}, rankingsUnavailable()
 	}
@@ -56,7 +50,7 @@ func (c *Community) ReadRankings(ctx context.Context, bearer [32]byte, channel s
 	return response, err
 }
 
-func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel string) (PostResponse, error) {
+func (c *Community) readRankings(ctx context.Context, bearer [32]byte) (PostResponse, error) {
 	token := sha256.Sum256(bearer[:])
 	// This checkpoint is only a private candidate lookup bound. It cannot
 	// authorize a result, extend a session, or decide current time. All those
@@ -64,10 +58,12 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 	var account uuid.UUID
 	var generation int64
 	var decision AuthorizationDecision
-	err := c.pool.QueryRow(ctx, `SELECT s.account_id,s.session_generation,g.authorization_generation,g.trusted_high_watermark
+	var blocked []string
+	err := c.pool.QueryRow(ctx, `SELECT s.account_id,s.session_generation,g.authorization_generation,g.trusted_high_watermark,COALESCE(p.blocked_channel_ids,'{}'::uuid[])
 		FROM c_auth.sessions s CROSS JOIN c_auth.authorization_gate g
+		LEFT JOIN c_posts.feed_preferences p ON p.account_id=s.account_id
 		WHERE s.token_digest=$1 AND g.singleton_id=1`, token[:]).
-		Scan(&account, &generation, &decision.Generation, &decision.TrustedAt)
+		Scan(&account, &generation, &decision.Generation, &decision.TrustedAt, &blocked)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PostResponse{}, ErrSessionInvalid
 	}
@@ -77,7 +73,7 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 
 	candidateAt := decision.TrustedAt
 	var verifiedAt *time.Time
-	project := func(snapshot rankings.Snapshot, ids []string, expected int) (PostResponse, error) {
+	project := func(snapshot rankings.Snapshot, ids []string, expected int, preparedBlocked []string, completePrefix bool) (PostResponse, error) {
 		return c.withPostSessionAt(ctx, token, account, decision, &generation,
 			func(tx pgx.Tx, account uuid.UUID, final AuthorizationDecision, _ restriction) (any, error) {
 				candidateAt = final.TrustedAt
@@ -85,31 +81,48 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 				if !snapshot.ValidAt(final.Generation, final.TrustedAt) {
 					return nil, errRankingSnapshotInvalid
 				}
-				if channel == "" {
-					return posts.ChannelRanking{AsOf: snapshot.Bucket, ChannelIDs: snapshot.Channels}, nil
-				}
-				page := posts.PostRanking{AsOf: snapshot.Bucket, ChannelID: channel, Items: []posts.RankedPost{}}
-				if err := requirePostSearchChannel(ctx, tx, channel); err != nil {
-					return nil, err
-				}
+				page := posts.PostRanking{AsOf: snapshot.Bucket, Items: []posts.RankedPost{}}
 				prefs, _, err := readFeedPreferences(ctx, tx, account)
 				if err != nil {
 					return nil, err
 				}
-				if slices.Contains(prefs.BlockedChannelIDs, channel) {
-					return page, nil
+				blocked = prefs.BlockedChannelIDs
+				if preparedBlocked != nil && !slices.Equal(preparedBlocked, blocked) {
+					return nil, errRankingNeedsMore
+				}
+				if preparedBlocked == nil {
+					var count int64
+					for i, ch := range snapshot.Channels {
+						if !slices.Contains(blocked, ch) {
+							count += snapshot.Counts[i]
+						}
+					}
+					expected = int(min(count, posts.PostRankingLimit))
 				}
 				if len(ids) > 0 {
-					rows, err := tx.Query(ctx, projectRankedPostsSQL, ids, channel, final.TrustedAt)
+					rows, err := tx.Query(ctx, projectRankedPostsSQL, ids, blocked, final.TrustedAt)
 					if err != nil {
 						return nil, err
 					}
+					var coverageChannels []string
+					var coverageCounts []int64
 					page.Items, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (item posts.RankedPost, err error) {
-						err = row.Scan(&item.PostID, &item.Title, &item.ViewCount)
+						err = row.Scan(&item.PostID, &item.ChannelID, &item.Title, &item.ViewCount, &coverageChannels, &coverageCounts)
 						return
 					})
 					if err != nil {
 						return nil, err
+					}
+					if preparedBlocked == nil && !completePrefix {
+						for i, ch := range snapshot.Channels {
+							if slices.Contains(blocked, ch) || snapshot.Counts[i] <= rankings.ReadLimit {
+								continue
+							}
+							j := slices.Index(coverageChannels, ch)
+							if j < 0 || coverageCounts[j] < posts.PostRankingLimit {
+								return nil, errRankingNeedsMore
+							}
+						}
 					}
 					if page.Items == nil {
 						page.Items = []posts.RankedPost{}
@@ -132,18 +145,22 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 	// checkpoint. Here validate structure and generation only. The final Gate
 	// above alone decides whether the snapshot is current, stale or future.
 	useCache := cacheErr == nil && snapshot.ValidAt(decision.Generation, snapshot.Bucket)
-	if useCache && channel != "" {
-		if i := slices.Index(snapshot.Channels, channel); i >= 0 {
-			ids, cacheErr = c.rankings.Candidates(cacheCtx, snapshot, channel, snapshot.Counts[i])
-			expected = int(min(snapshot.Counts[i], posts.PostRankingLimit))
-			useCache = cacheErr == nil
-		} else {
-			useCache = false
+	if useCache {
+		var count int64
+		for _, n := range snapshot.Counts {
+			count += min(n, rankings.ReadLimit)
 		}
+		ids, cacheErr = c.rankings.Candidates(cacheCtx, snapshot, "all", count)
+		useCache = cacheErr == nil
 	}
 	cancel()
 	if useCache {
-		response, err := project(snapshot, ids, expected)
+		response, err := project(snapshot, ids[:min(len(ids), rankings.ReadLimit)], expected, nil, true)
+		// The first 64 of the merged union are the exact global first 64.
+		// If those fill the response, deeper shard candidates cannot outrank it.
+		if errors.Is(err, errRankingNeedsMore) && len(ids) > rankings.ReadLimit {
+			response, err = project(snapshot, ids, expected, nil, false)
+		}
 		if !errors.Is(err, errRankingNeedsMore) && !errors.Is(err, errRankingSnapshotInvalid) {
 			return response, err
 		}
@@ -157,25 +174,19 @@ func (c *Community) readRankings(ctx context.Context, bearer [32]byte, channel s
 			// Even an unavailable board must not mask a revoked session.
 			// The empty candidate cannot pass snapshot validation, but the
 			// existing final Gate decides authentication first.
-			return project(rankings.Snapshot{}, nil, 0)
+			return project(rankings.Snapshot{}, nil, 0, nil, true)
 		}
-	}
-	if channel == "" {
-		return project(snapshot, nil, 0)
 	}
 	if candidateAt.Before(snapshot.Bucket) {
 		candidateAt = snapshot.Bucket
 	}
 	for range 2 {
-		rows, err := c.pool.Query(ctx, rankFallbackSQL, snapshot.Version, channel, candidateAt)
+		preparedBlocked := append([]string{}, blocked...)
+		ids, err = c.rankingFallback(ctx, snapshot, preparedBlocked, candidateAt)
 		if err != nil {
 			return PostResponse{}, rankingsUnavailable()
 		}
-		ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
-		if err != nil {
-			return PostResponse{}, rankingsUnavailable()
-		}
-		response, err := project(snapshot, ids, len(ids))
+		response, err := project(snapshot, ids, len(ids), preparedBlocked, false)
 		if !errors.Is(err, errRankingNeedsMore) {
 			return response, err
 		}
@@ -203,17 +214,15 @@ func (c *Community) WithRankings(ctx context.Context, cache *rankings.Cache) (*C
 		return nil, errors.New("rankings require posts, comments and dedicated Redis")
 	}
 	var readable bool
-	err := c.pool.QueryRow(ctx, `SELECT has_table_privilege('c_posts.ranking_snapshots','SELECT')
-		AND has_table_privilege('c_posts.ranking_snapshots','INSERT')
-		AND has_table_privilege('c_posts.ranking_snapshots','DELETE')
-		AND has_column_privilege('c_posts.ranking_snapshots','channel_ids','UPDATE')
-		AND has_table_privilege('c_posts.ranking_posts','SELECT')
-		AND has_table_privilege('c_posts.ranking_posts','INSERT')
-		AND has_table_privilege('c_posts.ranking_channel_data','SELECT')
-		AND has_table_privilege('c_posts.ranking_channel_data','INSERT')
-		AND has_table_privilege('c_posts.ranking_channel_data','DELETE')
-		AND has_table_privilege('c_posts.ranking_inputs','SELECT')
-		AND has_column_privilege('c_posts.ranking_inputs','revision','UPDATE')`).Scan(&readable)
+	err := c.pool.QueryRow(ctx, `SELECT
+		(SELECT bool_and(has_table_privilege(t,p)) FROM
+		 unnest(ARRAY['c_posts.hot_snapshots','c_posts.hot_shard_data']) t
+		 CROSS JOIN unnest(ARRAY['SELECT','INSERT','DELETE']) p) AND
+		(SELECT bool_and(has_table_privilege(t,p)) FROM
+		 unnest(ARRAY['c_posts.hot_snapshot_shards','c_posts.hot_blocks']) t
+		 CROSS JOIN unnest(ARRAY['SELECT','INSERT']) p) AND
+		has_table_privilege('c_posts.ranking_inputs','SELECT') AND
+		has_column_privilege('c_posts.ranking_inputs','revision','UPDATE')`).Scan(&readable)
 	if err != nil || !readable {
 		return nil, errors.New("rankings schema or runtime grants are unavailable")
 	}

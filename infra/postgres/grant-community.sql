@@ -130,6 +130,15 @@ DO $$ BEGIN
  END IF;
 END $$;
 
+-- 0032 global hotlist keeps candidate blocks immutable. Retention cascades
+-- from snapshots and unreferenced shard metadata, never individual candidates.
+DO $$ BEGIN
+ IF to_regclass('c_posts.hot_snapshots') IS NOT NULL THEN
+  GRANT SELECT,INSERT,DELETE ON c_posts.hot_snapshots,c_posts.hot_shard_data TO hnuhole_c_runtime;
+  GRANT SELECT,INSERT ON c_posts.hot_snapshot_shards,c_posts.hot_blocks TO hnuhole_c_runtime;
+ END IF;
+END $$;
+
 -- 0014's image triggers also protect text-only writes. Lifecycle cleanup
 -- must erase existing bytes/grants even when the image HTTP API is disabled.
 -- Upload insertion and verification columns remain a separate opt-in grant.

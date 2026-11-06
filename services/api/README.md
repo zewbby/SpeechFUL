@@ -85,7 +85,7 @@ PGPASSWORD="$C_MIGRATOR_PASSWORD" psql -X -v ON_ERROR_STOP=1 "$C_MIGRATION_DSN" 
 PGPASSWORD="$V_MIGRATOR_PASSWORD" psql -X -v ON_ERROR_STOP=1 "$V_MIGRATION_DSN" -f ../../infra/postgres/grant-verifier.sql
 ```
 
-每次追加迁移后按 owner 连接重跑权限脚本；不以默认全 schema 权限自动放行未来表。`authlab` 的历史 schema-reset fixture 仅在带 marker、匹配库／角色、私有 Unix socket 的一次性库中使用正式 SQL 的 Up；它仍是 fault-injection owner，最小权限由新实际进程 runner 验证。旧通道升级只在 runner 明确创建的 `hnuhole_upgrade` 临时库，比较七条记录所有字段／UUID；不连接未知旧库，不复制资格或账号。
+每次追加迁移后按 owner 连接重跑权限脚本；不以默认全 schema 权限自动放行未来表。`authlab` 的历史 schema-reset fixture 仅在带 marker、匹配库／角色、私有 Unix socket 的一次性库中使用正式 SQL 的 Up；它仍是 fault-injection owner，最小权限由新实际进程 runner 验证。旧分类升级只在 runner 明确创建的 `hnuhole_upgrade` 临时库，比较七条记录所有字段／UUID；不连接未知旧库，不复制资格或账号。
 
 ## 启动、证据与停机
 

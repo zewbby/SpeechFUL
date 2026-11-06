@@ -871,29 +871,14 @@ class HttpPostApi
   );
 
   @override
-  Future<PostResponse<PostRanking>> hotPosts({
-    required String sessionToken,
-    required String channelId,
-  }) => _input(
-    () => _send(
-      sessionToken,
-      'GET',
-      '/api/v1/channels/${PostProtocol.resourceId(channelId)}/hot-posts',
-      requestTimeout: const Duration(seconds: 4),
-      decode: (raw) => PostRanking.fromJson(raw, channelId),
-    ),
-  );
-
-  @override
-  Future<PostResponse<List<String>>> channelOrder({
-    required String sessionToken,
-  }) => _send(
-    sessionToken,
-    'GET',
-    '/api/v1/feed/channel-order',
-    requestTimeout: const Duration(seconds: 2),
-    decode: channelOrderFromJson,
-  );
+  Future<PostResponse<PostRanking>> hotPosts({required String sessionToken}) =>
+      _send(
+        sessionToken,
+        'GET',
+        '/api/v1/feed/hot-posts',
+        requestTimeout: const Duration(seconds: 4),
+        decode: PostRanking.fromJson,
+      );
 
   static List<String> _searchHistoryFromJson(Object? raw) {
     final values = PostJson.record(raw, {'items'})['items'];

@@ -155,7 +155,7 @@ void main() {
         await tester.pumpAndSettle();
         final emptyAction = tester.widget<IconButton>(
           find.byWidgetPredicate(
-            (widget) => widget is IconButton && widget.tooltip == '选择通道发帖',
+            (widget) => widget is IconButton && widget.tooltip == '选择分类发帖',
           ),
         );
         expect((emptyAction.icon as Icon).color, palette.action);

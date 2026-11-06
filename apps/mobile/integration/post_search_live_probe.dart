@@ -39,6 +39,21 @@ Future<void> main(List<String> args) async {
     final channel = fixture['channelId'] as String;
     final otherChannel = fixture['otherChannelId'] as String;
 
+    if (fixture['hotTopPostId'] != null) {
+      step = 'global_hotlist';
+      final hot = (await client.hotPosts(sessionToken: reader)).value;
+      check(
+        hot.items.length == 3 &&
+            hot.items.first.postId == fixture['hotTopPostId'],
+      );
+      check(hot.items.first.channelId == otherChannel);
+      final hotDetail = (await client.detail(
+        sessionToken: reader,
+        postId: hot.items.first.postId,
+      )).value;
+      check(hotDetail.channelId == otherChannel);
+    }
+
     step = 'classified_relevance_page';
     final first = (await client.searchPosts(
       sessionToken: reader,

@@ -9,12 +9,11 @@ import (
 )
 
 const (
-	channelOrderRoute authprivacy.PostReadKind = "channelOrder"
-	hotPostsRoute     authprivacy.PostReadKind = "hotPosts"
+	hotPostsRoute authprivacy.PostReadKind = "hotPosts"
 )
 
 type rankingBackend interface {
-	ReadRankings(context.Context, [32]byte, string) (authprivacy.PostResponse, error)
+	ReadRankings(context.Context, [32]byte) (authprivacy.PostResponse, error)
 }
 
 type rankingForeground interface {
@@ -31,7 +30,7 @@ func (b *boundary) communityRankings(w http.ResponseWriter, r *http.Request, bac
 		b.postFail(w, 503, "RANKINGS_UNAVAILABLE", 0)
 		return
 	}
-	response, err := rankings.ReadRankings(r.Context(), bearer, route.id)
+	response, err := rankings.ReadRankings(r.Context(), bearer)
 	if err != nil {
 		b.postFailure(w, err)
 		return
@@ -48,23 +47,14 @@ func strictRankings(value any, route postRoute) (any, error) {
 		seen[id] = true
 		return true
 	}
-	if route.kind == channelOrderRoute {
-		page, ok := value.(posts.ChannelRanking)
-		if !ok || !validPostTime(page.AsOf) || len(page.ChannelIDs) == 0 || len(page.ChannelIDs) > 7 {
-			return nil, errMalformed
-		}
-		for _, id := range page.ChannelIDs {
-			if !unique(id) {
-				return nil, errMalformed
-			}
-		}
-		return page, nil
-	}
 	page, ok := value.(posts.PostRanking)
-	if !ok || !validPostTime(page.AsOf) || page.ChannelID != route.id || page.Items == nil || len(page.Items) > posts.PostRankingLimit {
+	if !ok || !validPostTime(page.AsOf) || page.Items == nil || len(page.Items) > posts.PostRankingLimit {
 		return nil, errMalformed
 	}
 	for _, item := range page.Items {
+		if _, err := posts.ParseResourceID(item.ChannelID); err != nil {
+			return nil, errMalformed
+		}
 		if !unique(item.PostID) || item.Title == "" || item.ViewCount < 0 {
 			return nil, errMalformed
 		}

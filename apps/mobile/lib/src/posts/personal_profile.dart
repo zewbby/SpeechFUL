@@ -840,7 +840,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                       ? hhText(context, '暂时无法加载自己的帖子')
                       : hhText(context, '还没有自己的帖子'),
                   message: c.personalError,
-                  action: c.personalError != null ? '重新加载' : '选择通道发帖',
+                  action: c.personalError != null ? '重新加载' : '选择分类发帖',
                   actionIcon: c.personalError == null ? Icons.add : null,
                   onAction: c.personalError != null
                       ? c.loadPersonal
@@ -865,7 +865,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                           key: ValueKey(item.id),
                           item: item,
                           channelName:
-                              widget.channelNames[item.channelId] ?? '原通道',
+                              widget.channelNames[item.channelId] ?? '原分类',
                           onOpen: () => _open(item),
                           onDeleteDraft: item.isDraft
                               ? () => _deleteDraft(item)
