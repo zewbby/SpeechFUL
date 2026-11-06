@@ -9,7 +9,7 @@
 - 恢复专项授权：既有日常开发连接拒绝后，普通 resume 在 2026-11-06 02:23:47Z 检出 C DB/anchor 高水位差异并触发保护性冻结。用户随后明确选择“授权恢复，接受重新登录（推荐）”，授权按既有部署流程显式恢复 C Gate，接受 C 授权代次提升及旧 C 会话失效；不恢复 V 代次、不重置 schema 或清理业务数据。
 - 需求确认：已使用 `grill-with-docs` 组合技能核对现有源码并集中询问。用户 Q1 确认“基本能做的都做”并要求按模块指挥执行；Q2 选择“按推荐，先做好日常反馈”；随后确认五模块方案并授权“按照你建议的模型及强度来做”。沿用 Flutter/Dart、现有布局／配色／业务流程，完善所有适用的日常反馈；玻璃折射、持续扫光、大粒子消散和未有业务的剧透／贴纸功能不在本轮。执行模块使用 GPT-6.1 Sol / high，独立集成审查使用 GPT-6 Astra / high。
 - 更新日期：2026-11-06。
-- 状态：滚动修复已集成 e257b17 并同签安装0602；v2的P95门槛两组复测均达标，少量输入后布局尖峰仍保留；必要界面复验和当前head CI进行中；待合并，实时合并状态见PR107；未正式发布。
+- 状态：产品实现、独立AI审查、同签0603安装及本轮真机覆盖项 PASS；最终包滚动P95仍达标，少量输入后布局尖峰保留；远程CI/合并以[PR107当前检查与实时状态](https://github.com/zewbby/SpeechFUL/pull/107/checks)为准，入口核对当前head门槛后按已有授权合并；未正式发布。
 
 ## 目标与范围
 
@@ -134,8 +134,16 @@ MOTION-00 的公共 API 固定为：
 
 口径：Frame为Flutter-driver统计的整个UI阶段（包含animation/build/layout/paint/postframe），不是孤立BUILD；按Frame小写b/e的id及Draw B/E配对，只算完整事件。每cycle取出清理避免环形覆盖，复合timeline覆盖范围从traceEvents取。SF取目标BLAST layer的actualPresentTime，用实际PointerEvent flow-start首末包络双端裁20ms筛选；不是physical input或总体FPS。第一组修复后59/35/33/32ms尖峰均在命令结束76–698ms后，以嵌套布局/构建为主，无GC时间重叠，仍真实保留。临时CPU/widget插桩仅用于诊断，全部flag恢复原值，不把插桩时长当验收。
 
+### 最终0603与可见链路（v5补充）
+
+- `ce42d4a10c79a9794a1f7f300acbe7a3790c3998` 集成为 `970dd68cb1abecc5e1bacfe56f1945ccbef84031`，产品差异0。根PrimaryTabs声明随Theme变化的statusBarColor/brightness，底部系统导航栏字段全null，无全局SystemChrome/系统设置改写。Sol联合80项与analyze PASS；Astra原外置浅深两项FAIL→PASS、原scroll两项PASS，联合18项PASS；独立AI审查无剩余可行动问题，非GitHub成员批准。
+- 最终正式 `lib/main.dart` profile包同签保数据安装PASS，实际versionCode `2026110603`，签名证书仍1538fb30…；59,623,173字节，SHA256 `ed2f99cb368627537bc5b221e44ba2aaedff31c40264221be80be5445341da37`。构建43.4秒，原config/CA/StorageScope保持；`profile-final-build-metadata.json`。
+- 0603真机重复图片打开→250px/800ms短拖回原位→900px/1000ms长拖退出：首页深色状态栏文字恢复，底部导航栏原外观保留。截图 `final0603-viewer-{open,short-return,exit-home}.png`。0602已核对个人页帖子/回复/喜欢/收藏切换、真实空态/回复、DM列表、菜单、语言中文→English→中文及返回阅读位置；0603重访个人/DM后回首页并聚焦复验图片与滚动。没有发送私信、点赞、发帖或重置数据；涉及写入结果/撤权/减少动画的其他路径由原组件/完整回归证明，不冒充全部真机业务已执行。
+- 0603最终独立3cycles（已预热2cycles、60Hz、Latest20帖、准备offset2893）：UI Frame335项，P50/P95/P99/max=3.822/11.127/19.133/57.994ms，5超16.67；raster334项=2.455/5.091/6.571/10.751ms，0超；SF观测pointer包络147间隔，P95=16.619/max33.231ms，3>25ms。**PASS（v2 P95）**，仍保留偶发尖峰及不完整边界事件差异，不声称全程满帧。`scroll-final0603.{summary,private}.json`。
+- 临时CPU/widget/layout/paint flags与原timeline streams均已还原（`final-diagnostic-flags.json`）；手机留首页、停止自动触控。原开发C/V连接与两条USB reverse仍供已装日常包使用，不误清理依赖资源。最终head CI及合并事实引用PR107实时检查/元数据，不用历史c3f2738/709789d冒充最终检查。
+
 ## 阻碍与下一步
 
-五模块、三项审查问题及chrome逐帧tabs重建已闭环；滚动P95已达v2门槛，仍保留输入后个别布局尖峰。既有完整自动验证绑定产品提交 `3f5424b33c51271b6ea43c75cf714e4ce30b66a9`；后续产品修复为 `e257b17` 两文件，已有上述聚焦与独立审查PASS。已推送并创建PR107、同签安装0602 profile包；待必要界面复验与当前head远程CI后按授权合并，实时合并状态以PR107为准；未正式发布。
+五模块、三项审查问题、chrome逐帧tabs重建及图片返回状态栏已闭环。完整旧产品验证绑定 `3f5424b`；后续两文件修复分别为 `e257b17`、`970dd68`，有对应聚焦/独立审查、Android构建与0603真机证据；其后的更新仅本任务记录。保留输入后少量布局尖峰；转帖读取开始/结束全局通知是已证实的额外工作量来源，但没有证据把设备57–59ms直接归因于它，不跳过读取或安全检查作掩盖。正式生产未发布；PR107的当前head CI和实时合并状态为交付操作证据入口。
 
 App 环境在 dot-source 通用脚本后将当前进程 `PUB_HOSTED_URL` 设为 `https://pub.dev`；图片包独立锁使用其原镜像 `https://pub.flutter-io.cn`，均使用原锁现成缓存，未升级依赖。源配置不匹配导致的原锁预检失败不计为产品 FAIL。
