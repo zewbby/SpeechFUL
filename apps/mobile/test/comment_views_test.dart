@@ -282,6 +282,62 @@ void main() {
   snapshotRecoveryTests();
   detailReferenceTests();
   quickReplyTests();
+  testWidgets('published reply refreshes the existing root reply count', (
+    tester,
+  ) async {
+    final journal = _MemoryJournal();
+    final r = _Runtime(journal);
+    await r.core.activate(account);
+    addTearDown(() async {
+      r.core.dispose();
+      r.dispose();
+      await journal.close();
+    });
+    r.rootRows.single['replyCount'] = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CommentPostPane(
+            runtime: r,
+            postId: post,
+            postBody: '正文',
+            continuous: true,
+            body: const Text('正文'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    r.transportFake.publishedId = reply;
+    r.transportFake.onExecute = () {
+      r.rootRows.single['replyCount'] = 1;
+      r.rootRows.add(row(reply, '刚发表的回复', floor: root, target: root));
+    };
+    await r.core.submit(
+      taskId: reply,
+      commandId: commentKey(),
+      binding: CommentBinding(
+        postId: post,
+        identityId: identity,
+        rootCommentId: root,
+        targetCommentId: root,
+      ),
+      content: CommentContent(body: '刚发表的回复'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('乙回复甲的具体内容'), findsOneWidget);
+    expect(
+      tester
+          .widgetList<DetailAction>(find.byType(DetailAction))
+          .any(
+            (button) =>
+                button.action == FeedAction.comment && button.count == '1',
+          ),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('deleting a reply updates its visible root count once', (
     tester,
   ) async {

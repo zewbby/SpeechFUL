@@ -57,6 +57,13 @@
 - 修复后完整App回归PASS：1165通过/4既有专用fixture SKIP，`flutter-after-fix.log`；聚焦analyze零问题。首个专项命令误列不存在的`comment_controller_test.dart`，其余90项通过但该命令整体不作PASS；以随后完整App回归替代，不将工具路径错误记为产品缺陷。
 - 目前源码候选为原完整SHA＋`apps/mobile/lib/src/comments/comment_views.dart`及对应测试差异；已装APK仍是原候选，不把源码回归提升为手机已修复。后端未改。
 
+### 第二批计数修复与包复验
+
+- D01 已由本地提交 `9950b7ad3824c485873ee0b16b3729c52086a5f2` 承载；2026110701 独立验收包已安装，签名与原验收包一致，数据保留。设备刷新取得主评论回复数1，删除其唯一回复后不刷新即清零，总数2→1；[真机证据](E:/Hnuhole-env/android-v1-acceptance-01/10-fixed-delete-count.png)。
+- D02／P2：已有主评论下新回复已发表并可见，主行回复数仍0，刷新才更新。定位为发布定位只补新行、不更新已有根行计数。最小修复仅在确认发表并定位后读根行权威计数；保持列表顺序，按账号权限代次、列表版本、删除变化及同根请求顺序拒绝过期响应；读计数失败不隐藏已确认回复。
+- D02 新用例在旧实现先 FAIL（新回复已可见而根计数没有1），修复后 comment_views 66项 PASS；完整 App analyze 0问题、1166 PASS／4既有 SKIP。`comment-created-count-before.log`、`comment-created-count-after.log`、`flutter-final-analyze.log`、`flutter-final.log`。此前用例第一次断言误用了与固定回复fixture不同的文字，纠正后才复现目标计数失败，不作为产品失败证据。
+- 后端无源码修改，仍为 main `6b722f071f07cbd94d96095734499f8cdd061641`；D02 真机待下一统一包复验。新增本地修复尚无远程产品CI，不把 main 已有CI算作修复head CI。
+
 ## 场景矩阵
 
 环境缩写：D＝realme Android14，正常 `lib/main.dart`、原生安全存储、任务独立包；R＝候选一次性 C34/V7、真实 PostgreSQL16、独立评论 Redis 和热榜 Redis、严格私有 CA HTTPS；H＝候选 Flutter host/widget，网络／平台替身；S＝仓库真实 SQL/HTTPS/race runner；P＝公网公开域名及发布签名。D+R 才作为联合真机业务证据。数据 A/B/C 均为任务合成账号；IP、邮箱、恢复码、私钥及令牌只在私有材料中。
