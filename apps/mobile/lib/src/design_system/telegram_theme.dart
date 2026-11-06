@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'motion_routes.dart';
+
 /// Shared appearance calibrated against the user's Telegram Android screenshot.
 /// JPEG samples are approximate; light text uses neutral grays rather than blue.
 @immutable
@@ -200,6 +202,9 @@ abstract final class HhTelegramTheme {
       inversePrimary: HhTelegramPalette.dark.accent,
     );
     return base.copyWith(
+      pageTransitionsTheme: HhMotionRoutes.accessible(
+        base.pageTransitionsTheme,
+      ),
       colorScheme: scheme,
       scaffoldBackgroundColor: colors.surface,
       canvasColor: colors.surface,

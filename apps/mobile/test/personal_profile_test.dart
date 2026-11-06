@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show SemanticsAction;
 
 import 'package:hnuhole_mobile/src/design_system/telegram_theme.dart';
+import 'package:hnuhole_mobile/src/design_system/motion.dart';
 import 'package:hnuhole_mobile/src/identity/identity_avatar.dart';
 
 import 'identity_test_support.dart';
@@ -42,6 +43,59 @@ void expectProfileSelection(WidgetTester tester, int selected) {
 }
 
 void main() {
+  testWidgets(
+    'rapid personal categories and reduced-motion changes keep real selection',
+    (tester) async {
+      final media = ValueNotifier(const MediaQueryData(size: Size(800, 600)));
+      final semantics = tester.ensureSemantics();
+      final f = HomeTestFixture();
+      await tester.pumpWidget(
+        ValueListenableBuilder(
+          valueListenable: media,
+          child: await f.create(),
+          builder: (_, value, child) => MediaQuery(data: value, child: child!),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('destination:personal')));
+      await tester.pumpAndSettle();
+      for (final tab in [3, 4, 1, 2, 0]) {
+        await tester.tap(profileTab(tab));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        for (var index = 0; index < 5; index++) {
+          expect(
+            tester.widget<HhAnimatedSelection>(profileTab(index)).selected,
+            index == tab,
+          );
+        }
+      }
+      media.value = media.value.copyWith(accessibleNavigation: true);
+      await tester.pump();
+      expectProfileSelection(tester, 0);
+      for (final tab in [4, 3, 0]) {
+        await tester.tap(profileTab(tab));
+        await tester.pump();
+        expectProfileSelection(tester, tab);
+      }
+      await tester.tap(find.byTooltip('切换身份'));
+      await tester.pump();
+      final rotation = tester.widget<AnimatedRotation>(
+        find.byType(AnimatedRotation),
+      );
+      expect(rotation.duration, Duration.zero);
+      final route = ModalRoute.of(tester.element(find.text('切换身份')))!;
+      expect(route.transitionDuration, Duration.zero);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.text('切换身份'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      media.dispose();
+      semantics.dispose();
+    },
+  );
+
   testWidgets(
     'home avatar follows identity selection and same-identity updates',
     (tester) async {

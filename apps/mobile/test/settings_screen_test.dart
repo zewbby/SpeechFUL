@@ -53,6 +53,66 @@ Widget _app(AuthPresentationController c, {SettingsScreen? settings}) =>
 
 void main() {
   testWidgets(
+    'settings press cancellation and keyboard activation keep one route',
+    (tester) async {
+      final c = AuthPresentationController();
+      var activations = 0;
+      await tester.pumpWidget(
+        _app(
+          c,
+          settings: SettingsScreen(
+            onManageIdentity: () {},
+            onManageSecurity: () => activations++,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final devices = find.byKey(const ValueKey('settings-devices'));
+      final point = tester.getCenter(devices);
+      final gesture = await tester.startGesture(point);
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(activations, 0);
+      await gesture.moveBy(const Offset(0, -100));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(activations, 0);
+      await tester.tap(devices);
+      await tester.pumpAndSettle();
+      expect(activations, 1);
+      // A pointer activation leaves the entry focusable for native keyboard use.
+      for (var step = 0; step < 12; step++) {
+        final focused = FocusManager.instance.primaryFocus?.context;
+        if (focused != null &&
+            find
+                .ancestor(
+                  of: find.byElementPredicate((element) => element == focused),
+                  matching: devices,
+                )
+                .evaluate()
+                .isNotEmpty) {
+          break;
+        }
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+      final focusContext = FocusManager.instance.primaryFocus?.context;
+      expect(focusContext, isNotNull);
+      expect(
+        find.ancestor(
+          of: find.byElementPredicate((element) => element == focusContext),
+          matching: devices,
+        ),
+        findsOneWidget,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(activations, 2);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    },
+  );
+
+  testWidgets(
     'support enlarges original and reports denied save without success',
     (tester) async {
       final c = AuthPresentationController();

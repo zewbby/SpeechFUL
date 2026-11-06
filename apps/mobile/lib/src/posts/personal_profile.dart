@@ -52,6 +52,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
     if (!_authority.current || c.repostState(postId).unresolved) return;
     final confirmed = await showDialog<bool>(
       context: context,
+      animationStyle: HhMotionRoutes.popup(context),
       builder: (dialogContext) => ListenableBuilder(
         listenable: c,
         builder: (context, __) => AlertDialog(
@@ -108,6 +109,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
     final governance = GovernanceScope.maybeOf(context);
     final action = await showModalBottomSheet<String>(
       context: context,
+      sheetAnimationStyle: HhMotionRoutes.sheet(context),
       backgroundColor: HhTelegramPalette.of(context).surface,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
@@ -407,11 +409,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: p.line),
       ),
-      popUpAnimationStyle: const AnimationStyle(
-        duration: Duration(milliseconds: 180),
-        reverseDuration: Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-      ),
+      popUpAnimationStyle: HhMotionRoutes.popup(context),
       items: [
         PopupMenuItem<String>(
           enabled: false,
@@ -506,7 +504,7 @@ mixin _PersonalProfile on State<PersonalPostsScreen> {
                       children: [
                         AnimatedRotation(
                           turns: _identityMenuOpen ? .25 : 0,
-                          duration: const Duration(milliseconds: 180),
+                          duration: HhMotion.duration(context, HhMotion.quick),
                           child: Icon(
                             Icons.chevron_right_rounded,
                             size: 20,
@@ -1065,12 +1063,10 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
                     selected: selected == i,
                     button: true,
                     label: hhText(context, labels[i]),
-                    child: TweenAnimationBuilder<double>(
+                    child: HhAnimatedSelection(
                       key: ValueKey('profile-tab-$i'),
-                      tween: Tween(end: selected == i ? 1.0 : 0.0),
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, progress, _) {
+                      selected: selected == i,
+                      builder: (context, progress) {
                         final color = Color.lerp(
                           HhTelegramPalette.of(context).secondary,
                           HhTelegramPalette.of(context).accent,
@@ -1144,6 +1140,7 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
                         );
                         if (i == 0 && selected == 0) {
                           return PopupMenuButton<bool>(
+                            popUpAnimationStyle: HhMotionRoutes.popup(context),
                             tooltip: hhText(context, '帖子排序'),
                             initialValue: hot,
                             onSelected: onSort,
@@ -1169,7 +1166,13 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
                             child: label,
                           );
                         }
-                        return InkWell(onTap: () => onSelect(i), child: label);
+                        return HhPressFeedback(
+                          builder: (context, states) => InkWell(
+                            statesController: states,
+                            onTap: () => onSelect(i),
+                            child: label,
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -1191,7 +1194,10 @@ class _ProfileTabs extends SliverPersistentHeaderDelegate {
             bottom: 0,
             child: AnimatedAlign(
               alignment: Alignment(-1 + selected / 2, 0),
-              duration: const Duration(milliseconds: 240),
+              duration: HhMotion.duration(
+                context,
+                const Duration(milliseconds: 240),
+              ),
               curve: Curves.easeOutCubic,
               child: FractionallySizedBox(
                 widthFactor: .2,

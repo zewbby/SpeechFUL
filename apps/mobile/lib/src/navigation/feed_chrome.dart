@@ -3,6 +3,7 @@ import '../localization/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../design_system/telegram_theme.dart';
+import '../design_system/motion.dart';
 import 'app_navigation.dart';
 
 /// Home owns its reading intent; the root owns the single navigation surface.
@@ -101,9 +102,7 @@ class FeedChromeMotion extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<double>(
     tween: Tween(end: visible ? 1 : 0),
-    duration: MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 240),
+    duration: HhMotion.duration(context, const Duration(milliseconds: 240)),
     curve: Curves.easeOutCubic,
     builder: builder,
     child: child,
@@ -127,20 +126,23 @@ class FeedComposeButton extends StatelessWidget {
     return SizedBox(
       width: floating ? 60 : 52,
       height: floating ? 56 : 48,
-      child: IconButton.filled(
-        key: const ValueKey('feed-compose'),
-        tooltip: hhText(context, tooltip),
-        onPressed: onPressed,
-        style: IconButton.styleFrom(
-          backgroundColor: floating ? p.action : p.background,
-          foregroundColor: floating ? p.onAccent : p.action,
-          elevation: floating ? 2 : 0,
-          shadowColor: Colors.black26,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(floating ? 19 : 15),
+      child: HhPressFeedback(
+        builder: (context, states) => IconButton.filled(
+          statesController: states,
+          key: const ValueKey('feed-compose'),
+          tooltip: hhText(context, tooltip),
+          onPressed: onPressed,
+          style: IconButton.styleFrom(
+            backgroundColor: floating ? p.action : p.background,
+            foregroundColor: floating ? p.onAccent : p.action,
+            elevation: floating ? 2 : 0,
+            shadowColor: Colors.black26,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(floating ? 19 : 15),
+            ),
           ),
+          icon: const Icon(Icons.add_rounded, size: 30),
         ),
-        icon: const Icon(Icons.add_rounded, size: 30),
       ),
     );
   }
