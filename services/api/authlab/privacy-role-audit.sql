@@ -98,6 +98,8 @@ BEGIN
               OR (relation.relname='ranking_snapshots' AND privilege IN ('SELECT','INSERT','DELETE'))
               OR (relation.relname='ranking_posts' AND privilege IN ('SELECT','INSERT'))
               OR (relation.relname='ranking_channel_data' AND privilege IN ('SELECT','INSERT','DELETE'))
+              OR (relation.relname IN ('hot_snapshots','hot_shard_data') AND privilege IN ('SELECT','INSERT','DELETE'))
+              OR (relation.relname IN ('hot_snapshot_shards','hot_blocks') AND privilege IN ('SELECT','INSERT'))
               OR (relation.relname='ranking_inputs' AND privilege='SELECT')
               OR (relation.relname IN ('post_daily_views','feed_preferences') AND privilege='DELETE')
               OR (relation.relname IN ('post_likes','post_favorites','post_interaction_versions','post_reposts','post_repost_versions','post_search_history') AND privilege IN ('SELECT','INSERT','DELETE'));

@@ -67,5 +67,6 @@
 - PASS_INSTALL_AND_LAUNCH：vivo V2323A（设备`10CEAG17RY003M7`）覆盖安装 `2026110605 / 0.1.0-global-hotlist`，签名保持原手机证书，未清数据，启动成功；USB转发及双端TLS就绪通过。APK SHA256 `4adf8531e23b69637da99b2b3bf1a578212860557f28c33e43235ad952d10230`。真机登录后完整业务验收NOT_RUN，不将安装启动当作业务验收。
 - 外部权威回执：`E:/Hnuhole-env/global-hotlist-release-20261106/backend-receipt.json`、`phone-install-receipt.json`、`android-package-receipt.json`；Windows日常后端／包指针已备份并更新，Linux恢复manifest已更新。应用源码绑定上述b462提交，后续恢复器和本文提交不改变已装应用代码。正式生产未部署。
 - 此次安装不重启性能优化或长测；下述30分钟持续负载FAIL结论保持不变，合并不代表搜索增幅≤5%达标。
+- 送审PR [#112](https://github.com/zewbby/SpeechFUL/pull/112)：追加整合主线分享客户端后，`a150be4` Flutter analyze及搜索／标签／API／分享78项PASS；手机已装b462包未随此次主线整合重装。首次CI发现共享隐私权限审计遗漏0034四表，补齐与grant一致的最小白名单，保留其他角色及UPDATE／候选DELETE拒绝；`a150be4`＋该审计和越权测试差异在WSL一次性双PG集群15项PASS（`premerge-role-audit.log`，外部装机证据目录）。最终head的远程CI与合并状态以PR实时记录为准。
 
 本轮按用户限定只执行长测和增幅验收，已完成并记录FAIL，不自动优化或再跑。48事件／秒的基线出现掉队，保留失败记录；正式对照与后台均固定16事件／RAW秒、32逻辑客户端。后台实际平均在途2.25、峰值32，不称为持续32在途。算榜在真实周期持续发布六版，未以停算换延迟；≤5%仍未达到，不能用整场平均稀释计算时尖峰。完整数值、环境、版本和原始证据见[持续负载证据](evidence/global-hotlist-sustained-20261106.md)。

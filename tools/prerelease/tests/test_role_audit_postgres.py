@@ -156,6 +156,26 @@ class PrereleaseRoleAuditPostgresTest(unittest.TestCase):
                     self.lab.grants('c')
                 self.lab.audit()
 
+    def test_global_hotlist_grants_reject_candidate_mutation_and_other_roles(self):
+        self.lab.audit()
+        for table in ('hot_snapshots', 'hot_shard_data', 'hot_snapshot_shards', 'hot_blocks'):
+            denied = [('hnuhole_c_runtime', 'UPDATE'),
+                      ('hnuhole_c_runtime', 'TRUNCATE'),
+                      ('hnuhole_c_recovery', 'SELECT'),
+                      ('hnuhole_business', 'SELECT')]
+            if table in ('hot_snapshot_shards', 'hot_blocks'):
+                denied.append(('hnuhole_c_runtime', 'DELETE'))
+            for role, privilege in denied:
+                with self.subTest(table=table, role=role, privilege=privilege):
+                    target = 'c_posts.' + table
+                    self.lab.sql('c', 'GRANT ' + privilege + ' ON ' + target + ' TO ' + role)
+                    try:
+                        with self.assertRaisesRegex(RuntimeError, 'owned SQL operation failed'):
+                            self.lab.audit()
+                    finally:
+                        self.lab.sql('c', 'REVOKE ' + privilege + ' ON ' + target + ' FROM ' + role)
+                    self.lab.audit()
+
     def test_restore_rebuilds_private_identity_avatar_function_acls(self):
         public_execute = """SELECT count(*) FROM pg_proc p
             JOIN pg_namespace n ON n.oid=p.pronamespace,
