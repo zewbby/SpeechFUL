@@ -25,6 +25,7 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
   Offset _dismissOffset = Offset.zero;
   Offset _animationStart = Offset.zero, _animationEnd = Offset.zero;
   bool _dismissing = false;
+  bool _reduced = false;
   bool _canPullDown = false, _canPullUp = false;
   double get _dismissProgress => _lastSize == null
       ? 0
@@ -33,8 +34,10 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
   final Set<int> _pointers = {};
   bool _pageEligible = false;
   bool _eligible = false;
+  bool _dragMoved = false;
   bool _rejected = false;
   Offset? _start;
+  Offset _dragOrigin = Offset.zero;
   Size? _lastSize;
   ViewerSource? _displaySource;
   String? _displayId;
@@ -77,6 +80,25 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
         });
     _c._surfaceOwner = this;
     _c._captureReading = _captureReading;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduced = _reducedMotion(context);
+    if (_reduced && _dismissAnimation.isAnimating) {
+      // Complete outside the build phase: progress also updates the backdrop
+      // and chrome, which are siblings of this surface.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _reduced && _dismissAnimation.isAnimating) {
+          final close = _dismissing;
+          final revision = _c.selectionRevision;
+          _dismissAnimation.stop();
+          _setDismissOffset(_animationEnd);
+          _finishDismiss(close, revision);
+        }
+      });
+    }
   }
 
   @override
@@ -185,14 +207,20 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
   }
 
   void _down(PointerDownEvent event) {
+    if (!mounted) return;
     _pointers.add(event.pointer);
-    if (_dismissAnimation.isAnimating || _dismissing) {
+    if (_dismissing) {
       _rejected = true;
       return;
     }
     if (_pointers.length == 1) {
+      // A returning image belongs to the next gesture immediately. Preserve
+      // its current position rather than snapping or waiting for the tween.
+      _dismissAnimation.stop();
       _pointerRevision = _c.selectionRevision;
       _start = event.position;
+      _dragOrigin = _dismissOffset;
+      _dragMoved = false;
       _pageEligible =
           _c.active &&
           _c.foreground &&
@@ -211,11 +239,12 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
           _displayId == _c.currentItem.id;
     } else {
       _rejected = true;
-      _cancel();
+      _cancel(animate: true);
     }
   }
 
   void _move(PointerMoveEvent event) {
+    if (!mounted) return;
     if (_pointers.length != 1 || _start == null) return;
     if (_pointerRevision != _c.selectionRevision && _pageDrag == null) {
       _cancel();
@@ -230,6 +259,9 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
       _eligible = false;
       _rejected = true;
       if (_pageDrag == null) {
+        if (_dismissOffset != Offset.zero) {
+          unawaited(_settleDismiss(false));
+        }
         unawaited(_c._exposeNeighbor(_c.index + (delta.dx < 0 ? 1 : -1)));
       }
       _pageDrag ??= _pages.position.drag(
@@ -259,10 +291,12 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
       return;
     }
     _pageEligible = false;
-    _setDismissOffset(Offset(delta.dx * .35, delta.dy));
+    _dragMoved = true;
+    _setDismissOffset(_dragOrigin + Offset(delta.dx * .35, delta.dy));
   }
 
   void _up(PointerEvent event) {
+    if (!mounted) return;
     final drag = _pageDrag;
     if (drag != null) {
       final vx = _velocity?.getVelocity().pixelsPerSecond.dx ?? 0;
@@ -279,6 +313,7 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
       final threshold = ((_lastSize?.height ?? 600) * .18).clamp(100, 180);
       final commit =
           _eligible &&
+          _dragMoved &&
           !_rejected &&
           _pointerRevision == _c.selectionRevision &&
           (_dismissOffset.dy.abs() >= threshold ||
@@ -295,7 +330,10 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
     }
   }
 
-  void _cancel() {
+  void _cancel({bool animate = false}) {
+    // A pointer hit-test path can outlive this surface after immediate access
+    // invalidation. Its final cancel/up must never touch disposed tickers.
+    if (!mounted) return;
     _eligible = false;
     _pageEligible = false;
     _pageDrag?.cancel();
@@ -303,6 +341,10 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
     _dismissAnimation.stop();
     _dismissing = false;
     if (_dismissOffset != Offset.zero) {
+      if (animate && _c.active && _c.foreground) {
+        unawaited(_settleDismiss(false));
+        return;
+      }
       _dismissOffset = Offset.zero;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -330,17 +372,26 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
             _dismissOffset.dy.sign * (_lastSize!.height * .85),
           )
         : Offset.zero;
+    if (_reduced) {
+      _setDismissOffset(_animationEnd);
+      _finishDismiss(close, revision);
+      return;
+    }
     try {
       await _dismissAnimation.forward(from: 0).orCancel;
-      if (mounted &&
-          close &&
-          _c.active &&
-          _c.foreground &&
-          revision == _c.selectionRevision) {
-        _c.close(ViewerCloseReason.gesture);
-      }
+      _finishDismiss(close, revision);
     } on TickerCanceled {
       // Rotation, backgrounding and revocation must cancel an unfinished exit.
+    }
+  }
+
+  void _finishDismiss(bool close, int revision) {
+    if (mounted &&
+        close &&
+        _c.active &&
+        _c.foreground &&
+        revision == _c.selectionRevision) {
+      _c.close(ViewerCloseReason.gesture);
     }
   }
 
@@ -397,7 +448,7 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
             key: const ValueKey('viewer-dismiss-transform'),
             offset: _dismissOffset,
             child: Transform.scale(
-              scale: 1 - _dismissProgress * .28,
+              scale: _reduced ? 1 : 1 - _dismissProgress * .28,
               child: Opacity(
                 opacity: _dismissing ? 1 - _dismissProgress : 1,
                 child: Listener(
@@ -406,7 +457,7 @@ class _ViewerSurfaceState extends State<_ViewerSurface>
                   onPointerMove: _move,
                   onPointerUp: _up,
                   onPointerCancel: (event) {
-                    _cancel();
+                    _cancel(animate: true);
                     _up(event);
                   },
                   child: PageView.builder(
