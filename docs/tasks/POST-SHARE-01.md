@@ -2,11 +2,11 @@
 
 - 模式：常规。
 - 负责人／状态维护人：当前 Session。
-- 分支／Worktree／PR：`codex/feat/post-sharing`；`E:/Hnuhole-env/source/SpeechFUL-post-sharing`；PR 未创建。实际基线为 2026-11-06 fetch 后的 `origin/main` `48bcbc7cf90d163597d1f8a5f5944d9a08cb3ebf`。
+- 分支／Worktree／PR：`codex/feat/post-sharing`；`E:/Hnuhole-env/source/SpeechFUL-post-sharing`；[PR #108](https://github.com/zewbby/SpeechFUL/pull/108)。实际基线为 2026-11-06 fetch 后的 `origin/main` `48bcbc7cf90d163597d1f8a5f5944d9a08cb3ebf`。
 - 授权依据与边界：用户要求“新增 帖子分享与链接打开原帖 后端功能”，后续明确授权“推送本次分支并创建 PR，相关产品 CI 全部通过后合并”。覆盖本任务分支推送、PR 及适用产品 CI 全部通过后的合并；不包含部署，不修改现有开发／正式业务数据。
 - 需求确认：用户于本会话回答 Q1–Q3 时全部选择推荐方案，确认外部链接分享、仅后端交付、登录后阅读／网页仅通用引导，以及每帖固定长期链接／打开最新公开内容。使用 `grill-with-docs` 及其 `grilling`、`domain-modeling` 依赖完成收敛，无未决产品取舍。
 - 更新日期：2026-11-06。
-- 状态：实现 已完成；验证 PASS（本地后端范围；远端产品 CI 为 NOT_RUN）；合并 未合并；发布 未发布。
+- 状态：实现 已完成；本地验证 PASS；远端验证与合并以 [PR #108 当前 head 检查及合并记录](https://github.com/zewbby/SpeechFUL/pull/108/checks)为准；发布 未发布。
 
 ## 目标与范围
 
@@ -70,4 +70,4 @@
 
 ## 阻碍与下一步
 
-本轮后端实现和本地验证已完成，无实现阻碍。用户已授权推送、创建 PR 并在相关产品 CI 全部通过后合并，正在执行该交付；部署未授权。App 后续按本记录接入系统分享、HTTPS／scheme 唤起和认证后恢复原入口，再单独完成设备链路验收。
+本轮后端实现和本地验证已完成，无实现阻碍。已按授权推送并创建 PR #108；产品提交为 `c85da60`，此后仅任务文档变化，本地产品证据继续适用。提交本条记录时远端 CI 正在运行，必须核对最终 PR head 的全部适用产品 CI 成功后才 squash 合并；最终 CI、合并时间及 SHA 以本记录链接的 PR 实时证据为准，不将送审快照当作当前状态。部署未授权。App 后续按本记录接入系统分享、HTTPS／scheme 唤起和认证后恢复原入口，再单独完成设备链路验收。
