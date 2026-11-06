@@ -80,6 +80,13 @@ MOTION-00 的公共 API 固定为：
 - 恢复后只读核对状态，随后用既有普通 resume 入口续签 C/V 证据并启动原 watchers/API。预期 V generation/recoverEvents 仍为8，普通 resume 不新增 RECOVER。任何非零、代次异常、DB/anchor 不一致均停止诊断，不自动重跑 RECOVER。
 - 禁止直接修改 Gate/anchor、改钟、reset fixture/schema、迁移或清理用户业务数据。源码已只读核实 Recover 仅更新 Gate/审计/签名证据与 anchor，不删除 session 或业务表；旧会话仍由原代次检查拒绝。具体私有操作参数和脱敏回执留在本任务外部证据目录。
 
+### 图片返回显示修复契约 v5（2026-11-06）
+
+0602真机完成分类、设置语言切换并恢复中文、图片打开/短拖回弹/长拖退出后，发现黑底viewer退出后首页状态栏图标仍浅色、白底难以阅读。已核对main基线也只有viewer持有AnnotatedRegion，PrimaryTabs没有自己的样式；是既有缺口，不冒称本轮引入。按既定图片返回正常页面的验收范围作确定性修复，无新增产品取舍。
+
+- SYSUI-FIX：Sol/high复用独立scroll-fix Worktree，ff本节固定提交；仅改PrimaryTabs及navigation_motion_test，为根标签页声明随实际主题变化的系统栏样式，使viewer/子路由覆盖后可自然恢复，不使用全局持久设置，不更改业务/数据/滚动或屏幕刷新率。聚焦回归须覆盖浅/深主题、viewer覆盖和pop后解析到原页面样式。
+- SYSUI-REVIEW：Astra/high独立复核及原始回归，root同签0603装机后验证图片退出状态栏可读、滚动门槛未退化；最终head CI重核，旧head只历史证据。
+
 - 赞藏、取消、连续点击、权威失败回退时，图标与计数跟随同一真实展示状态；动画期间仍可操作且语义不重复。
 - 底栏／个人分类快速切换及进入／关闭面板时，可见选中态与当前内容一致，返回仍保留原滚动和数据。
 - 私信新增与状态过渡符合上述同会话／底部条件，未知结果保留等待含义，历史与账号切换不产生假发送动画。
