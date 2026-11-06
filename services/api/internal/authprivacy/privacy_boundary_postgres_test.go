@@ -75,6 +75,16 @@ func TestPrivacySchemaPartyBoundaryPostgres(t *testing.T) {
 	} {
 		t.Run(spec.name, func(t *testing.T) {
 			want := append([]string(nil), spec.relations...)
+			if os.Getenv("HNULIMIT_FORMAL_GOOSE") == "1" {
+				// The actual migrator owns this metadata in both independent
+				// databases. Admit only its audited columns, never arbitrary
+				// extra public tables or a C/V data-linking relation.
+				want = append(want, "public.goose_db_version")
+				if count(t, spec.pool, `SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='goose_db_version' AND column_name IN ('id','version_id','is_applied','tstamp')`) != 4 ||
+					count(t, spec.pool, `SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='goose_db_version' AND column_name NOT IN ('id','version_id','is_applied','tstamp')`) != 0 {
+					t.Fatal("unexpected formal migrator metadata columns")
+				}
+			}
 			sort.Strings(want)
 			if got := privacyRelations(t, spec.pool); strings.Join(got, "\n") != strings.Join(want, "\n") {
 				t.Fatalf("party schema relation inventory changed; audit the new data boundary: got=%v want=%v", got, want)
