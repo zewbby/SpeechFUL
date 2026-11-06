@@ -31,7 +31,7 @@
 | RAW迁移后host tests／vet | PASS | `go-host-clock-fixed.log`、`go-vet-clock-fixed.log`、`clock-invariants.log`；墙钟±20s不改变总账／窗口／P95，UTC或RAW迟发仍失败；RAW wait不早于期限且支持取消。没有DSN的host检查不代表SQL。 |
 | GPT6-Astra／xhigh独立静态复核 | PASS | 用户指定模型只读审查；修正尾段覆盖、完成吞吐口径、RAW时钟迁移与观察边界。不是GitHub成员批准，也不是长测通过。 |
 | 探索性RAW容量 | 已完成探测，非正式长测 | 64客户端，16..64业务事件／秒均无错无drop；64档峰值30，搜索P95约371ms。96档达到实际64在途，有738次drop，FAIL。`capacity-raw-64.log`；最终冻结版本须复验并绑定SHA。 |
-| 冻结版本容量与正式长测 | NOT_RUN | 正在准备最终归档并重跑，完成后补实际SHA、结果与原始证据。 |
+| 冻结版本容量与正式长测 | 待验 | 固定 `8af7b08aa8f81c28b96395a4002b2561daea7363` 归档启动了容量复验；用户随后要求“尽快结束”，结束该次验收并收口。正式30min未有效完成，≤5%／逐轮60s／榜龄6min没有完整长测PASS。`raw-final-capacity.log`仅有未完成过程，不作容量通过依据。 |
 | API／协作检查 | PASS（既有范围） | 12份完整OpenAPI、23个保护操作文字契约、明确暂存路径协作检查；当前提交另验。 |
 | 远程产品CI／多进程／生产／公网／本轮装机 | NOT_RUN | 旧低并发及旧APK不外推此范围；未合并、未发布。 |
 
