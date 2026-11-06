@@ -5,6 +5,7 @@ import 'package:hnuhole_mobile/src/design_system/motion.dart';
 import 'package:hnuhole_mobile/src/design_system/motion_routes.dart';
 import 'package:hnuhole_mobile/src/design_system/telegram_theme.dart';
 import 'package:hnuhole_mobile/src/navigation/app_navigation.dart';
+import 'package:hnuhole_mobile/src/navigation/feed_chrome.dart';
 import 'package:hnuhole_mobile/src/navigation/home_side_menu.dart';
 import 'package:hnuhole_mobile/src/navigation/primary_tabs.dart';
 
@@ -45,7 +46,171 @@ class _RetainedPageState extends State<_RetainedPage>
   );
 }
 
+class _MediaBuildProbe extends StatefulWidget {
+  const _MediaBuildProbe(this.name, this.builds);
+  final String name;
+  final Map<String, int> builds;
+
+  @override
+  State<_MediaBuildProbe> createState() => _MediaBuildProbeState();
+}
+
+class _MediaBuildProbeState extends State<_MediaBuildProbe> {
+  late MediaQueryData media;
+
+  @override
+  Widget build(BuildContext context) {
+    widget.builds.update(widget.name, (value) => value + 1, ifAbsent: () => 1);
+    media = MediaQuery.of(context);
+    return SizedBox.expand(
+      key: ValueKey('media-probe:${widget.name}'),
+      child: Text(widget.name),
+    );
+  }
+}
+
 void main() {
+  testWidgets(
+    'chrome frames preserve visible and retained hidden tab widgets',
+    (tester) async {
+      final tabs = GlobalKey<PrimaryTabsState>();
+      final builds = <String, int>{};
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PrimaryTabs(
+            key: tabs,
+            window: ('account', 1),
+            onSelected: (value) => tabs.currentState!.select(value),
+            builders: {
+              for (final destination in AppDestination.values)
+                destination: (_) => _MediaBuildProbe(destination.name, builds),
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      tabs.currentState!.select(AppDestination.directMessages);
+      await tester.pumpAndSettle();
+      tabs.currentState!.select(AppDestination.home);
+      await tester.pumpAndSettle();
+      final home = find.byKey(const ValueKey('media-probe:home'));
+      final viewport = tester.getSize(home);
+      final before = Map<String, int>.of(builds);
+      final chrome = FeedChromeScope.maybeOf(tester.element(home))!;
+      final navigation = find.byType(FeedNavigation);
+      final barHeight = tester.getSize(navigation).height;
+      chrome.scroll(40, 100);
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getSize(home), viewport);
+        expect(builds, before, reason: 'chrome-only frame $i');
+        if (i == 5) {
+          expect(
+            tester.getSize(navigation).height,
+            inExclusiveRange(0, barHeight),
+          );
+        }
+      }
+      expect(tester.getSize(navigation).height, 0);
+      chrome.show();
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getSize(home), viewport);
+        expect(builds, before, reason: 'chrome return frame $i');
+      }
+      expect(tester.getSize(navigation).height, barHeight);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'stable tab subtree still receives real media and authority changes',
+    (tester) async {
+      final tabs = GlobalKey<PrimaryTabsState>();
+      final builds = <String, int>{};
+      late StateSetter update;
+      var window = ('account', 1);
+      var padding = 24.0;
+      var textScale = 1.0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  padding: EdgeInsets.only(bottom: padding),
+                  viewPadding: EdgeInsets.only(bottom: padding),
+                  textScaler: TextScaler.linear(textScale),
+                ),
+                child: PrimaryTabs(
+                  key: tabs,
+                  window: window,
+                  onSelected: (value) => tabs.currentState!.select(value),
+                  builders: {
+                    for (final destination in AppDestination.values)
+                      destination: (_) =>
+                          _MediaBuildProbe(destination.name, builds),
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final original = tester.state<_MediaBuildProbeState>(
+        find.byType(_MediaBuildProbe),
+      );
+      tabs.currentState!.select(AppDestination.directMessages);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<HhAppNavigation>(find.byType(HhAppNavigation)).selected,
+        AppDestination.directMessages,
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(
+        tester.state<_MediaBuildProbeState>(find.byType(_MediaBuildProbe)),
+        same(original),
+      );
+      update(() {
+        padding = 32;
+        textScale = 1.4;
+      });
+      await tester.pumpAndSettle();
+      expect(original.media.padding.bottom, 32);
+      expect(original.media.textScaler.scale(10), 14);
+      final oldSize = original.media.size;
+      tester.view.physicalSize = const Size(1000, 700);
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpAndSettle();
+      expect(original.media.size, isNot(oldSize));
+      expect(
+        tester.state<_MediaBuildProbeState>(find.byType(_MediaBuildProbe)),
+        same(original),
+      );
+      update(() => window = ('other-account', 2));
+      await tester.pumpAndSettle();
+      expect(
+        tester.state<_MediaBuildProbeState>(find.byType(_MediaBuildProbe)),
+        isNot(same(original)),
+      );
+      expect(
+        find.byKey(
+          const ValueKey('media-probe:directMessages'),
+          skipOffstage: false,
+        ),
+        findsNothing,
+      );
+      expect(
+        tester.widget<HhAppNavigation>(find.byType(HhAppNavigation)).selected,
+        AppDestination.home,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final reduced in [false, true]) {
     testWidgets(
       'Android predictive back cancellation and commit remain available ($reduced)',
