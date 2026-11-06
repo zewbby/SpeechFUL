@@ -212,6 +212,9 @@ func newRankingLoadFixture(t *testing.T, clients int) *rankingLoadFixture {
 }
 
 func (f *rankingLoadFixture) advanceClock(delta time.Duration) {
+	if delta != 0 {
+		panic("ranking load must never accelerate the business clock")
+	}
 	f.clockMu.Lock()
 	defer f.clockMu.Unlock()
 	f.s.advanceC(delta)

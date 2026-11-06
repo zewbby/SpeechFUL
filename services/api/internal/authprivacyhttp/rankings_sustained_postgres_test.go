@@ -20,9 +20,12 @@ import (
 
 	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/authprivacy"
 	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/rankings"
+	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/readtiming"
 )
 
 type rankingLoadSample struct {
+	WallAt      int64  `json:"wall_at_ns"`
+	WallEnd     int64  `json:"wall_end_ns"`
 	At          int64  `json:"at_ns"`
 	End         int64  `json:"end_ns"`
 	Latency     int64  `json:"latency_ns"`
@@ -37,12 +40,15 @@ type rankingLoadSample struct {
 }
 
 type rankingLoadEvent struct {
+	WallAt int64          `json:"wall_at_ns"`
 	At     int64          `json:"at_ns"`
 	Name   string         `json:"name"`
 	Fields map[string]any `json:"fields"`
 }
 
 type rankingLoadRecorder struct {
+	epoch     time.Time
+	clock     *rankingLoadClockProbe
 	mu        sync.Mutex
 	samples   []rankingLoadSample
 	events    []rankingLoadEvent
@@ -57,7 +63,7 @@ func (r *rankingLoadRecorder) Handle(_ context.Context, entry slog.Record) error
 	if !strings.HasPrefix(entry.Message, "global_hotlist_") {
 		return nil
 	}
-	e := rankingLoadEvent{At: entry.Time.UnixNano(), Name: entry.Message, Fields: map[string]any{}}
+	e := rankingLoadEvent{At: r.now(), WallAt: entry.Time.UnixNano(), Name: entry.Message, Fields: map[string]any{}}
 	entry.Attrs(func(a slog.Attr) bool { e.Fields[a.Key] = a.Value.Any(); return true })
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -68,6 +74,29 @@ func (r *rankingLoadRecorder) Handle(_ context.Context, entry slog.Record) error
 	}
 	return err
 }
+
+// All performance and load scheduling timestamps use one RAW clock origin.
+// Wall timestamps are independent business evidence, never duration operands.
+func (r *rankingLoadRecorder) now() int64 { return r.clock.elapsedRaw() }
+
+// Go timers are only bounded sleeps. Re-read RAW after every wakeup because
+// this machine's Go scheduling clock can run at a different rate.
+func (r *rankingLoadRecorder) waitUntil(deadline int64, stop <-chan struct{}) bool {
+	for {
+		remaining := deadline - r.now()
+		if remaining <= 0 {
+			return true
+		}
+		timer := time.NewTimer(max(time.Millisecond, min(time.Duration(remaining), 50*time.Millisecond)))
+		select {
+		case <-stop:
+			timer.Stop()
+			return false
+		case <-timer.C:
+		}
+	}
+}
+
 func (r *rankingLoadRecorder) add(s rankingLoadSample) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -80,6 +109,79 @@ func (r *rankingLoadRecorder) copy() ([]rankingLoadSample, []rankingLoadEvent) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return slices.Clone(r.samples), slices.Clone(r.events)
+}
+
+func (r *rankingLoadRecorder) copyEvents() []rankingLoadEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.events)
+}
+
+type rankingLoadClockSample struct {
+	Elapsed, RawElapsed, Drift, Uncertainty, Wall int64
+}
+
+// Cross-check Go's scheduling clock against Linux CLOCK_MONOTONIC_RAW. A
+// realtime clock correction is reported, but never used for phase arithmetic.
+type rankingLoadClockProbe struct {
+	mu                 sync.Mutex
+	origin             time.Time
+	initialUncertainty time.Duration
+	raw                *readtiming.Trace
+	samples            []rankingLoadClockSample
+	valid              bool
+}
+
+func newRankingLoadClockProbe() *rankingLoadClockProbe {
+	before := time.Now()
+	_, raw := readtiming.Start(context.Background())
+	after := time.Now()
+	return &rankingLoadClockProbe{origin: before.Add(after.Sub(before) / 2), initialUncertainty: after.Sub(before), raw: raw, valid: true}
+}
+
+func (p *rankingLoadClockProbe) observe() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	before := time.Now()
+	raw := p.raw.Snapshot()
+	after := time.Now()
+	uncertainty := after.Sub(before)
+	elapsed := before.Add(after.Sub(before) / 2).Sub(p.origin)
+	s := rankingLoadClockSample{Elapsed: elapsed.Nanoseconds(), RawElapsed: raw.ElapsedNanoseconds, Uncertainty: uncertainty.Nanoseconds(), Wall: after.UnixNano()}
+	s.Drift = s.Elapsed - s.RawElapsed
+	if !raw.ClockValid || raw.Clock != "CLOCK_MONOTONIC_RAW" {
+		p.valid = false
+		return
+	}
+	// An interrupted clock read is not a trustworthy calibration point.
+	if uncertainty > 2*time.Millisecond {
+		return
+	}
+
+	p.samples = append(p.samples, s)
+}
+
+func (p *rankingLoadClockProbe) elapsedRaw() int64 {
+	sample := p.raw.Snapshot()
+	if !sample.ClockValid || sample.Clock != "CLOCK_MONOTONIC_RAW" {
+		panic("load measurement requires a valid Linux RAW clock")
+	}
+	return sample.ElapsedNanoseconds
+}
+
+func (p *rankingLoadClockProbe) report() (map[string]any, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var maxDrift int64
+	for _, s := range p.samples {
+		drift := s.Drift
+		if drift < 0 {
+			drift = -drift
+		}
+		maxDrift = max(maxDrift, drift)
+	}
+	coverage := len(p.samples) > 0 && len(p.samples) >= int((p.elapsedRaw()-p.samples[0].RawElapsed)/int64(2*time.Second))
+	return map[string]any{"clock": "CLOCK_MONOTONIC_RAW, process-local origin", "reference": "Go monotonic and wall time, diagnostic only", "valid": p.valid && coverage, "max_go_raw_drift_ns": maxDrift, "initial_pair_uncertainty_ns": p.initialUncertainty.Nanoseconds(), "minimum_coverage_fraction": 0.5, "samples": slices.Clone(p.samples)}, p.valid && coverage
 }
 
 type rankingLoadEngine struct {
@@ -109,9 +211,10 @@ type rankingLoadPhase struct {
 }
 
 func (e *rankingLoadEngine) setPhase(name string) {
+	e.r.clock.observe()
 	e.phaseMu.Lock()
 	defer e.phaseMu.Unlock()
-	at := time.Now().UnixNano()
+	at := e.r.now()
 	if n := len(e.phases); n > 0 {
 		e.phases[n-1].End = at
 	}
@@ -119,12 +222,12 @@ func (e *rankingLoadEngine) setPhase(name string) {
 	e.phase.Store(name)
 }
 
-func (e *rankingLoadEngine) phaseFor(at time.Time) string {
+func (e *rankingLoadEngine) phaseFor(at int64) string {
 	e.phaseMu.Lock()
 	defer e.phaseMu.Unlock()
 	for i := len(e.phases) - 1; i >= 0; i-- {
 		p := e.phases[i]
-		if at.UnixNano() >= p.Start && (p.End == 0 || at.UnixNano() < p.End) {
+		if at >= p.Start && (p.End == 0 || at < p.End) {
 			return p.Name
 		}
 	}
@@ -137,14 +240,15 @@ func newRankingLoadEngine(f *rankingLoadFixture, r *rankingLoadRecorder, rps, cl
 	return e
 }
 
-func (e *rankingLoadEngine) request(phase, kind, method, path, token string, body any, version string, scheduled time.Time) (map[string]any, string, error) {
+func (e *rankingLoadEngine) request(phase, kind, method, path, token string, body any, version string, scheduled int64) (map[string]any, string, error) {
 	var content io.Reader
 	if body != nil {
 		b, _ := json.Marshal(body)
 		content = bytes.NewReader(b)
 	}
 	started := time.Now()
-	s := rankingLoadSample{At: started.UnixNano(), Phase: phase, Kind: kind, DispatchLag: started.Sub(scheduled).Nanoseconds()}
+	at := e.r.now()
+	s := rankingLoadSample{At: at, WallAt: started.UnixNano(), Phase: phase, Kind: kind, DispatchLag: at - scheduled}
 	n := e.active.Add(1)
 	s.Inflight = n
 	for old := e.peak.Load(); n > old && !e.peak.CompareAndSwap(old, n); old = e.peak.Load() {
@@ -182,7 +286,7 @@ func (e *rankingLoadEngine) request(phase, kind, method, path, token string, bod
 			if parseErr != nil || response.Header.Get("Session-Expires-At") == "" {
 				s.Failure = "authority_headers"
 				err = fmt.Errorf("missing final authority")
-			} else if delta := time.Since(at); delta > 3*time.Second || delta < -3*time.Second {
+			} else if observed := time.Now(); at.Before(minTime(started, observed).Add(-3*time.Second)) || at.After(maxTime(started, observed).Add(3*time.Second)) {
 				e.clockErrors.Add(1)
 				s.Failure = "non_realtime_clock"
 				err = fmt.Errorf("clock did not follow real elapsed time")
@@ -244,43 +348,53 @@ func (e *rankingLoadEngine) request(phase, kind, method, path, token string, bod
 		s.Failure = "transport_or_decode"
 	}
 	ended := time.Now()
-	s.End = ended.UnixNano()
-	s.Latency = ended.Sub(scheduled).Nanoseconds()
-	s.ClockSkew = s.End - scheduled.UnixNano() - s.Latency
+	s.End = e.r.now()
+	s.WallEnd = ended.UnixNano()
+	s.Latency = s.End - scheduled
+	s.ClockSkew = s.WallEnd - e.r.epoch.UnixNano() - s.End
 	e.r.add(s)
 	return value, nextVersion, err
 }
 
+func minTime(a, b time.Time) time.Time {
+	if a.UnixNano() < b.UnixNano() {
+		return a
+	}
+	return b
+}
+func maxTime(a, b time.Time) time.Time {
+	if a.UnixNano() > b.UnixNano() {
+		return a
+	}
+	return b
+}
+
 func (e *rankingLoadEngine) start() {
 	e.startTime = time.Now()
-	e.started = e.startTime.UnixNano()
+	e.started = e.r.now()
 	go func() {
 		defer close(e.done)
 		available := make(chan int, e.clients)
 		for i := 0; i < e.clients; i++ {
 			available <- i
 		}
-		start := e.startTime
+		start := e.started
 		interval := time.Second / time.Duration(e.rps)
 		for seq := 0; ; seq++ {
-			due := start.Add(time.Duration(seq) * interval)
-			timer := time.NewTimer(max(time.Until(due), 0))
-			select {
-			case <-e.stop:
-				timer.Stop()
-			case <-timer.C:
-			}
+			due := start + int64(time.Duration(seq)*interval)
+			e.r.waitUntil(due, e.stop)
+
 			// Finish dispatching every event due before the stop boundary.
 			// A timer becoming runnable just before close is still a real
 			// offered event, rather than an artificial shutdown drop.
-			if stopAt := e.stopAt.Load(); stopAt != 0 && due.UnixNano() >= stopAt {
+			if stopAt := e.stopAt.Load(); stopAt != 0 && due >= stopAt {
 				e.wg.Wait()
 				return
 			}
 			phase := e.phaseFor(due)
 			select {
 			case client := <-available:
-				e.r.add(rankingLoadSample{At: due.UnixNano(), End: time.Now().UnixNano(), Phase: phase, Kind: "arrival"})
+				e.r.add(rankingLoadSample{At: due, End: e.r.now(), Phase: phase, Kind: "arrival"})
 				e.wg.Add(1)
 				go func(seq, client int) {
 					defer e.wg.Done()
@@ -300,13 +414,13 @@ func (e *rankingLoadEngine) start() {
 						path := "/api/v1/posts/" + e.f.sample
 						_, version, err := e.request(phase, "interaction", "GET", path+"/interactions", token, nil, "", due)
 						if err == nil {
-							_, _, _ = e.request(phase, "write", "PUT", path+"/like", token, map[string]any{"liked": (seq/100)%2 == 0}, version, time.Now())
+							_, _, _ = e.request(phase, "write", "PUT", path+"/like", token, map[string]any{"liked": (seq/100)%2 == 0}, version, e.r.now())
 						}
 					}
 				}(seq, client)
 			default:
 				e.dropped.Add(1)
-				e.r.add(rankingLoadSample{At: due.UnixNano(), End: time.Now().UnixNano(), Phase: phase, Kind: "dropped", Failure: "client_capacity"})
+				e.r.add(rankingLoadSample{At: due, End: e.r.now(), Phase: phase, Kind: "dropped", Failure: "client_capacity"})
 			}
 		}
 	}()
@@ -314,7 +428,7 @@ func (e *rankingLoadEngine) start() {
 func (e *rankingLoadEngine) close() {
 	e.closeOnce.Do(func() {
 		e.stopTime = time.Now()
-		at := e.stopTime.UnixNano()
+		at := e.r.now()
 		e.stopAt.Store(at)
 		e.phaseMu.Lock()
 		if n := len(e.phases); n > 0 {
@@ -376,18 +490,15 @@ func rankingSummarize(samples []rankingLoadSample, phase string) rankingLoadSumm
 func (e *rankingLoadEngine) await(t *testing.T, phase string, duration time.Duration) {
 	t.Helper()
 	e.setPhase(phase)
-	end := time.NewTimer(duration)
-	defer end.Stop()
-	tick := time.NewTicker(30 * time.Second)
-	defer tick.Stop()
-	for {
-		select {
-		case <-end.C:
-			return
-		case <-tick.C:
+	end := e.r.now() + int64(duration)
+	nextLog := e.r.now() + int64(30*time.Second)
+	for e.r.now() < end {
+		e.r.waitUntil(min(end, e.r.now()+int64(time.Second)), nil)
+		if e.r.now() >= nextLog {
 			samples, _ := e.r.copy()
 			data, _ := json.Marshal(rankingSummarize(samples, phase))
 			t.Logf("load_progress %s active=%d", data, e.active.Load())
+			nextLog += int64(30 * time.Second)
 		}
 	}
 }
@@ -406,18 +517,22 @@ type rankingCanaryFence struct {
 // This is the original scheduler's exact quiet-window condition, observed
 // without registering fake foreground work or changing the production worker.
 func (e *rankingLoadEngine) observeOldQuietWindow(ctx context.Context) {
+	// Intentionally keep the original worker's Go 20ms timer for this
+	// counterfactual observer. Evidence spans and gap limits are RAW; this
+	// timer never drives offered load, performance windows or acceptance time.
 	tick := time.NewTicker(20 * time.Millisecond)
 	defer tick.Stop()
-	started, lastReport, lastTick := time.Now(), time.Now(), time.Now()
-	var maxGap time.Duration
+	started := e.r.now()
+	lastReport, lastTick := started, started
+	var maxGap int64
 	_, previous := e.f.cache.ForegroundActivity()
-	report := func(until time.Time) {
-		if until.Sub(started) < 25*time.Second {
+	report := func(until int64) {
+		if until-started < int64(25*time.Second) {
 			return
 		}
 		e.quietBlocked.Add(1)
 		r := slog.NewRecord(time.Now(), slog.LevelInfo, "global_hotlist_old_quiet_span", 0)
-		r.AddAttrs(slog.Int64("from_ns", started.UnixNano()), slog.Int64("until_ns", until.UnixNano()), slog.Int64("max_tick_gap_ns", maxGap.Nanoseconds()))
+		r.AddAttrs(slog.Int64("from_ns", started), slog.Int64("until_ns", until), slog.Int64("max_tick_gap_ns", maxGap))
 		_ = e.r.Handle(ctx, r)
 		lastReport = until
 	}
@@ -427,11 +542,11 @@ func (e *rankingLoadEngine) observeOldQuietWindow(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			now := time.Now()
-			gap := now.Sub(lastTick)
+			now := e.r.now()
+			gap := now - lastTick
 			// A delayed observer cannot attest to the unobserved interval. End
 			// the old span before that gap and begin a new one at this sample.
-			if gap > 40*time.Millisecond {
+			if gap > int64(40*time.Millisecond) {
 				report(lastTick)
 				started = now
 				lastReport = now
@@ -449,7 +564,7 @@ func (e *rankingLoadEngine) observeOldQuietWindow(ctx context.Context) {
 				maxGap = 0
 			}
 			previous = revision
-			if now.Sub(lastReport) >= 25*time.Second {
+			if now-lastReport >= int64(25*time.Second) {
 				report(now)
 			}
 		}
@@ -470,7 +585,7 @@ func (e *rankingLoadEngine) canaryFence(enabled bool) (rankingCanaryFence, error
 		for voter := 0; voter < 6; voter++ {
 			token := e.f.tokens[voter]
 			path := "/api/v1/posts/" + post
-			_, version, err := e.request(e.phase.Load().(string), "canary_read", "GET", path+"/interactions", token, nil, "", time.Now())
+			_, version, err := e.request(e.phase.Load().(string), "canary_read", "GET", path+"/interactions", token, nil, "", e.r.now())
 			if err != nil {
 				return f, err
 			}
@@ -478,7 +593,7 @@ func (e *rankingLoadEngine) canaryFence(enabled bool) (rankingCanaryFence, error
 			if voter >= 4 {
 				kind, field = "favorite", "favorited"
 			}
-			if _, _, err = e.request(e.phase.Load().(string), "canary_write", "PUT", path+"/"+kind, token, map[string]any{field: enabled}, version, time.Now()); err != nil {
+			if _, _, err = e.request(e.phase.Load().(string), "canary_write", "PUT", path+"/"+kind, token, map[string]any{field: enabled}, version, e.r.now()); err != nil {
 				return f, err
 			}
 		}
@@ -525,7 +640,8 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	rawBuffer, logBuffer := bufio.NewWriterSize(rawFile, 1<<20), bufio.NewWriterSize(logFile, 65536)
-	r := &rankingLoadRecorder{raw: json.NewEncoder(rawBuffer), logs: json.NewEncoder(logBuffer)}
+	clockProbe := newRankingLoadClockProbe()
+	r := &rankingLoadRecorder{epoch: time.Now(), clock: clockProbe, raw: json.NewEncoder(rawBuffer), logs: json.NewEncoder(logBuffer)}
 	defer func() {
 		for _, err := range []error{rawBuffer.Flush(), logBuffer.Flush(), rawFile.Close(), logFile.Close()} {
 			if err != nil {
@@ -547,14 +663,12 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	defer func() { stopClock(); <-clockDone }()
 	go func() {
 		defer close(clockDone)
-		tick := time.NewTicker(time.Minute)
-		defer tick.Stop()
-		for {
-			select {
-			case <-clockCtx.Done():
-				return
-			case <-tick.C:
+		lastRenew := r.now()
+		for r.waitUntil(r.now()+int64(time.Second), clockCtx.Done()) {
+			clockProbe.observe()
+			if r.now()-lastRenew >= int64(time.Minute) {
 				f.advanceClock(0)
+				lastRenew = r.now()
 			}
 		}
 	}()
@@ -563,6 +677,7 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	}
 	if mode == "calibrate" {
 		var reports []rankingLoadSummary
+		var ledgers []map[string]any
 		seconds := rankingLoadInt(t, "RANKING_LOAD_STAGE_SECONDS", 30, 15, 60)
 		minimum := rankingLoadInt(t, "RANKING_LOAD_MIN_RPS", 8, 8, 128)
 		for _, rate := range []int{8, 12, 16, 20, 24, 32, 48, 64, 96, 128} {
@@ -582,6 +697,15 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 			samples, _ := r.copy()
 			report := rankingSummarize(samples, phase)
 			reports = append(reports, report)
+			rows, _ := e.arrivalReport(samples)
+			for _, row := range rows {
+				if row["phase"] == phase {
+					ledgers = append(ledgers, row)
+					if row["unaccounted_events"].(int64) != 0 {
+						t.Error("capacity stage lost planned arrivals")
+					}
+				}
+			}
 			b, _ := json.Marshal(report)
 			t.Logf("capacity_result offered_events_per_second=%d clients=%d %s", rate, clients, b)
 			if report.Errors > 0 || report.Dropped > 0 {
@@ -591,6 +715,20 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 		b, _ := json.MarshalIndent(reports, "", "  ")
 		if err := os.WriteFile(filepath.Join(dir, "capacity.json"), b, 0600); err != nil {
 			t.Fatal(err)
+		}
+		clockProbe.observe()
+		calibration, valid := clockProbe.report()
+		if !valid {
+			t.Error("capacity clock evidence invalid")
+		}
+		for name, value := range map[string]any{"capacity-ledgers.json": ledgers, "clock-calibration.json": calibration} {
+			data, err := json.MarshalIndent(value, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, name), data, 0600); err != nil {
+				t.Fatal(err)
+			}
 		}
 		return
 	}
@@ -622,7 +760,7 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 					break
 				}
 			}
-			time.Sleep(time.Second)
+			r.waitUntil(r.now()+int64(time.Second), nil)
 		}
 		if !fence.Verified {
 			t.Fatal("real diagnostic cycle failed to publish")
@@ -647,7 +785,9 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	if time.Since(time.Now().UTC().Truncate(rankings.Interval)) > 30*time.Second {
 		wait := time.Until(time.Now().UTC().Truncate(rankings.Interval).Add(rankings.Interval).Add(time.Second))
 		t.Logf("waiting_for_fresh_baseline_bucket seconds=%.1f", wait.Seconds())
-		time.Sleep(wait)
+		for time.Since(time.Now().UTC().Truncate(rankings.Interval)) > 30*time.Second {
+			r.waitUntil(r.now()+int64(time.Second), nil)
+		}
 	}
 	f.advanceClock(0)
 	if _, err := f.s.c.RefreshRankings(context.Background(), f.worker, authprivacy.DefaultRankingWeights()); err != nil {
@@ -676,30 +816,43 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	defer stopWorker()
 	workerDone := make(chan struct{})
 	e.setPhase("catchup")
-	catchupAt := time.Now().UTC()
+	catchupAt := time.Now()
+	catchupTick := r.now()
+	var dueBuckets []rankingLoadDueBucket
+	observeBucket := func(now time.Time) {
+		bucket := now.UTC().Truncate(rankings.Interval)
+		if len(dueBuckets) == 0 {
+			dueBuckets = append(dueBuckets, rankingLoadDueBucket{Bucket: bucket, Observed: e.r.now()})
+			return
+		}
+		for next := dueBuckets[len(dueBuckets)-1].Bucket.Add(rankings.Interval); !next.After(bucket); next = next.Add(rankings.Interval) {
+			dueBuckets = append(dueBuckets, rankingLoadDueBucket{Bucket: next, Observed: e.r.now()})
+		}
+	}
+	observeBucket(catchupAt)
 	go func() {
 		defer close(workerDone)
 		f.s.c.RunRankings(workerCtx, f.worker, authprivacy.DefaultRankingWeights())
 	}()
 	defer func() { stopWorker(); <-workerDone }()
 	var current rankings.Snapshot
-	for time.Since(catchupAt) < time.Minute {
+	for r.now()-catchupTick < int64(time.Minute) {
 		current, err = f.cache.Snapshot(context.Background())
 		if err == nil && !current.Bucket.Before(catchupAt.Truncate(rankings.Interval)) {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		r.waitUntil(r.now()+int64(100*time.Millisecond), nil)
 	}
 	if err != nil || current.Bucket.Before(catchupAt.Truncate(rankings.Interval)) {
 		t.Fatal("worker did not catch up within a minute under continuous traffic")
 	}
-	t.Logf("catchup_completed elapsed_ms=%d", time.Since(catchupAt).Milliseconds())
-	for !initialFence.Verified && time.Since(catchupAt) < time.Minute {
+	t.Logf("catchup_completed elapsed_ms=%d", (r.now()-catchupTick)/int64(time.Millisecond))
+	for !initialFence.Verified && r.now()-catchupTick < int64(time.Minute) {
 		if err := rankingVerifyFence(e, current, &initialFence, false); err != nil {
 			t.Fatal(err)
 		}
 		if !initialFence.Verified {
-			time.Sleep(20 * time.Millisecond)
+			r.waitUntil(r.now()+int64(20*time.Millisecond), nil)
 		}
 	}
 	if !initialFence.Verified {
@@ -707,22 +860,21 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	}
 	seconds := rankingLoadInt(t, "RANKING_LOAD_SOAK_SECONDS", 1800, 1800, 2400)
 	e.setPhase("soak")
-	soakStart := time.Now().UTC()
-	until := soakStart.Add(time.Duration(seconds) * time.Second)
+	soakStart := r.now()
+	until := soakStart + int64(time.Duration(seconds)*time.Second)
 	lastVersion := current.Version
 	published := 0
 	var fences []rankingCanaryFence
 	var versions []map[string]any
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
 	nextCanary := time.Now().UTC().Truncate(rankings.Interval).Add(rankings.Interval).Add(-time.Minute)
 	if !nextCanary.After(time.Now()) {
 		nextCanary = nextCanary.Add(rankings.Interval)
 	}
-	for time.Now().Before(until) || rankingPendingFence(fences, until) {
-		<-tick.C
-		now := time.Now().UTC()
-		if now.Before(until) && !now.Before(nextCanary) {
+	for r.now() < until || rankingPendingFence(fences) {
+		r.waitUntil(r.now()+int64(time.Second), nil)
+		now := time.Now()
+		observeBucket(now)
+		if r.now() < until && !now.Before(nextCanary) {
 			enabled = !enabled
 			fence, err := e.canaryFence(enabled)
 			if err != nil {
@@ -731,7 +883,8 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 			fences = append(fences, fence)
 			nextCanary = nextCanary.Add(rankings.Interval)
 			t.Logf("canary_committed next_bucket=%s enabled=%t", fence.ExpectedBucket.Format(time.RFC3339), enabled)
-			now = time.Now().UTC()
+			now = time.Now()
+			observeBucket(now)
 		}
 		current, err = f.cache.Snapshot(context.Background())
 		if err != nil {
@@ -766,15 +919,55 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 		if now.Sub(now.Truncate(rankings.Interval)) > time.Minute && current.Bucket.Before(now.Truncate(rankings.Interval)) {
 			t.Fatal("worker missed a due five-minute publication")
 		}
-		if int(now.Sub(soakStart).Seconds())%30 == 0 {
+		if int((r.now()-soakStart)/int64(time.Second))%30 == 0 {
 			samples, _ := r.copy()
 			b, _ := json.Marshal(rankingSummarize(samples, "soak"))
-			t.Logf("soak_progress elapsed_s=%d old_quiet_timeouts=%d %s", int(now.Sub(soakStart).Seconds()), e.quietBlocked.Load(), b)
+			t.Logf("soak_progress elapsed_s=%d old_quiet_timeouts=%d %s", int((r.now()-soakStart)/int64(time.Second)), e.quietBlocked.Load(), b)
 		}
 	}
 	// Keep real offered traffic after the last publication, so the old
 	// strategy is observed for a full forward 25-second budget from its start.
 	e.await(t, "tail", 30*time.Second)
+	observeBucket(time.Now())
+	// Publication still has its own strict UTC/RAW 60s deadline. Allow a
+	// separate observation tail for a late-but-valid round's forward witness.
+	publicationDrain := r.now() + int64(2*time.Minute)
+	for {
+		observeBucket(time.Now())
+		latest, err := f.cache.Snapshot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !latest.Bucket.Before(dueBuckets[len(dueBuckets)-1].Bucket) {
+			observedEvents := r.copyEvents()
+			var lastRefresh int64
+			for _, event := range observedEvents {
+				if event.Name == "global_hotlist_refresh_start" {
+					lastRefresh = max(lastRefresh, event.At)
+				}
+			}
+			covered := false
+			for _, event := range observedEvents {
+				if event.Name != "global_hotlist_old_quiet_span" {
+					continue
+				}
+				from, _ := event.Fields["from_ns"].(int64)
+				to, _ := event.Fields["until_ns"].(int64)
+				gap, _ := event.Fields["max_tick_gap_ns"].(int64)
+				if from <= lastRefresh && to >= lastRefresh+int64(25*time.Second) && gap <= int64(40*time.Millisecond) {
+					covered = true
+					break
+				}
+			}
+			if covered {
+				break
+			}
+		}
+		if r.now() >= publicationDrain {
+			t.Fatal("last due publication or its forward busy evidence was not observed before shutdown")
+		}
+		r.waitUntil(r.now()+int64(100*time.Millisecond), nil)
+	}
 	stopWorker()
 	<-workerDone
 	// workerDone is closed; the deferred receive remains nonblocking.
@@ -783,6 +976,7 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	e.close()
 	stopClock()
 	<-clockDone
+	clockProbe.observe()
 	samples, events := r.copy()
 	if err := rawBuffer.Flush(); err != nil {
 		t.Fatal(err)
@@ -807,7 +1001,7 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 		}
 	}
 	arrivals, completeArrivals := e.arrivalReport(samples)
-	publications, publicationPass := rankingPublicationReport(events, catchupAt, soakStart, until)
+	publications, publicationPass := rankingPublicationReport(events, dueBuckets, catchupAt, catchupTick)
 	var maxSkew int64
 	for _, sample := range samples {
 		skew := sample.ClockSkew
@@ -816,7 +1010,8 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 		}
 		maxSkew = max(maxSkew, skew)
 	}
-	report := map[string]any{"clients": clients, "offered_events_per_second": rate, "arrivals": arrivals, "baseline": baseline, "soak": soak, "catchup": catchup, "search_p95_change_percent": change, "old_quiet_25s_timeouts": e.quietBlocked.Load(), "snapshot_publications": published, "publication_deadlines": publications, "versions": versions, "canary_fences": fences, "overlap": overlap, "matched_windows": windows, "duration_seconds": seconds, "clock_errors": e.clockErrors.Load(), "max_sample_clock_skew_ns": maxSkew, "monotonic_elapsed_ns": e.stopTime.Sub(e.startTime).Nanoseconds(), "wall_elapsed_ns": e.stopTime.UnixNano() - e.started, "all_errors_and_drops": allErrors, "note": "TCP Redis ACL; pool8/40ms; real five-minute RunRankings; no clock acceleration"}
+	clockReport, clockPass := clockProbe.report()
+	report := map[string]any{"clients": clients, "offered_events_per_second": rate, "arrivals": arrivals, "baseline": baseline, "soak": soak, "catchup": catchup, "search_p95_change_percent": change, "old_quiet_25s_timeouts": e.quietBlocked.Load(), "snapshot_publications": published, "publication_deadlines": publications, "versions": versions, "canary_fences": fences, "overlap": overlap, "matched_windows": windows, "duration_seconds": seconds, "clock_errors": e.clockErrors.Load(), "clock_calibration": clockReport, "max_sample_wall_clock_correction_ns": maxSkew, "raw_elapsed_ns": e.stopAt.Load() - e.started, "go_monotonic_elapsed_ns": e.stopTime.Sub(e.startTime).Nanoseconds(), "wall_elapsed_ns": e.stopTime.UnixNano() - e.startTime.UnixNano(), "all_errors_and_drops": allErrors, "note": "Harness performance and offered-load fields use one CLOCK_MONOTONIC_RAW origin; original worker elapsed/yield/aggregate/commit duration attributes remain Go-clock diagnostics; separate UTC fields for business deadlines; TCP Redis ACL; pool8/40ms; real five-minute RunRankings; no clock acceleration"}
 	b, _ := json.MarshalIndent(report, "", "  ")
 	if err := os.WriteFile(filepath.Join(dir, "summary.json"), b, 0600); err != nil {
 		t.Fatal(err)
@@ -834,6 +1029,12 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	if soak.MaxHotAgeMillis >= int64((6*time.Minute)/time.Millisecond) {
 		t.Error("HTTP hotlist exceeded six-minute freshness")
 	}
+	for _, sample := range samples {
+		if (sample.Phase == "soak" || sample.Phase == "tail") && sample.Kind == "hot" && sample.AgeMillis >= int64((6*time.Minute)/time.Millisecond) {
+			t.Error("active HTTP hotlist exceeded six-minute freshness")
+			break
+		}
+	}
 	if published < 5 || e.quietBlocked.Load() == 0 || e.clockErrors.Load() != 0 {
 		t.Error("insufficient real-time updates or no reproduction of the original busy condition")
 	}
@@ -843,8 +1044,8 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	if !publicationPass {
 		t.Error("worker did not publish each required bucket before its real deadline")
 	}
-	if maxSkew > int64(time.Millisecond) {
-		t.Error("wall clock stepped during the monotonic latency measurement")
+	if !clockPass {
+		t.Error("RAW clock failed or lacked trustworthy observation coverage")
 	}
 }
 
@@ -866,7 +1067,7 @@ func (e *rankingLoadEngine) arrivalReport(samples []rankingLoadSample) ([]map[st
 			continue
 		}
 		planned := ceil(p.End-e.started) - ceil(p.Start-e.started)
-		var sent, dropped, physical, failures, occupied int64
+		var sent, dropped, physical, failures, occupied, completed, dispatched, completionErrors int64
 		var lags []int64
 		for _, s := range samples {
 			if s.Phase != p.Name {
@@ -886,6 +1087,18 @@ func (e *rankingLoadEngine) arrivalReport(samples []rankingLoadSample) ([]map[st
 			}
 		}
 		for _, s := range samples {
+			if s.End >= p.Start && s.End < p.End {
+				if s.Kind == "arrival" {
+					dispatched++
+				} else if s.Kind != "dropped" {
+					completed++
+					if s.Failure != "" {
+						completionErrors++
+					}
+				}
+			}
+		}
+		for _, s := range samples {
 			if s.Kind != "arrival" && s.Kind != "dropped" && s.End > p.Start && s.At < p.End {
 				occupied += min(s.End, p.End) - max(s.At, p.Start)
 			}
@@ -895,7 +1108,11 @@ func (e *rankingLoadEngine) arrivalReport(samples []rankingLoadSample) ([]map[st
 			valid = false
 		}
 		seconds := float64(p.End-p.Start) / 1e9
-		rows = append(rows, map[string]any{"phase": p.Name, "from_ns": p.Start, "until_ns": p.End, "planned_events": planned, "dispatched_events": sent, "dropped_events": dropped, "unaccounted_events": missing, "completed_http": physical, "http_errors": failures, "actual_events_per_second": float64(sent) / seconds, "actual_http_per_second": float64(physical) / seconds, "mean_inflight": float64(occupied) / float64(p.End-p.Start), "dispatch_lag_p95_ms": rankingLoadPercentile(lags, 95)})
+		rawDuration := p.End - p.Start
+		if p.Name == "soak" && rawDuration < int64(30*time.Minute) {
+			valid = false
+		}
+		rows = append(rows, map[string]any{"phase": p.Name, "from_ns": p.Start, "until_ns": p.End, "raw_elapsed_ns": rawDuration, "planned_events": planned, "dispatched_events": sent, "dropped_events": dropped, "unaccounted_events": missing, "cohort_completed_http": physical, "cohort_http_errors": failures, "completed_http": completed, "http_errors": completionErrors, "dispatched_in_window": dispatched, "scheduled_dispatched_events_per_second": float64(sent) / seconds, "actual_events_per_second": float64(dispatched) / seconds, "actual_http_per_second": float64(completed) / seconds, "mean_inflight": float64(occupied) / float64(p.End-p.Start), "dispatch_lag_p95_ms": rankingLoadPercentile(lags, 95)})
 	}
 	return rows, valid
 }
@@ -908,7 +1125,7 @@ func rankingVerifyFence(e *rankingLoadEngine, snapshot rankings.Snapshot, fence 
 	var publishedAt time.Time
 	for _, event := range events {
 		if event.Name == "global_hotlist_publish_complete" && event.Fields["version"] == snapshot.Version {
-			publishedAt = time.Unix(0, event.At).UTC()
+			publishedAt = time.Unix(0, event.WallAt).UTC()
 			break
 		}
 	}
@@ -931,7 +1148,7 @@ func rankingVerifyFence(e *rankingLoadEngine, snapshot rankings.Snapshot, fence 
 		}
 		fence.DataVersions = append(fence.DataVersions, dataVersion)
 	}
-	page, _, err := e.request(e.phase.Load().(string), "hot", "GET", "/api/v1/feed/hot-posts", e.f.tokens[0], nil, "", time.Now())
+	page, _, err := e.request(e.phase.Load().(string), "hot", "GET", "/api/v1/feed/hot-posts", e.f.tokens[0], nil, "", e.r.now())
 	if err != nil {
 		return err
 	}
@@ -951,8 +1168,16 @@ func rankingVerifyFence(e *rankingLoadEngine, snapshot rankings.Snapshot, fence 
 	return nil
 }
 
-func rankingPublicationReport(events []rankingLoadEvent, catchupAt, start, until time.Time) ([]map[string]any, bool) {
-	first := map[time.Time]time.Time{}
+type rankingLoadDueBucket struct {
+	Bucket   time.Time
+	Observed int64
+}
+
+func rankingPublicationReport(events []rankingLoadEvent, due []rankingLoadDueBucket, catchupAt time.Time, catchupTick int64) ([]map[string]any, bool) {
+	if len(due) == 0 {
+		return nil, false
+	}
+	first := map[time.Time]rankingLoadEvent{}
 	for _, event := range events {
 		if event.Name != "global_hotlist_publish_complete" {
 			continue
@@ -962,24 +1187,24 @@ func rankingPublicationReport(events []rankingLoadEvent, catchupAt, start, until
 			continue
 		}
 		bucket = bucket.UTC()
-		at := time.Unix(0, event.At).UTC()
-		if prior, ok := first[bucket]; !ok || at.Before(prior) {
-			first[bucket] = at
+		if prior, ok := first[bucket]; !ok || event.At < prior.At {
+			first[bucket] = event
 		}
 	}
 	pass := true
 	var rows []map[string]any
-	add := func(kind string, bucket, deadline time.Time) {
-		at, found := first[bucket]
-		ok := found && !at.After(deadline)
+	add := func(kind string, bucket, deadline time.Time, monoDeadline int64) {
+		event, found := first[bucket]
+		at := time.Unix(0, event.WallAt).UTC()
+		ok := found && !at.After(deadline) && event.At <= monoDeadline
 		if !ok {
 			pass = false
 		}
-		rows = append(rows, map[string]any{"kind": kind, "bucket": bucket, "published_at": at, "deadline": deadline, "pass": ok})
+		rows = append(rows, map[string]any{"kind": kind, "bucket": bucket, "published_at": at, "deadline": deadline, "published_mono_ns": event.At, "deadline_mono_ns": monoDeadline, "pass": ok})
 	}
-	add("catchup", catchupAt.Truncate(rankings.Interval), catchupAt.Add(time.Minute))
-	for bucket := start.Truncate(rankings.Interval).Add(rankings.Interval); !bucket.After(until); bucket = bucket.Add(rankings.Interval) {
-		add("scheduled", bucket, bucket.Add(time.Minute))
+	add("catchup", catchupAt.UTC().Truncate(rankings.Interval), catchupAt.Add(time.Minute), catchupTick+int64(time.Minute))
+	for _, observed := range due[1:] {
+		add("scheduled", observed.Bucket, observed.Bucket.Add(time.Minute), observed.Observed+int64(time.Minute))
 	}
 	return rows, pass
 }
@@ -1013,9 +1238,9 @@ func rankingOverlapSummary(samples []rankingLoadSample, events []rankingLoadEven
 	return rankingSummarize(selected, "aggregate_overlap")
 }
 
-func rankingPendingFence(fences []rankingCanaryFence, until time.Time) bool {
+func rankingPendingFence(fences []rankingCanaryFence) bool {
 	for _, fence := range fences {
-		if !fence.Verified && !fence.ExpectedBucket.After(until) {
+		if !fence.Verified {
 			return true
 		}
 	}
@@ -1080,8 +1305,8 @@ func (e *rankingLoadEngine) matchedWindowReport(samples []rankingLoadSample, eve
 		if w.b < baseline.End || (w.kind != "refresh" && w.kind != "aggregate" && w.kind != "commit" && w.kind != "publish") {
 			continue
 		}
-		phase := e.phaseFor(time.Unix(0, w.a))
-		if phase != "catchup" && phase != "soak" {
+		phase := e.phaseFor(w.a)
+		if phase != "catchup" && phase != "soak" && phase != "tail" {
 			continue
 		}
 		actualCanaryOverlap := canaryOverlap(w.a, w.b)
@@ -1194,16 +1419,15 @@ func (e *rankingLoadEngine) matchedWindowReport(samples []rankingLoadSample, eve
 
 func (e *rankingLoadEngine) baselineWithCanaries(t *testing.T, duration time.Duration, latest rankingCanaryFence, enabled bool) (rankingCanaryFence, bool, error) {
 	e.setPhase("baseline")
-	start := time.Now()
-	end := start.Add(duration)
-	next := start.UTC().Truncate(rankings.Interval).Add(rankings.Interval).Add(-time.Minute)
-	if !next.After(start) {
+	startWall := time.Now()
+	start := e.r.now()
+	end := start + int64(duration)
+	next := startWall.UTC().Truncate(rankings.Interval).Add(rankings.Interval).Add(-time.Minute)
+	if !next.After(startWall) {
 		next = next.Add(rankings.Interval)
 	}
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
-	for time.Now().Before(end) {
-		<-tick.C
+	for e.r.now() < end {
+		e.r.waitUntil(min(end, e.r.now()+int64(time.Second)), nil)
 		now := time.Now()
 		if !now.Before(next) {
 			enabled = !enabled
@@ -1214,10 +1438,10 @@ func (e *rankingLoadEngine) baselineWithCanaries(t *testing.T, duration time.Dur
 			}
 			next = next.Add(rankings.Interval)
 		}
-		if int(now.Sub(start).Seconds())%30 == 0 {
+		if int((e.r.now()-start)/int64(time.Second))%30 == 0 {
 			samples, _ := e.r.copy()
 			b, _ := json.Marshal(rankingSummarize(samples, "baseline"))
-			t.Logf("baseline_progress elapsed_s=%d %s", int(now.Sub(start).Seconds()), b)
+			t.Logf("baseline_progress elapsed_s=%d %s", int((e.r.now()-start)/int64(time.Second)), b)
 		}
 	}
 	return latest, enabled, nil
