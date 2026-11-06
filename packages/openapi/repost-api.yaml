@@ -15,6 +15,7 @@ x-design-document: ../../docs/design/post-reposts-contract.md
 paths:
   /api/v1/posts/{postId}/repost:
     parameters:
+    - $ref: '#/components/parameters/PostTagsVersion'
     - $ref: '#/components/parameters/PostID'
     get:
       operationId: readOwnPostReposts
@@ -106,6 +107,8 @@ paths:
         '503':
           $ref: '#/components/responses/Error'
   /api/v1/me/reposts:
+    parameters:
+      - $ref: '#/components/parameters/PostTagsVersion'
     get:
       operationId: listOwnIdentityReposts
       summary: List current account retained identity reposts
@@ -235,6 +238,12 @@ components:
       - author
       - publishedAt
       properties:
+        tags:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          description: Optional public labels for X-Post-Tags v1 clients; omitted when empty.
+          items: {type: string, minLength: 1, maxLength: 10}
         postId:
           $ref: '#/components/schemas/ResourceID'
         channelId:
@@ -372,6 +381,12 @@ components:
               minLength: 1
               maxLength: 256
   parameters:
+    PostTagsVersion:
+      name: X-Post-Tags
+      in: header
+      required: false
+      description: Opt in to public label fields. Existing response DTOs omit tags without this header.
+      schema: {type: string, enum: [v1]}
     InteractionVersion:
       name: If-Interaction-Version
       in: header

@@ -27,6 +27,8 @@ import '../reports/report_screens.dart';
 import '../storage/post_store.dart';
 import 'post_controller.dart';
 import 'post_api.dart';
+import 'post_tag_widgets.dart';
+import 'post_tag_screen.dart';
 import 'post_edit_api.dart';
 import 'post_reposts_widgets.dart';
 import 'post_models.dart';
@@ -1184,6 +1186,40 @@ class _PostConfirmScreenState extends State<_PostConfirmScreen> {
                             const SizedBox(height: 28),
                             const Divider(),
                             const SizedBox(height: 24),
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(hhText(context, '添加标签')),
+                              subtitle: Text(
+                                widget.editor.tags.isEmpty
+                                    ? hhText(context, '选填，最多3个')
+                                    : widget.editor.tags
+                                          .map((t) => '#$t')
+                                          .join('  '),
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: _publishing
+                                  ? null
+                                  : () async {
+                                      final tags = await showPostTagPicker(
+                                        context,
+                                        widget.controller,
+                                        widget.editor.tags,
+                                      );
+                                      if (mounted && _current && tags != null) {
+                                        setState(() {
+                                          widget.editor.tags = tags;
+                                          widget.editor.saved = false;
+                                        });
+                                        await widget.controller.saveDraft(
+                                          widget.editor,
+                                        );
+                                        if (mounted && _current) {
+                                          setState(() {});
+                                        }
+                                      }
+                                    },
+                            ),
+                            const Divider(),
                             Text(
                               hhText(context, '发言身份'),
                               style: const TextStyle(color: PostTheme.muted),
@@ -2234,6 +2270,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             post.body,
             style: detailType(context, 16, height: 1.5),
           ),
+          if (post.tags.isNotEmpty)
+            PostTagChips(
+              tags: post.tags,
+              onTap: (tag) => unawaited(
+                openPostTag(
+                  context,
+                  controller: widget.controller,
+                  tag: tag,
+                  channels: widget.controller.postTagChannels,
+                  onAuthenticationRequired:
+                      widget.onAuthenticationRequired ??
+                      () => Navigator.of(context).pop(),
+                  loadImages: widget.loadImages,
+                ),
+              ),
+            ),
           if (widget.loadImages case final loader? when post.imageCount > 0)
             PostImagesSection(
               key: ValueKey((post.postId, post.editedAt)),

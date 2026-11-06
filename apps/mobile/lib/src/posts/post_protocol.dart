@@ -5,6 +5,7 @@ import 'package:characters/characters.dart';
 import 'package:crypto/crypto.dart' as hashes;
 
 import '../auth/auth_crypto.dart';
+import 'post_tags.dart';
 
 enum PostOperation { create, retry, cancel, deletePost, hideTask }
 
@@ -150,6 +151,18 @@ class PostProtocol {
       ...textFrame,
       images.length,
       for (final field in fields) ...field,
+    ]);
+  }
+
+  static Uint8List withTags(Uint8List frame, List<String> tags) {
+    if (tags.isEmpty) return frame;
+    PostTags.parse(tags);
+    return Uint8List.fromList([
+      ...ascii.encode('HNUHOLE/POST-TAGS-COMMAND/V1'),
+      0,
+      ...frame,
+      tags.length,
+      for (final tag in tags) ..._text(tag),
     ]);
   }
 

@@ -1,5 +1,38 @@
 // Application-owned text only. Dynamic values remain verbatim.
 const communitySettingsTranslations = <String, (String, String, String)>{
+  '暂时无法加载，请重试。': (
+    '暫時無法載入，請重試。',
+    'Unable to load. Try again.',
+    '読み込めません。もう一度お試しください。',
+  ),
+  '列表已变化，请刷新。': (
+    '列表已變更，請重新整理。',
+    'The list has changed. Refresh to continue.',
+    '一覧が変更されました。更新してください。',
+  ),
+  '已有标签暂时无法加载，仍可添加新标签。': (
+    '現有標籤暫時無法載入，仍可新增標籤。',
+    'Existing tags could not load. You can still add a new tag.',
+    '既存のタグを読み込めません。新しいタグは追加できます。',
+  ),
+  '每篇帖子最多 3 个标签': (
+    '每篇貼文最多 3 個標籤',
+    'Each post can have up to 3 tags',
+    'タグは投稿ごとに3個までです',
+  ),
+  '标签限 1–10 字，仅中文、英文、数字和下划线': (
+    '標籤限 1–10 字，僅中文、英文、數字和底線',
+    'Use 1–10 Chinese characters, English letters, digits or underscores',
+    '1～10文字の漢字、英字、数字、アンダースコアを使用してください',
+  ),
+  '添加这个标签': ('新增這個標籤', 'Add this tag', 'このタグを追加'),
+  '选填，最多3个': ('選填，最多3個', 'Optional, up to 3 tags', '任意、3個まで'),
+  '输入标签，最多10字': (
+    '輸入標籤，最多10字',
+    'Enter a tag, up to 10 characters',
+    'タグを入力（10文字まで）',
+  ),
+  '添加标签': ('新增標籤', 'Add tags', 'タグを追加'),
   '下一步': ('下一步', 'Next', '次へ'),
   '主评论': ('主評論', 'Comment', 'コメント'),
   '举报': ('舉報', 'Report', '通報'),

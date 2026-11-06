@@ -22,6 +22,7 @@ class _PublishedPostEditScreenState extends State<_PublishedPostEditScreen> {
   SubmittedPostEdit? _submission;
   String? _revision, _error;
   int _imageCount = 0;
+  List<String> _tags = const [];
   bool _busy = true, _knownFailure = false, _conflict = false;
   bool _imagesAvailable = false;
   final _images = <({String id, DraftPostImage? local})>[];
@@ -61,6 +62,7 @@ class _PublishedPostEditScreenState extends State<_PublishedPostEditScreen> {
           _revision = previous.baseRevision;
           _title.text = previous.title;
           _body.text = previous.body;
+          _tags = previous.tags ?? const [];
           _imageCount = previous.imageCount;
           _imagesAvailable = previous.imageIds != null;
           final local = {
@@ -87,6 +89,7 @@ class _PublishedPostEditScreenState extends State<_PublishedPostEditScreen> {
       _revision = latest.revision;
       _title.text = latest.post.title;
       _body.text = latest.post.body;
+      _tags = latest.post.tags;
       _imageCount = latest.post.imageCount;
       _imagesAvailable = latest.imageIds != null;
       _newOriginals.clear();
@@ -131,6 +134,7 @@ class _PublishedPostEditScreenState extends State<_PublishedPostEditScreen> {
         baseRevision: revision,
         title: _title.text,
         body: _body.text,
+        tags: _tags,
         imageCount: imageCount,
         imageIds: _imagesAvailable
             ? [for (final image in _images) image.id]
@@ -539,6 +543,30 @@ class _PublishedPostEditScreenState extends State<_PublishedPostEditScreen> {
                                 decoration: const InputDecoration(
                                   labelText: '正文',
                                 ),
+                              ),
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(hhText(context, '添加标签')),
+                                subtitle: Text(
+                                  _tags.isEmpty
+                                      ? hhText(context, '选填，最多3个')
+                                      : _tags.map((t) => '#$t').join('  '),
+                                ),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: editable && !_conflict
+                                    ? () async {
+                                        final tags = await showPostTagPicker(
+                                          context,
+                                          widget.controller,
+                                          _tags,
+                                        );
+                                        if (mounted &&
+                                            _session.current &&
+                                            tags != null) {
+                                          setState(() => _tags = tags);
+                                        }
+                                      }
+                                    : null,
                               ),
                               if (_imagesAvailable)
                                 _photos(editable && !_conflict),

@@ -137,6 +137,9 @@ func (c *Community) SavePostEdit(ctx context.Context, bearer [32]byte, post, com
 	if input.ImageIDs != nil && !c.PostImagesEnabled() {
 		return PostResponse{}, ErrAuthorizationUnavailable
 	}
+	if input.Tags != nil && (!posts.ValidTags(*input.Tags) || !c.posts.tagsEnabled) {
+		return PostResponse{}, posts.ErrContentInvalid
+	}
 	frame, err := json.Marshal(input)
 	if err != nil {
 		return PostResponse{}, err
@@ -183,6 +186,11 @@ func (c *Community) SavePostEdit(ctx context.Context, bearer [32]byte, post, com
 		result = posts.EditResult{State: "REJECTED", Code: code}
 		if code == "" {
 			result = posts.EditResult{State: "SAVED", Revision: uuid.NewString()}
+			if input.Tags != nil {
+				if _, err = tx.Exec(ctx, `UPDATE c_posts.posts SET tags=$2 WHERE post_id=$1`, post, *input.Tags); err != nil {
+					return nil, err
+				}
+			}
 			var imageIDs []string
 			if input.ImageIDs != nil {
 				imageIDs = *input.ImageIDs

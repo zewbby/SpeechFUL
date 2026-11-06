@@ -58,6 +58,7 @@ func ParseRequestDigest(value string) ([32]byte, error) {
 }
 
 type Intent struct {
+	Tags                   []string
 	Operation              Operation
 	ChannelID              string
 	IdentityID             string
@@ -133,6 +134,18 @@ func FrameIntent(intent Intent) ([]byte, error) {
 			frame = binary.BigEndian.AppendUint32(frame, uint32(s.ByteLength))
 			frame = binary.BigEndian.AppendUint32(frame, uint32(s.Width))
 			frame = binary.BigEndian.AppendUint32(frame, uint32(s.Height))
+		}
+	}
+	if len(intent.Tags) > 0 {
+		if (intent.Operation != Create && intent.Operation != Retry) || !ValidTags(intent.Tags) {
+			return nil, ErrInvalidIntent
+		}
+		frame = append([]byte("HNUHOLE/POST-TAGS-COMMAND/V1\x00"), frame...)
+		frame = append(frame, byte(len(intent.Tags)))
+		for _, tag := range intent.Tags {
+			if !addText(tag) {
+				return nil, ErrInvalidIntent
+			}
 		}
 	}
 	return frame, nil

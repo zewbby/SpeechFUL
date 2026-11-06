@@ -46,15 +46,16 @@ func readOwnPostTask(ctx context.Context, tx pgx.Tx, account uuid.UUID, id strin
 	var ownerVisible bool
 	var deleted, erased *time.Time
 	var title, body *string
+	var tags []string
 	var postVisibility string
 	var cleanup bool
 	var imageCount int
 	var hidden bool
-	err := tx.QueryRow(ctx, `SELECT t.task_id,t.post_id,t.channel_id,t.identity_id,t.latest_attempt_version,a.state,a.accepted_at,a.terminal_at,a.failure_code,t.owner_visible,i.deleted_at,x.erased_at,x.title,x.body,p.visibility,
+	err := tx.QueryRow(ctx, `SELECT t.task_id,t.post_id,t.channel_id,t.identity_id,t.latest_attempt_version,a.state,a.accepted_at,a.terminal_at,a.failure_code,t.owner_visible,i.deleted_at,x.erased_at,x.title,x.body,COALESCE(to_jsonb(x)->'tags','[]'::jsonb),p.visibility,
  EXISTS(SELECT 1 FROM c_posts.payload_cleanup q WHERE q.task_id=a.task_id AND q.version=a.version),COALESCE((to_jsonb(x)->>'image_count')::int,0),COALESCE((to_jsonb(p)->>'moderation_hidden')::boolean,false)
  FROM c_posts.publication_tasks t JOIN c_posts.publication_attempts a ON a.task_id=t.task_id AND a.version=t.latest_attempt_version
  JOIN public.community_identities i ON i.identity_id=t.identity_id JOIN c_posts.attempt_contents x ON x.task_id=a.task_id AND x.version=a.version JOIN c_posts.posts p ON p.post_id=t.post_id
- WHERE t.task_id=$1 AND t.owner_account_id=$2`, id, account).Scan(&r.Task.TaskID, &r.Task.PostID, &r.Task.ChannelID, &r.Task.IdentityID, &r.Task.AttemptVersion, &state, &r.Task.AcceptedAt, &r.Task.TerminalAt, &r.Task.FailureCode, &ownerVisible, &deleted, &erased, &title, &body, &postVisibility, &cleanup, &imageCount, &hidden)
+ WHERE t.task_id=$1 AND t.owner_account_id=$2`, id, account).Scan(&r.Task.TaskID, &r.Task.PostID, &r.Task.ChannelID, &r.Task.IdentityID, &r.Task.AttemptVersion, &state, &r.Task.AcceptedAt, &r.Task.TerminalAt, &r.Task.FailureCode, &ownerVisible, &deleted, &erased, &title, &body, &tags, &postVisibility, &cleanup, &imageCount, &hidden)
 	if err != nil {
 		return r, err
 	}
@@ -68,7 +69,7 @@ func readOwnPostTask(ctx context.Context, tx pgx.Tx, account uuid.UUID, id strin
 	r.Task.Visible = ownerVisible && deleted == nil && (r.Task.State == posts.Accepted || r.Task.State == posts.Failed)
 	r.Task.ContentAvailable = !hidden && ownerVisible && deleted == nil && erased == nil && !cleanup && title != nil && body != nil && r.Task.State != posts.Cancelled && postVisibility != "DELETED"
 	if r.Task.ContentAvailable {
-		r.Content = &posts.OwnTaskContent{Title: *title, Body: *body, ImageCount: imageCount}
+		r.Content = &posts.OwnTaskContent{Title: *title, Body: *body, ImageCount: imageCount, Tags: tags}
 	}
 	r.Task.CanCancel = r.Task.Visible && r.Task.State == posts.Accepted
 	r.Task.CanHide = r.Task.Visible && r.Task.State == posts.Failed
@@ -224,10 +225,10 @@ func readPublicPost(ctx context.Context, tx pgx.Tx, id string) (posts.PublicPost
 	var deleted *time.Time
 	var nickname, avatar *string
 	var short string
-	err := tx.QueryRow(ctx, `SELECT p.post_id,p.channel_id,COALESCE(to_jsonb(p)->>'edited_title',x.title),COALESCE(to_jsonb(p)->>'edited_body',x.body),p.published_at,p.publication_ordinal,a.state,i.deleted_at,i.nickname,i.avatar,l.short_code,`+publicPostImageCount+`,(to_jsonb(p)->>'edited_at')::timestamptz,to_jsonb(p)->>'edited_image_ids' IS NOT NULL
+	err := tx.QueryRow(ctx, `SELECT p.post_id,p.channel_id,COALESCE(to_jsonb(p)->>'edited_title',x.title),COALESCE(to_jsonb(p)->>'edited_body',x.body),p.published_at,p.publication_ordinal,a.state,i.deleted_at,i.nickname,i.avatar,l.short_code,`+publicPostImageCount+`,(to_jsonb(p)->>'edited_at')::timestamptz,to_jsonb(p)->>'edited_image_ids' IS NOT NULL,COALESCE(to_jsonb(p)->'tags','[]'::jsonb)
  FROM c_posts.posts p JOIN c_posts.publication_tasks t ON t.post_id=p.post_id JOIN c_posts.attempt_contents x ON x.task_id=t.task_id AND x.version=p.published_attempt_version
  JOIN public.community_identities i ON i.identity_id=t.identity_id JOIN c_auth.accounts a ON a.account_id=p.owner_account_id JOIN c_posts.identity_public_labels l ON l.identity_id=i.identity_id
- WHERE p.post_id=$1 AND p.visibility='PUBLISHED' AND NOT COALESCE((to_jsonb(p)->>'moderation_hidden')::boolean,false) AND x.erased_at IS NULL`, id).Scan(&r.PostID, &r.ChannelID, &r.Title, &r.Body, &r.PublishedAt, &ordinal, &accountState, &deleted, &nickname, &avatar, &short, &r.ImageCount, &r.EditedAt, &r.ImagesEdited)
+ WHERE p.post_id=$1 AND p.visibility='PUBLISHED' AND NOT COALESCE((to_jsonb(p)->>'moderation_hidden')::boolean,false) AND x.erased_at IS NULL`, id).Scan(&r.PostID, &r.ChannelID, &r.Title, &r.Body, &r.PublishedAt, &ordinal, &accountState, &deleted, &nickname, &avatar, &short, &r.ImageCount, &r.EditedAt, &r.ImagesEdited, &r.Tags)
 	if err != nil {
 		return r, 0, err
 	}
@@ -256,7 +257,7 @@ func projectPublicPostAuthor(accountState string, deleted *time.Time, nickname, 
 	}
 }
 func postCard(r posts.PublicPost) posts.PublicPostCard {
-	return posts.PublicPostCard{PostID: r.PostID, ChannelID: r.ChannelID, Title: r.Title, Author: r.Author, PublishedAt: r.PublishedAt}
+	return posts.PublicPostCard{PostID: r.PostID, ChannelID: r.ChannelID, Title: r.Title, Tags: r.Tags, Author: r.Author, PublishedAt: r.PublishedAt}
 }
 func (c *Community) postCursor(ctx context.Context, tx pgx.Tx, account uuid.UUID, query PostQuery, at time.Time) (posts.CursorPosition, error) {
 	scope := posts.CursorChannel
