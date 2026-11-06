@@ -84,7 +84,13 @@ func TestFeedRankingsRedisPostgres(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
-		if _, e := l.c.RefreshRankings(ctx, l.cp, DefaultRankingWeights()); e != nil {
+		// Keep foreground activity registered for the entire build. This
+		// deterministic regression must complete without a quiet window.
+		finish := cache.ForegroundStarted()
+		defer finish()
+		work, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		if _, e := l.c.RefreshRankings(work, l.cp, DefaultRankingWeights()); e != nil {
 			t.Fatal(e)
 		}
 		after, e := os.ReadFile(control.lab.gate.anchor.Path)

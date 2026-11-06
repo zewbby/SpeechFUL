@@ -63,12 +63,16 @@ type e2ePKI struct {
 }
 
 func e2eNewPKI(t *testing.T) *e2ePKI {
+	return e2eNewPKIWithLifetime(t, time.Hour)
+}
+
+func e2eNewPKIWithLifetime(t *testing.T, lifetime time.Duration) *e2ePKI {
 	t.Helper()
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "isolated-test-only"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign}
+	root := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "isolated-test-only"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(lifetime), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign}
 	der, err := x509.CreateCertificate(rand.Reader, root, root, public, private)
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +100,7 @@ func (p *e2ePKI) cert(t *testing.T, environment string, service Service) tls.Cer
 	if err != nil {
 		t.Fatal(err)
 	}
-	leaf := &x509.Certificate{SerialNumber: serial, Subject: pkix.Name{CommonName: "not-used-as-identity"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}, DNSNames: []string{"localhost"}, URIs: []*url.URL{uri}}
+	leaf := &x509.Certificate{SerialNumber: serial, Subject: pkix.Name{CommonName: "not-used-as-identity"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: p.root.NotAfter, KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}, DNSNames: []string{"localhost"}, URIs: []*url.URL{uri}}
 	der, err := x509.CreateCertificate(rand.Reader, leaf, p.root, public, p.key)
 	if err != nil {
 		t.Fatal(err)
@@ -337,6 +341,10 @@ type e2eServices struct {
 }
 
 func e2eNewServices(t *testing.T, configure ...func(*authprivacy.Community) *authprivacy.Community) *e2eServices {
+	return e2eNewServicesWithTLSLifetime(t, time.Hour, configure...)
+}
+
+func e2eNewServicesWithTLSLifetime(t *testing.T, lifetime time.Duration, configure ...func(*authprivacy.Community) *authprivacy.Community) *e2eServices {
 	t.Helper()
 	s := &e2eServices{cp: e2ePool(t, "c"), vp: e2ePool(t, "v")}
 	var trusted []protocol.TrustedKey
@@ -404,7 +412,7 @@ func e2eNewServices(t *testing.T, configure ...func(*authprivacy.Community) *aut
 	if err != nil {
 		t.Fatal(err)
 	}
-	pki := e2eNewPKI(t)
+	pki := e2eNewPKIWithLifetime(t, lifetime)
 	cCert, vCert := pki.cert(t, "lab", CommunityService), pki.cert(t, "lab", VerifierService)
 	passwords, err := authprivacy.NewPasswordPreparer(1, []string{"PasswordPassword123!"})
 	if err != nil {

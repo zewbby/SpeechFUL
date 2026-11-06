@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/posts"
+	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/readtiming"
 )
 
 var errPostSearchChanged = errors.New("post search candidates or preferences changed")
@@ -46,7 +47,7 @@ func (c *Community) SearchPosts(ctx context.Context, bearer [32]byte, query post
 		finishForeground := c.rankings.ForegroundStarted()
 		defer finishForeground()
 	}
-	decision, err := c.gate.Snapshot(ctx)
+	decision, err := c.postCandidateDecision(ctx, c.pool)
 	if err != nil {
 		return PostResponse{}, err
 	}
@@ -166,6 +167,7 @@ type preparedPostSearch struct {
 }
 
 func (c *Community) preparePostSearch(ctx context.Context, account uuid.UUID, query posts.SearchQuery, at time.Time) (preparedPostSearch, error) {
+	defer readtiming.Span(ctx, "search_candidates")()
 	var prepared preparedPostSearch
 	tx, err := begin(ctx, c.pool)
 	if err != nil {
@@ -241,6 +243,7 @@ JOIN LATERAL (
 ORDER BY candidate.ord`
 
 func (c *Community) finishPostSearch(ctx context.Context, tx pgx.Tx, account uuid.UUID, query posts.SearchQuery, prepared preparedPostSearch, at time.Time) (posts.FeedPage, error) {
+	defer readtiming.Span(ctx, "search_projection")()
 	page := posts.FeedPage{Items: make([]posts.PublicPostCard, 0, query.Limit)}
 	if err := requirePostSearchChannel(ctx, tx, query.ChannelID); err != nil {
 		return page, err
@@ -251,7 +254,7 @@ func (c *Community) finishPostSearch(ctx context.Context, tx pgx.Tx, account uui
 		return page, err
 	}
 	if query.Cursor != "" {
-		if revision != position.FilterRevision || !at.Before(position.ExpiresAt) {
+		if revision != position.FilterRevision || !at.Before(position.ExpiresAt) || position.ExpiresAt.After(at.Add(posts.CursorTTL)) {
 			return page, posts.ErrCursorInvalid
 		}
 	} else if revision != position.FilterRevision {

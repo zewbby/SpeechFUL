@@ -57,20 +57,31 @@ func (c *Community) RunRankings(ctx context.Context, pool *pgxpool.Pool, weights
 }
 
 // RefreshRankings builds or republishes the current trusted time bucket.
-func (c *Community) RefreshRankings(ctx context.Context, pool *pgxpool.Pool, weights RankingWeights) (time.Time, error) {
+func (c *Community) RefreshRankings(ctx context.Context, pool *pgxpool.Pool, weights RankingWeights) (bucket time.Time, resultErr error) {
+	metrics := rankingRefreshMetrics{started: time.Now()}
+	slog.Info("global_hotlist_refresh_start")
+	defer func() {
+		slog.Info("global_hotlist_refresh", "success", resultErr == nil, "bucket", bucket, "attempt_bucket", metrics.target,
+			"elapsed_ms", time.Since(metrics.started).Milliseconds(), "yield_ms", metrics.yield.Milliseconds(),
+			"aggregate_ms", metrics.aggregate.Milliseconds(), "commit_ms", metrics.commit.Milliseconds(),
+			"computed_shards", metrics.computed, "reused_shards", metrics.reused)
+	}()
 	if c == nil || c.rankings == nil || pool == nil || !weights.Valid() {
 		return time.Time{}, errors.New("invalid global hotlist worker configuration")
 	}
-	if err := c.rankings.WaitForIdle(ctx); err != nil {
+	yieldAt := time.Now()
+	if err := c.rankings.YieldToForeground(ctx); err != nil {
 		return time.Time{}, err
 	}
-	decision, err := c.rankingBuildDecision(ctx, pool)
+	metrics.yield += time.Since(yieldAt)
+	decision, err := c.postCandidateDecision(ctx, pool)
 	if err != nil {
 		return time.Time{}, err
 	}
-	bucket := decision.TrustedAt.UTC().Truncate(rankings.Interval)
+	bucket = decision.TrustedAt.UTC().Truncate(rankings.Interval)
+	metrics.target = bucket
 	version := rankings.Version(decision.Generation, bucket)
-	if err := c.buildRankingSnapshot(ctx, pool, decision, version, bucket, weights); err != nil {
+	if err := c.buildRankingSnapshot(ctx, pool, decision, version, bucket, weights, &metrics); err != nil {
 		return time.Time{}, err
 	}
 
@@ -107,33 +118,22 @@ func (c *Community) RefreshRankings(ctx context.Context, pool *pgxpool.Pool, wei
 			return time.Time{}, err
 		}
 	}
+	slog.Info("global_hotlist_publish_start", "bucket", bucket, "version", snapshot.Version)
 	if err := c.rankings.Publish(ctx, snapshot); err != nil {
 		return time.Time{}, err
 	}
+	slog.Info("global_hotlist_publish_complete", "bucket", bucket, "version", snapshot.Version)
 	return bucket, nil
 }
 
-// Private computation needs a verified time sample, without publishing a new
-// authorization checkpoint. Every public response still uses withPostSessionAt.
-func (c *Community) rankingBuildDecision(ctx context.Context, pool *pgxpool.Pool) (AuthorizationDecision, error) {
-	tx, err := begin(ctx, pool)
-	if err != nil {
-		return AuthorizationDecision{}, err
-	}
-	defer tx.Rollback(ctx)
-	var generation uint64
-	if err := tx.QueryRow(ctx, `SELECT authorization_generation FROM c_auth.authorization_gate WHERE singleton_id=1`).Scan(&generation); err != nil {
-		return AuthorizationDecision{}, err
-	}
-	decision, err := c.gate.RecheckForCommit(ctx, tx, generation)
-	if err != nil {
-		// Persist an independently detected freeze after rolling back the read.
-		_ = c.gate.Abort(ctx, tx)
-	}
-	return decision, err
+type rankingRefreshMetrics struct {
+	started                  time.Time
+	target                   time.Time
+	yield, aggregate, commit time.Duration
+	computed, reused         int
 }
 
-func (c *Community) buildRankingSnapshot(ctx context.Context, pool *pgxpool.Pool, decision AuthorizationDecision, version string, bucket time.Time, weights RankingWeights) error {
+func (c *Community) buildRankingSnapshot(ctx context.Context, pool *pgxpool.Pool, decision AuthorizationDecision, version string, bucket time.Time, weights RankingWeights, metrics *rankingRefreshMetrics) error {
 	tx, err := begin(ctx, pool)
 	if err != nil {
 		return err
@@ -171,15 +171,25 @@ func (c *Community) buildRankingSnapshot(ctx context.Context, pool *pgxpool.Pool
 			return err
 		}
 		if reused.RowsAffected() == 0 {
-			if err := c.rankings.WaitForIdle(ctx); err != nil {
+			yieldAt := time.Now()
+			if err := c.rankings.YieldToForeground(ctx); err != nil {
 				return err
 			}
-			if _, err := tx.Exec(ctx, buildRankingsSQL, version, decision.Generation, bucket, weights.Like, weights.Favorite, weights.Discussion, weights.HalfLifeHours, channel, policy); err != nil {
-				return err
+			metrics.yield += time.Since(yieldAt)
+			aggregateAt := time.Now()
+			slog.Info("global_hotlist_aggregate_start", "bucket", bucket, "shard", channel)
+			_, buildErr := tx.Exec(ctx, buildRankingsSQL, version, decision.Generation, bucket, weights.Like, weights.Favorite, weights.Discussion, weights.HalfLifeHours, channel, policy)
+			slog.Info("global_hotlist_aggregate_complete", "bucket", bucket, "shard", channel, "success", buildErr == nil)
+			metrics.aggregate += time.Since(aggregateAt)
+			if buildErr != nil {
+				return buildErr
 			}
+			metrics.computed++
 			if _, err := tx.Exec(ctx, `INSERT INTO c_posts.hot_snapshot_shards(version,channel_id,data_version) VALUES($1,$2,$1)`, version, channel); err != nil {
 				return err
 			}
+		} else {
+			metrics.reused++
 		}
 	}
 	// Reuse before retention so a delayed cycle can keep unchanged data. The
@@ -199,8 +209,10 @@ func (c *Community) buildRankingSnapshot(ctx context.Context, pool *pgxpool.Pool
 	// public read still executes withPostSessionAt and its final Gate check.
 	// A recovery racing this commit leaves an old-generation cache that no
 	// reader can authorize; a later worker replaces it.
-	if err := c.rankings.WaitForIdle(ctx); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	commitAt := time.Now()
+	slog.Info("global_hotlist_commit_start", "bucket", bucket)
+	err = tx.Commit(ctx)
+	slog.Info("global_hotlist_commit_complete", "bucket", bucket, "success", err == nil)
+	metrics.commit = time.Since(commitAt)
+	return err
 }

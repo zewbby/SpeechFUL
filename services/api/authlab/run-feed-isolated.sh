@@ -28,9 +28,16 @@ trap feed_cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 if [ "${FEED_RANKINGS_REDIS:-0}" = 1 ]; then
+    ranking_tcp_port=${FEED_RANKINGS_TCP_PORT:-0}
+    case "$ranking_tcp_port" in ''|*[!0-9]*) echo 'Invalid isolated Redis TCP port' >&2; exit 2 ;; esac
+    if [ "$ranking_tcp_port" != 0 ]; then
+        [ "$ranking_tcp_port" -ge 1024 ] && [ "$ranking_tcp_port" -le 65535 ] || exit 2
+        RANKING_REDIS_TCP_ADDRESS="127.0.0.1:$ranking_tcp_port"
+        export RANKING_REDIS_TCP_ADDRESS
+    fi
     RANKING_REDIS_SOCKET="$feed_dir/rankings.sock"
     export RANKING_REDIS_SOCKET
-    "${FEED_REDIS_BIN:-redis-server}" --port 0 --unixsocket "$RANKING_REDIS_SOCKET" --unixsocketperm 700 \
+    "${FEED_REDIS_BIN:-redis-server}" --bind 127.0.0.1 --port "$ranking_tcp_port" --unixsocket "$RANKING_REDIS_SOCKET" --unixsocketperm 700 \
         --dir "$feed_dir" --save "" --appendonly no >"$feed_dir/redis.log" 2>&1 &
     feed_redis_pid=$!
     for retry in 1 2 3 4 5 6 7 8 9 10; do
@@ -80,5 +87,10 @@ AUTHLAB_ALLOW_SCHEMA_RESET=1
 export AUTHLAB_RUNTIME_TAG AUTHLAB_C_DSN AUTHLAB_V_DSN AUTHLAB_POSTS_RUNTIME_DSN AUTHLAB_ALLOW_SCHEMA_RESET FEED_FRESH_DSN FEED_UPGRADE_DSN FEED_INTERACTIONS_DSN FEED_VERSIONS_DSN
 feed_script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$feed_script_dir/.."
-go test -race -count=1 -p 1 ./internal/authprivacy ./internal/authprivacyhttp ./internal/authprivacyruntime ./internal/rankings \
+case "${FEED_TEST_RACE:-1}" in
+  1) feed_race_flag=-race ;;
+  0) feed_race_flag= ;;
+  *) echo 'FEED_TEST_RACE must be 0 or 1' >&2; exit 2 ;;
+esac
+go test $feed_race_flag -timeout "${FEED_TEST_TIMEOUT:-10m}" -count=1 -p 1 ./internal/authprivacy ./internal/authprivacyhttp ./internal/authprivacyruntime ./internal/rankings \
     -run "${FEED_TEST_PATTERN:-^(TestFeed|TestRealHTTPSFeed(Views|Interactions|Rankings)|TestRealHTTPSPostSearchHistoryPostgres|TestPostSchema|TestPostAtomic|TestPostCeiling|TestPostGate|TestPostFormalClosure|TestRealHTTPSPost(Acceptance|Stops)|TestModerationLifecycleCommonCStartup|TestCommentText(Transactions|FailureRetryAbandon|FrozenGate|RuntimeAndSQLGuards|UnavailablePost|ClosureCleanupWithFeatureDisabled|HTTPS|NullableBoundary)|TestCommentBusiness(MediaDeleteLikesNotices|HTTPS))}" -v

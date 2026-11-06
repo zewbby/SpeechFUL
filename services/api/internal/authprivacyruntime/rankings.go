@@ -63,6 +63,9 @@ func (c Config) openRankingRuntime(ctx context.Context, poolConfig *pgxpool.Conf
 	}
 	config := poolConfig.Copy()
 	config.MaxConns, config.MinConns = 1, 0
+	// Keep future read-only worker probes serial too. The current INSERT/CTE
+	// aggregate is already serial in PostgreSQL; this is a resource guard.
+	config.ConnConfig.RuntimeParams["max_parallel_workers_per_gather"] = "0"
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, nil, weights, errors.New("create ranking worker database pool failed")

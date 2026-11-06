@@ -11,23 +11,30 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func TestForegroundReadsDelayRankingWorkAndCancellation(t *testing.T) {
+func TestForegroundReadsYieldWithoutStarvingRankingWork(t *testing.T) {
 	c := &Cache{}
 	first := c.ForegroundStarted()
 	second := c.ForegroundStarted()
 	first()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Millisecond)
 	defer cancel()
-	if err := c.WaitForIdle(ctx); !errors.Is(err, context.DeadlineExceeded) {
+	if err := c.YieldToForeground(ctx); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal("background work started during a foreground read", err)
 	}
+	// The second foreground read stays active throughout the next call. Work
+	// must nevertheless proceed before its caller's one-second deadline.
+	busy, stopBusy := context.WithTimeout(context.Background(), time.Second)
+	defer stopBusy()
+	if err := c.YieldToForeground(busy); err != nil {
+		t.Fatal("continuous foreground traffic starved background progress", err)
+	}
 	second()
-	if err := c.WaitForIdle(context.Background()); err != nil {
+	if err := c.YieldToForeground(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	cancelled, stop := context.WithCancel(context.Background())
 	stop()
-	if err := c.WaitForIdle(cancelled); !errors.Is(err, context.Canceled) {
+	if err := c.YieldToForeground(cancelled); !errors.Is(err, context.Canceled) {
 		t.Fatal("cancelled worker was allowed to continue", err)
 	}
 }

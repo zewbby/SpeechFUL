@@ -18,6 +18,7 @@ const (
 	cacheTTL        = 6 * Interval
 	ReadLimit       = 64
 	GlobalReadLimit = 7 * ReadLimit
+	foregroundGrace = 100 * time.Millisecond
 )
 
 type Snapshot struct {
@@ -73,18 +74,29 @@ func (c *Cache) ForegroundStarted() func() {
 	}
 }
 
-// WaitForIdle gives foreground reads one uninterrupted 20ms interval before
-// starting another aggregate query or committing derived snapshot data.
-func (c *Cache) WaitForIdle(ctx context.Context) error {
+// ForegroundActivity exposes scheduling observations, never account data or
+// authorization. The count includes nested HTTP/business registrations.
+func (c *Cache) ForegroundActivity() (active int64, revision uint64) {
+	return c.foreground.Load(), c.activity.Load()
+}
+
+// YieldToForeground prefers a quiet 20ms interval, but a continuously busy
+// foreground cannot postpone the worker past its fixed grace period. A caller's
+// cancellation still stops the worker; foreground requests never wait here.
+func (c *Cache) YieldToForeground(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
+	deadline := time.NewTimer(foregroundGrace)
+	defer deadline.Stop()
 	revision := c.activity.Load()
 	for {
 		select {
 		case <-ctx.Done():
+			return ctx.Err()
+		case <-deadline.C:
 			return ctx.Err()
 		case <-ticker.C:
 			current := c.activity.Load()
