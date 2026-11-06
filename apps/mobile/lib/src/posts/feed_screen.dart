@@ -24,6 +24,7 @@ import '../comments/comment_views.dart';
 import 'feed_api.dart';
 import 'post_controller.dart';
 import 'post_reposts_widgets.dart';
+import 'post_sharing.dart';
 import 'post_images.dart';
 import 'post_screens.dart';
 import 'post_search_screen.dart';
@@ -471,124 +472,135 @@ class _FeedScreenState extends State<FeedScreen> {
                       ),
                     ),
                   for (final post in posts) ...[
-                    HhXPostItem(
+                    PostShareAction(
                       key: ValueKey('post:${post.postId}'),
-                      repostAction: c.supportsReposts
-                          ? PostRepostButton(controller: c, postId: post.postId)
-                          : null,
-                      post: FeedPostView(
-                        id: post.postId,
-                        authorId: '',
-                        authorName: localizedPostAuthor(context, post.author),
-                        elapsed: MaterialLocalizations.of(context)
-                            .formatShortDate(post.publishedAt.toLocal()),
-                        title: post.title,
-                        body: post.body,
-                        tags: post.tags,
-                        views: c.postViewCount(post.postId),
-                        comments: c
-                            .interaction(post.postId)
-                            .value
-                            ?.commentCount,
-                        likes: c.interaction(post.postId).likes,
-                        favorites: c
-                            .interaction(post.postId)
-                            .value
-                            ?.favoriteCount,
-                        liked: c.interaction(post.postId).liked,
-                        bookmarked: c.interaction(post.postId).favorited,
-                        availableActions: {
-                          FeedAction.comment,
-                          if (c.interaction(post.postId).canChange) ...{
-                            FeedAction.like,
-                            FeedAction.bookmark,
+                      controller: c,
+                      postId: post.postId,
+                      builder: (share, sharing) => HhXPostItem(
+                        repostAction: c.supportsReposts
+                            ? PostRepostButton(
+                                controller: c,
+                                postId: post.postId,
+                              )
+                            : null,
+                        post: FeedPostView(
+                          id: post.postId,
+                          authorId: '',
+                          authorName: localizedPostAuthor(context, post.author),
+                          elapsed: MaterialLocalizations.of(context)
+                              .formatShortDate(post.publishedAt.toLocal()),
+                          title: post.title,
+                          body: post.body,
+                          tags: post.tags,
+                          views: c.postViewCount(post.postId),
+                          comments: c
+                              .interaction(post.postId)
+                              .value
+                              ?.commentCount,
+                          likes: c.interaction(post.postId).likes,
+                          favorites: c
+                              .interaction(post.postId)
+                              .value
+                              ?.favoriteCount,
+                          liked: c.interaction(post.postId).liked,
+                          bookmarked: c.interaction(post.postId).favorited,
+                          availableActions: {
+                            FeedAction.comment,
+                            if (share != null) FeedAction.share,
+                            if (c.interaction(post.postId).canChange) ...{
+                              FeedAction.like,
+                              FeedAction.bookmark,
+                            },
                           },
-                        },
-                        busyActions: {
-                          if (c.interaction(post.postId).unresolved &&
-                              !c.interaction(post.postId).canChange)
-                            c.interaction(post.postId).pendingAction ==
-                                    PostInteractionAction.like
-                                ? FeedAction.like
-                                : FeedAction.bookmark,
-                        },
-                      ),
-                      avatarBuilder: (_, _) => DetailAvatar(
-                        name: localizedPostAuthor(context, post.author),
-                        avatar: post.author.avatar,
-                        radius: 20,
-                      ),
-                      mediaBuilder: (_, _) => const SizedBox.shrink(),
-                      mediaSection:
-                          post.imageCount > 0 && widget.loadImages != null
-                          ? PostImagesSection(
-                              key: c.postMediaRevision(post.postId) == 0
-                                  ? ValueKey('feed-images:${post.postId}')
-                                  : ValueKey((
-                                      post.postId,
-                                      c.postMediaRevision(post.postId),
-                                    )),
-                              postId: post.postId,
-                              feedPreview: true,
-                              initialSizes:
-                                  post.imageSizes
-                                      ?.map(
-                                        (size) => Size(
-                                          size.width.toDouble(),
-                                          size.height.toDouble(),
-                                        ),
-                                      )
-                                      .toList() ??
-                                  List.filled(
-                                    post.imageCount,
-                                    const Size(1, 1),
-                                  ),
-                              expectedCount: post.imageCount,
-                              loadImages: widget.loadImages!,
-                              authority: c,
-                              isCurrent: () =>
-                                  current && !c.isPostDeleted(post.postId),
-                            )
-                          : null,
-                      onTag: (tag) => unawaited(
-                        openPostTag(
-                          context,
-                          controller: c,
-                          tag: tag,
-                          channels: widget.channels,
-                          onAuthenticationRequired:
-                              widget.onAuthenticationRequired,
-                          loadImages: widget.loadImages,
+                          busyActions: {
+                            if (sharing) FeedAction.share,
+                            if (c.interaction(post.postId).unresolved &&
+                                !c.interaction(post.postId).canChange)
+                              c.interaction(post.postId).pendingAction ==
+                                      PostInteractionAction.like
+                                  ? FeedAction.like
+                                  : FeedAction.bookmark,
+                          },
                         ),
+                        avatarBuilder: (_, _) => DetailAvatar(
+                          name: localizedPostAuthor(context, post.author),
+                          avatar: post.author.avatar,
+                          radius: 20,
+                        ),
+                        mediaBuilder: (_, _) => const SizedBox.shrink(),
+                        mediaSection:
+                            post.imageCount > 0 && widget.loadImages != null
+                            ? PostImagesSection(
+                                key: c.postMediaRevision(post.postId) == 0
+                                    ? ValueKey('feed-images:${post.postId}')
+                                    : ValueKey((
+                                        post.postId,
+                                        c.postMediaRevision(post.postId),
+                                      )),
+                                postId: post.postId,
+                                feedPreview: true,
+                                initialSizes:
+                                    post.imageSizes
+                                        ?.map(
+                                          (size) => Size(
+                                            size.width.toDouble(),
+                                            size.height.toDouble(),
+                                          ),
+                                        )
+                                        .toList() ??
+                                    List.filled(
+                                      post.imageCount,
+                                      const Size(1, 1),
+                                    ),
+                                expectedCount: post.imageCount,
+                                loadImages: widget.loadImages!,
+                                authority: c,
+                                isCurrent: () =>
+                                    current && !c.isPostDeleted(post.postId),
+                              )
+                            : null,
+                        onTag: (tag) => unawaited(
+                          openPostTag(
+                            context,
+                            controller: c,
+                            tag: tag,
+                            channels: widget.channels,
+                            onAuthenticationRequired:
+                                widget.onAuthenticationRequired,
+                            loadImages: widget.loadImages,
+                          ),
+                        ),
+                        onPost: () =>
+                            _open(context, post.postId, post.channelId),
+                        onAuthor: () =>
+                            unawaited(DmScope.contact(context, post.postId)),
+                        onMenu: () =>
+                            _open(context, post.postId, post.channelId),
+                        onAction: (action) {
+                          if (!current) return;
+                          switch (action) {
+                            case FeedAction.comment:
+                              unawaited(_reply(context, post));
+                            case FeedAction.like:
+                              unawaited(
+                                c.changeInteraction(
+                                  post.postId,
+                                  PostInteractionAction.like,
+                                ),
+                              );
+                            case FeedAction.bookmark:
+                              unawaited(
+                                c.changeInteraction(
+                                  post.postId,
+                                  PostInteractionAction.favorite,
+                                ),
+                              );
+                            case FeedAction.share:
+                              share?.call();
+                          }
+                        },
+                        onMedia: (_) {},
                       ),
-                      onPost: () => _open(context, post.postId, post.channelId),
-                      onAuthor: () =>
-                          unawaited(DmScope.contact(context, post.postId)),
-                      onMenu: () => _open(context, post.postId, post.channelId),
-                      onAction: (action) {
-                        if (!current) return;
-                        switch (action) {
-                          case FeedAction.comment:
-                            unawaited(_reply(context, post));
-                          case FeedAction.like:
-                            unawaited(
-                              c.changeInteraction(
-                                post.postId,
-                                PostInteractionAction.like,
-                              ),
-                            );
-                          case FeedAction.bookmark:
-                            unawaited(
-                              c.changeInteraction(
-                                post.postId,
-                                PostInteractionAction.favorite,
-                              ),
-                            );
-                          case FeedAction.share:
-                            break;
-                        }
-                      },
-                      onMedia: (_) {},
                     ),
                     for (final notice in [
                       (c.interaction(post.postId).writeError, true),

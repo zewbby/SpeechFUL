@@ -41,6 +41,8 @@ class _WidgetPosts extends ChangeNotifier implements PostController {
   bool get supportsFeed => false;
   @override
   bool get supportsInteractions => false;
+  @override
+  bool get supportsPostSharing => false;
   bool access = true, loading = false;
   int version = 1;
   String? failure, channel;
@@ -116,7 +118,7 @@ class _WidgetPosts extends ChangeNotifier implements PostController {
   }
 
   @override
-  Future<PostDetail?> loadDetail(String postId) async =>
+  Future<PostDetail?> loadDetail(String postId, {String? sharedUrl}) async =>
       detailWait == null ? detail : detailWait!.future;
   @override
   Future<bool> canDelete(String postId) async => deleteAllowed;

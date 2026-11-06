@@ -134,6 +134,9 @@ class HomeTestFixture {
 
   Future<app.HnuholeApp> create({
     bool signedIn = true,
+    bool zeroIdentities = false,
+    PostLinkInbox? postLinks,
+    PostShareSender? sharePostText,
     AuthPresentationController? presentation,
   }) async {
     if (signedIn) {
@@ -152,7 +155,9 @@ class HomeTestFixture {
       store: store,
       directory: directory,
     );
-    identitiesApi.items = [identityTestItem(name: '账号A的身份')];
+    identitiesApi.items = zeroIdentities
+        ? []
+        : [identityTestItem(name: '账号A的身份')];
     posts = PostController(
       api: postApi,
       sessions: sessions,
@@ -166,6 +171,8 @@ class HomeTestFixture {
       verifierBaseUri: Uri.parse('https://verifier.invalid'),
     );
     return app.HnuholeApp(
+      postLinks: postLinks,
+      sharePostText: sharePostText,
       presentation: presentation,
       directory: directory,
       repository: HttpChannelRepository(

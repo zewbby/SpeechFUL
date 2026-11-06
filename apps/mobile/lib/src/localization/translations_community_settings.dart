@@ -1,5 +1,18 @@
 // Application-owned text only. Dynamic values remain verbatim.
 const communitySettingsTranslations = <String, (String, String, String)>{
+  '正在准备分享…': ('正在準備分享…', 'Preparing to share…', '共有を準備中…'),
+  '暂时无法分享，请重试。': (
+    '暫時無法分享，請重試。',
+    'Unable to share right now. Try again.',
+    '共有できません。もう一度お試しください。',
+  ),
+  '分享链接无效': ('分享連結無效', 'Invalid post link', '無効な共有リンクです'),
+  '正在打开原帖…': ('正在開啟原貼文…', 'Opening original post…', '元の投稿を開いています…'),
+  '暂时无法打开原帖，请重试。': (
+    '暫時無法開啟原貼文，請重試。',
+    'Unable to open the original post. Try again.',
+    '元の投稿を開けません。もう一度お試しください。',
+  ),
   '暂时无法加载，请重试。': (
     '暫時無法載入，請重試。',
     'Unable to load. Try again.',

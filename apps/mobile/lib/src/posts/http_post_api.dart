@@ -17,6 +17,7 @@ import 'post_interactions_api.dart';
 import 'post_reposts_api.dart';
 import 'post_search_api.dart';
 import 'post_ranking_api.dart';
+import 'post_sharing_api.dart';
 import 'post_models.dart';
 import 'post_media_api.dart';
 import 'post_protocol.dart';
@@ -43,6 +44,7 @@ class HttpPostApi
         PostRepostsApi,
         PostSearchApi,
         PostRankingApi,
+        PostSharingApi,
         PostTagApi,
         DmApi {
   HttpPostApi({
@@ -67,6 +69,52 @@ class HttpPostApi
   final Duration timeout;
   final HttpClient _client;
   void close() => _client.close(force: true);
+
+  @override
+  Future<PostResponse<PostShareLink>> shareLink({
+    required String sessionToken,
+    required String postId,
+  }) => _input(
+    () => _send(
+      sessionToken,
+      'GET',
+      '/api/v1/posts/${PostProtocol.resourceId(postId)}/share',
+      decode: (raw) => PostShareLink.fromJson(raw, communityBaseUri, postId),
+    ),
+  );
+
+  @override
+  Future<PostResponse<PostDetail>> resolvePostLink({
+    required String sessionToken,
+    required String url,
+  }) => _input(() {
+    final target = PostLinkTarget.parse(url, communityBaseUri);
+    if (target == null || target.url != url) {
+      throw const FormatException('Invalid share URL');
+    }
+    return _send(
+      sessionToken,
+      'POST',
+      '/api/v1/post-links/resolve',
+      body: {'url': url},
+      maxRequestBytes: 4096,
+      maxResponseBytes: 512 * 1024,
+      withEditedAt: (post, at) {
+        if (at.isBefore(post.publishedAt)) {
+          throw const FormatException('Invalid last modification time');
+        }
+        return post.withEditedAt(at);
+      },
+      decode: (raw) {
+        final value = PostJson.record(raw, {'post'});
+        final post = PostDetail.fromJson(value['post']);
+        if (post.postId != target.postId) {
+          throw const FormatException('Mismatched original post');
+        }
+        return post;
+      },
+    );
+  });
 
   @override
   Future<PostResponse<PostsPage<PostCard>>> taggedPosts({

@@ -51,6 +51,7 @@ jobs:
         working-directory: apps/mobile
         run: |
           flutter analyze --no-pub
+          flutter test --no-pub test/post_sharing_test.dart
           flutter test --no-pub test/motion_test.dart test/interaction_motion_test.dart test/navigation_motion_test.dart
           flutter test --no-pub test/post_reposts_test.dart test/personal_profile_test.dart test/personal_reposts_integration_test.dart test/post_search_test.dart test/post_tags_test.dart test/post_tag_layout_test.dart test/post_edit_screen_test.dart
           flutter test --no-pub test/profile_settings_flow_test.dart test/home_side_menu_test.dart test/settings_screen_test.dart
@@ -59,6 +60,7 @@ jobs:
           flutter build bundle --debug --no-pub
           dart compile exe integration/feed_live_probe.dart -o build/feed-live-probe
           dart compile exe integration/post_search_live_probe.dart -o build/post-search-live-probe
+          dart compile exe integration/post_share_live_probe.dart -o build/post-share-live-probe
           dart compile exe integration/post_tags_live_probe.dart -o build/post-tags-live-probe
           dart compile exe integration/feed_staging_probe.dart -o build/feed-staging-probe
       - name: Shipped Dart transport to real C HTTPS and isolated PostgreSQL
@@ -70,7 +72,8 @@ jobs:
           export FEED_DART_PROBE="$GITHUB_WORKSPACE/apps/mobile/build/feed-live-probe"
           export POST_TAGS_DART_PROBE="$GITHUB_WORKSPACE/apps/mobile/build/post-tags-live-probe"
           export POST_SEARCH_DART_PROBE="$GITHUB_WORKSPACE/apps/mobile/build/post-search-live-probe"
-          export FEED_TEST_PATTERN='^(TestFeed|TestRealHTTPSFeed|TestRealHTTPSPostSearch|TestRealHTTPSPostTags)'
+          export POST_SHARE_DART_PROBE="$GITHUB_WORKSPACE/apps/mobile/build/post-share-live-probe"
+          export FEED_TEST_PATTERN='^(TestFeed|TestRealHTTPSFeed|TestRealHTTPSPostSearch|TestRealHTTPSPostShare|TestRealHTTPSPostTags)'
           sh authlab/run-feed-isolated.sh
       - name: Preserve dependency locks
         run: git diff --exit-code -- '**/pubspec.lock'

@@ -31,6 +31,7 @@ import 'post_tag_widgets.dart';
 import 'post_tag_screen.dart';
 import 'post_edit_api.dart';
 import 'post_reposts_widgets.dart';
+import 'post_sharing.dart';
 import 'post_models.dart';
 import 'post_images.dart';
 import 'post_protocol.dart';
@@ -1902,8 +1903,12 @@ class PostDetailScreen extends StatefulWidget {
     this.initialCommentOriginal,
     this.loadImages,
     this.onAuthenticationRequired,
+    this.sharedUrl,
+    this.onLoaded,
   });
   final PostController controller;
+  final String? sharedUrl;
+  final VoidCallback? onLoaded;
   final String postId;
   final String? channelName;
   final String? initialCommentId;
@@ -1996,13 +2001,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Future<void> _load() async {
     if (!_authority.current) return;
     setState(() => _loading = true);
-    final post = await widget.controller.loadDetail(widget.postId);
+    final post = await widget.controller.loadDetail(
+      widget.postId,
+      sharedUrl: widget.sharedUrl,
+    );
     if (!mounted || !_authority.current) return;
     setState(() {
       _post = post;
       _loading = false;
     });
     if (post != null) {
+      widget.onLoaded?.call();
       unawaited(
         widget.controller.loadInteractions([widget.postId], single: true),
       );
@@ -2141,62 +2150,79 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       ),
     ),
   );
-  Widget _postMenu() =>
-      !_authority.current ||
-          _deleted ||
-          !(_canEdit || _canDelete || GovernanceScope.maybeOf(context) != null)
-      ? const SizedBox(width: 48)
-      : PopupMenuButton<String>(
-          tooltip: hhText(context, '帖子操作'),
-          enabled: !_deleting,
-          icon: const DetailChromeIcon(
-            DetailChrome.more,
-            color: detailIconInk,
-            size: 22,
+  Widget _postMenu() => PostShareAction(
+    controller: widget.controller,
+    postId: widget.postId,
+    builder: (share, sharing) =>
+        !_authority.current ||
+            _deleted ||
+            !(_canEdit ||
+                _canDelete ||
+                widget.controller.supportsPostSharing ||
+                GovernanceScope.maybeOf(context) != null)
+        ? const SizedBox(width: 48)
+        : PopupMenuButton<String>(
+            tooltip: hhText(context, '帖子操作'),
+            enabled: !_deleting,
+            icon: const DetailChromeIcon(
+              DetailChrome.more,
+              color: detailIconInk,
+              size: 22,
+            ),
+            itemBuilder: (context) => [
+              if (_post != null && widget.controller.supportsPostSharing)
+                PopupMenuItem(
+                  value: 'share',
+                  enabled: share != null,
+                  child: Text(hhText(context, sharing ? '正在准备分享…' : '分享')),
+                ),
+              if (_canEdit)
+                const PopupMenuItem(value: 'edit', child: Text('编辑帖子')),
+              if (_post != null &&
+                  GovernanceScope.maybeOf(context)?.available == true)
+                PopupMenuItem(
+                  value: 'report',
+                  child: Builder(
+                    builder: (context) => Text(hhText(context, '举报帖子')),
+                  ),
+                ),
+              if (_canDelete)
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Builder(
+                    builder: (context) => Text(hhText(context, '删除帖子')),
+                  ),
+                ),
+            ],
+            onSelected: (action) {
+              if (action == 'share') {
+                share?.call();
+                return;
+              }
+              if (action == 'edit') {
+                unawaited(_edit());
+                return;
+              }
+              if (action == 'delete') {
+                unawaited(_delete());
+                return;
+              }
+              final governance = GovernanceScope.maybeOf(context);
+              if (governance == null || _post == null || !_authority.current) {
+                return;
+              }
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ReportScreen(
+                    controller: governance,
+                    postId: widget.postId,
+                    title: _post!.title,
+                  ),
+                ),
+              );
+            },
           ),
-          itemBuilder: (context) => [
-            if (_canEdit)
-              const PopupMenuItem(value: 'edit', child: Text('编辑帖子')),
-            if (_post != null &&
-                GovernanceScope.maybeOf(context)?.available == true)
-              PopupMenuItem(
-                value: 'report',
-                child: Builder(
-                  builder: (context) => Text(hhText(context, '举报帖子')),
-                ),
-              ),
-            if (_canDelete)
-              PopupMenuItem(
-                value: 'delete',
-                child: Builder(
-                  builder: (context) => Text(hhText(context, '删除帖子')),
-                ),
-              ),
-          ],
-          onSelected: (action) {
-            if (action == 'edit') {
-              unawaited(_edit());
-              return;
-            }
-            if (action == 'delete') {
-              unawaited(_delete());
-              return;
-            }
-            final governance = GovernanceScope.maybeOf(context);
-            if (governance == null || _post == null || !_authority.current) {
-              return;
-            }
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => ReportScreen(
-                  controller: governance,
-                  postId: widget.postId,
-                  title: _post!.title,
-                ),
-              ),
-            );
-          },
-        );
+  );
 
   Widget _detail(
     BuildContext context,
@@ -2353,7 +2379,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ),
           ),
           if (_deleteError != null) Text(hhText(context, _deleteError!)),
-          if (widget.controller.supportsInteractions) _interactionBar(),
+          if (widget.controller.supportsInteractions ||
+              widget.controller.supportsPostSharing)
+            _interactionBar(),
         ],
       ),
     );
@@ -2427,9 +2455,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     : null,
               ),
               PostRepostButton(controller: c, postId: widget.postId),
-              DetailAction(
-                action: FeedAction.share,
-                label: hhText(context, '分享（暂未开放）'),
+              PostShareAction(
+                controller: c,
+                postId: widget.postId,
+                builder: (share, sharing) => DetailAction(
+                  buttonKey: ValueKey('detail-share:${widget.postId}'),
+                  action: FeedAction.share,
+                  label: hhText(context, sharing ? '正在准备分享…' : '分享'),
+                  onPressed: share,
+                ),
               ),
             ];
             if (MediaQuery.textScalerOf(context).scale(14) > 21 ||

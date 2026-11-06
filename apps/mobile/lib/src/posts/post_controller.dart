@@ -20,6 +20,7 @@ import 'post_interactions_api.dart';
 import 'post_reposts_api.dart';
 import 'post_search_api.dart';
 import 'post_ranking_api.dart';
+import 'post_sharing_api.dart';
 import 'post_models.dart';
 import 'post_media_api.dart';
 
@@ -36,6 +37,7 @@ part 'post_interactions_controller.dart';
 part 'post_reposts_controller.dart';
 part 'post_edit_controller.dart';
 part 'post_search_controller.dart';
+part 'post_sharing_controller.dart';
 
 typedef PostStoreFactory = Future<PostStore> Function(String accountId);
 
@@ -211,6 +213,7 @@ class PostController extends ChangeNotifier {
   final _checking = <String, Future<void>>{};
   final _publishing = <String>{};
   final _deleting = <String, Future<bool>>{};
+  final _sharingPosts = <String, int>{};
   final _deletedPostIds = <String>{};
   final _postMediaRevisions = <String, int>{};
   final _saving = <String, Future<bool>>{};
@@ -281,6 +284,7 @@ class PostController extends ChangeNotifier {
 
   bool get supportsFeed => _api is FeedApi;
   bool get supportsInteractions => _api is PostInteractionsApi;
+  bool get supportsPostSharing => _api is PostSharingApi;
   bool get feedPreferencesReady => _preferencesReady;
   String? get accountId => _accountId;
   int get authorityVersion => _epoch;
@@ -570,15 +574,23 @@ class PostController extends ChangeNotifier {
     if (!_current(a)) throw _StalePostAuthority();
   }
 
-  Future<PostDetail?> loadDetail(String postId) async {
+  Future<PostDetail?> loadDetail(String postId, {String? sharedUrl}) async {
     _PostAuthority? a;
     try {
       a = await _authority();
       if (_deletedPostIds.contains(postId)) return null;
       final post = await _accept(
         a,
-        await _api.detail(sessionToken: a.token, postId: postId),
+        sharedUrl == null
+            ? await _api.detail(sessionToken: a.token, postId: postId)
+            : await (_api as PostSharingApi).resolvePostLink(
+                sessionToken: a.token,
+                url: sharedUrl,
+              ),
       );
+      if (post.postId != postId) {
+        throw const PostFailure(kind: PostFailureKind.invalidResponse);
+      }
       return _deletedPostIds.contains(postId) ? null : post;
     } catch (error) {
       _failure(error, a);

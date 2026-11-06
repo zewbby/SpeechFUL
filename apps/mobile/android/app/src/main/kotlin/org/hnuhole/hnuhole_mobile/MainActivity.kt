@@ -17,9 +17,18 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    // Recents may replay the original VIEW intent after process death. It is
+    // not a new click and must not persist a pending post across app runs.
+    override fun getInitialRoute(): String? =
+        if (intent.action == Intent.ACTION_VIEW &&
+            intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) "/"
+        else super.getInitialRoute()
     private val driverHandler = Handler(Looper.getMainLooper())
     private var driverChannel: MethodChannel? = null
     private var dmNotifications: DmNotifications? = null
+    private var postSharing: MethodChannel? = null
+    private var pendingPostShare: MethodChannel.Result? = null
+    private val postShareRequest = 0x5346
 
     private fun driverEnabled(): Boolean =
         applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 &&
@@ -44,6 +53,39 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         dmNotifications = DmNotifications(this, flutterEngine.dartExecutor.binaryMessenger)
+        postSharing = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "speechful/post-sharing").also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                if (call.method != "shareText") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                if (pendingPostShare != null) {
+                    result.error("SHARE_BUSY", "System sharing is already open", null)
+                    return@setMethodCallHandler
+                }
+                val text = call.arguments as? String
+                val url = text?.removePrefix("SpeechFUL\n")
+                val uri = url?.let { runCatching { URI(it) }.getOrNull() }
+                if (text == null || text.length > 4096 || !text.startsWith("SpeechFUL\nhttps://") ||
+                    uri == null || uri.scheme != "https" || uri.host.isNullOrEmpty() || uri.rawUserInfo != null ||
+                    uri.rawQuery != null || uri.rawFragment != null ||
+                    !Regex("/s/posts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").matches(uri.rawPath ?: "")) {
+                    result.error("SHARE_INVALID", "Invalid post share", null)
+                    return@setMethodCallHandler
+                }
+                try {
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    }
+                    pendingPostShare = result
+                    startActivityForResult(Intent.createChooser(send, null), postShareRequest)
+                } catch (_: RuntimeException) {
+                    pendingPostShare = null
+                    result.error("SHARE_UNAVAILABLE", "System sharing unavailable", null)
+                }
+            }
+        }
         if (!driverEnabled()) return
         if (acceptanceEnabled()) lifecycleRecord("engineAttached")
         driverChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
@@ -136,6 +178,10 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        pendingPostShare?.error("SHARE_CLOSED", "Sharing activity closed", null)
+        pendingPostShare = null
+        postSharing?.setMethodCallHandler(null)
+        postSharing = null
         dmNotifications?.dispose()
         if (acceptanceEnabled()) lifecycleRecord("activityDestroyed")
         driverHandler.removeCallbacksAndMessages(null)
@@ -145,9 +191,23 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
+        val delivered = if (intent.action == Intent.ACTION_VIEW &&
+            intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0)
+            Intent(intent).apply { data = null }
+        else intent
+        super.onNewIntent(delivered)
+        setIntent(delivered)
         dmNotifications?.onIntent(intent)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == postShareRequest) {
+            val pending = pendingPostShare
+            pendingPostShare = null
+            // Returning from the chooser is not proof that anything was sent.
+            pending?.success(null)
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

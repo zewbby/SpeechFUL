@@ -31,8 +31,16 @@ import 'src/identity/identity_initial_gate.dart';
 import 'src/identity/identity_avatar.dart';
 import 'src/identity/active_identity_controller.dart';
 
+Uri _communityBaseUri() => Uri.parse(
+  const String.fromEnvironment(
+    'AUTH_COMMUNITY_BASE_URL',
+    defaultValue: 'https://community.hnuhole.invalid',
+  ),
+);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final postLinks = PostLinkInbox(_communityBaseUri())..start();
   HhTelegramTheme.registerFontLicenses();
   final presentation = AuthPresentationController(
     preferences: FlutterAuthVault(namespace: 'hnuhole.presentation.v1'),
@@ -51,7 +59,7 @@ Future<void> main() async {
   }
   runApp(_StartupWelcomeApp(presentation));
   await WidgetsBinding.instance.endOfFrame;
-  _runHnuholeApp(presentation);
+  _runHnuholeApp(presentation, postLinks);
 }
 
 Future<void> _preloadWelcomeMark() async {
@@ -88,6 +96,7 @@ class _StartupWelcomeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    initialRoute: '/',
     debugShowCheckedModeBanner: false,
     themeMode: presentation.themeMode,
     locale: presentation.language.locale,
@@ -110,13 +119,11 @@ class _StartupWelcomeApp extends StatelessWidget {
 
 void _ignoreStartupAction() {}
 
-void _runHnuholeApp(AuthPresentationController presentation) {
-  final communityBaseUri = Uri.parse(
-    const String.fromEnvironment(
-      'AUTH_COMMUNITY_BASE_URL',
-      defaultValue: 'https://community.hnuhole.invalid',
-    ),
-  );
+void _runHnuholeApp(
+  AuthPresentationController presentation,
+  PostLinkInbox postLinks,
+) {
+  final communityBaseUri = _communityBaseUri();
   final verifierBaseUri = Uri.parse(
     const String.fromEnvironment(
       'AUTH_VERIFIER_BASE_URL',
@@ -318,6 +325,7 @@ void _runHnuholeApp(AuthPresentationController presentation) {
   );
   runApp(
     HnuholeApp(
+      postLinks: postLinks,
       presentation: presentation,
       directory: directory,
       repository: repository,
@@ -347,6 +355,8 @@ class HnuholeApp extends StatefulWidget {
   const HnuholeApp({
     super.key,
     this.presentation,
+    this.postLinks,
+    this.sharePostText,
     required this.directory,
     required this.repository,
     required this.api,
@@ -367,6 +377,8 @@ class HnuholeApp extends StatefulWidget {
   });
 
   final ChannelDirectoryController directory;
+  final PostLinkInbox? postLinks;
+  final PostShareSender? sharePostText;
   final HttpChannelRepository repository;
   final HttpAuthApi api;
   final AuthSessionController sessions;
@@ -397,6 +409,82 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
         preferences: FlutterAuthVault(namespace: 'hnuhole.presentation.v1'),
       );
   final _navigatorKey = GlobalKey<NavigatorState>();
+  late final PostLinkInbox _postLinks;
+  bool _postLinkQueued = false;
+  int? _promptedPostLink, _openingPostLink;
+  int _lastLogoutVersion = 0;
+
+  void _schedulePostLink() {
+    if (_postLinkQueued || !mounted) return;
+    _postLinkQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _postLinkQueued = false;
+      if (mounted) _openPendingPostLink();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _openPendingPostLink() {
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) return;
+    if (_postLinks.invalidLink) {
+      _postLinks.invalidLink = false;
+      final context = navigator.context;
+      ScaffoldMessenger.maybeOf(context)
+          ?.showSnackBar(SnackBar(content: Text(hhText(context, '分享链接无效'))));
+    }
+    final link = _postLinks.pending;
+    if (link == null) return;
+    if (!widget.sessions.isAuthenticated) {
+      if (widget.sessions.status == AuthStatus.starting ||
+          widget.sessions.status == AuthStatus.restoring) {
+        return;
+      }
+      if (!_authRouteOpen && _promptedPostLink != link.sequence) {
+        _promptedPostLink = link.sequence;
+        _openAuth();
+      }
+      return;
+    }
+    if (_authRouteOpen ||
+        !widget.identities.entryReady ||
+        !widget.posts.available ||
+        widget.directory.status != ChannelDirectoryStatus.ready ||
+        _openingPostLink == link.sequence) {
+      return;
+    }
+    _openingPostLink = link.sequence;
+    final authority = widget.posts.authorityVersion;
+    final route = MaterialPageRoute<void>(
+      settings: RouteSettings(name: 'shared-post:${link.target.postId}'),
+      builder: (_) => PostDetailScreen(
+        controller: widget.posts,
+        postId: link.target.postId,
+        sharedUrl: link.target.url,
+        loadImages: widget.loadPostImages,
+        onLoaded: () => _postLinks.complete(link.sequence),
+        onAuthenticationRequired: () {
+          _postLinks.receive(link.target.url);
+          _openAuth();
+        },
+      ),
+    );
+    unawaited(
+      navigator.push(route).whenComplete(() {
+        if (!mounted) return;
+        if (_openingPostLink == link.sequence) _openingPostLink = null;
+        // Back is an explicit cancellation of opening this target. Auth still
+        // retains it while it removes protected routes on successful login.
+        if (!_authRouteOpen &&
+            widget.posts.available &&
+            widget.posts.authorityVersion == authority) {
+          _postLinks.complete(link.sequence);
+        }
+        _schedulePostLink();
+      }),
+    );
+  }
+
   bool _authRouteOpen = false;
   bool _securityRouteOpen = false;
   bool _devicesRouteOpen = false, _closureRouteOpen = false;
@@ -604,6 +692,14 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _postLinks =
+        widget.postLinks ?? PostLinkInbox(widget.postApi.communityBaseUri);
+    _postLinks.start();
+    _lastLogoutVersion = widget.sessions.logoutVersion;
+    _postLinks.addListener(_schedulePostLink);
+    widget.identities.addListener(_schedulePostLink);
+    widget.directory.addListener(_schedulePostLink);
+    _schedulePostLink();
     _authPresentation.addListener(_syncNotificationLanguage);
     _syncNotificationLanguage();
     _activeIdentity = ActiveIdentityController(widget.identities);
@@ -634,6 +730,7 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
   }
 
   void _postWindowChanged() {
+    _schedulePostLink();
     final posts = widget.posts;
     final account = posts.accountId;
     if (posts.available && account != null && posts.timelineLoading) {
@@ -647,6 +744,12 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
   final _sessionRouteWindow = ValueNotifier((AuthStatus.starting, 0, false));
   void _sessionRouteChanged() {
     final sessions = widget.sessions;
+    if (_lastLogoutVersion != sessions.logoutVersion) {
+      _lastLogoutVersion = sessions.logoutVersion;
+      _postLinks.clear();
+      _promptedPostLink = null;
+    }
+    _schedulePostLink();
     // Expiry persistence still notifies its consumers, but renewing the same
     // session must not rebuild every retained tab behind the active detail.
     _sessionRouteWindow.value = (
@@ -696,7 +799,10 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
             ),
           ),
         )
-        .whenComplete(() => _authRouteOpen = false);
+        .whenComplete(() {
+          _authRouteOpen = false;
+          if (mounted) _schedulePostLink();
+        });
   }
 
   void _openSecurity() {
@@ -883,6 +989,10 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _postLinks.removeListener(_schedulePostLink);
+    widget.identities.removeListener(_schedulePostLink);
+    widget.directory.removeListener(_schedulePostLink);
+    _postLinks.dispose();
     widget.posts.bindActiveIdentity(null);
     widget.governance?.bindActiveIdentity(null);
     _activeIdentity.dispose();
@@ -920,6 +1030,7 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
     return AnimatedBuilder(
       animation: _authPresentation,
       builder: (context, _) => MaterialApp(
+        initialRoute: '/',
         title: 'SpeechFUL',
         debugShowCheckedModeBanner: false,
         locale: _authPresentation.language.locale,
@@ -927,28 +1038,31 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
         localizationsDelegates: appLocalizationDelegates,
         navigatorKey: _navigatorKey,
         themeMode: _authPresentation.themeMode,
-        builder: (context, child) => IdentityAvatarScope(
-          repository: _avatars,
-          child: DmScope(
-            runtime: widget.dm,
-            child: AuthPresentationScope(
-              controller: _authPresentation,
-              child: CommentScopeHost(
-                runtime: widget.comments,
-                child: Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerUp: (_) {
-                    // Let the requested action (including logout) start first. Activity
-                    // is a user gesture, never a background timer or a build side effect.
-                    scheduleMicrotask(widget.sessions.onActivity);
-                  },
-                  child: CommunitySpokenLocale(
-                    child: widget.governance == null
-                        ? child ?? const SizedBox.shrink()
-                        : GovernanceScope(
-                            controller: widget.governance!,
-                            child: child ?? const SizedBox.shrink(),
-                          ),
+        builder: (context, child) => PostSharingScope(
+          send: widget.sharePostText ?? PostSharingScope.nativeShare,
+          child: IdentityAvatarScope(
+            repository: _avatars,
+            child: DmScope(
+              runtime: widget.dm,
+              child: AuthPresentationScope(
+                controller: _authPresentation,
+                child: CommentScopeHost(
+                  runtime: widget.comments,
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerUp: (_) {
+                      // Let the requested action (including logout) start first. Activity
+                      // is a user gesture, never a background timer or a build side effect.
+                      scheduleMicrotask(widget.sessions.onActivity);
+                    },
+                    child: CommunitySpokenLocale(
+                      child: widget.governance == null
+                          ? child ?? const SizedBox.shrink()
+                          : GovernanceScope(
+                              controller: widget.governance!,
+                              child: child ?? const SizedBox.shrink(),
+                            ),
+                    ),
                   ),
                 ),
               ),

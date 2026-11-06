@@ -57,6 +57,9 @@ class AuthSessionController extends ChangeNotifier {
       _status == AuthStatus.authenticated && _authorizedToken != null;
   bool get hasPendingLogout => _store.current?.logouts.isNotEmpty ?? false;
   int get authorityVersion => _operation;
+  // A route intent can distinguish explicit logout from an expired session.
+  int _logoutVersion = 0;
+  int get logoutVersion => _logoutVersion;
 
   bool isCurrentToken(String token) =>
       !_disposed &&
@@ -395,6 +398,7 @@ class AuthSessionController extends ChangeNotifier {
 
   Future<void> logout() async {
     if (_busy) return;
+    _logoutVersion++;
     _operation++;
     _suspend();
     _busy = true;
