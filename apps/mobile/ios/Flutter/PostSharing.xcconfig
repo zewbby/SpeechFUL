@@ -1,0 +1,7 @@
+// Verified HTTPS links are opt-in until an owned public C domain and an
+// Associated Domains provisioning profile exist. Custom scheme links and the
+// system sheet work without this capability. Set POST_SHARE_ENTITLEMENTS to
+// Runner/PostSharing.entitlements and POST_SHARE_HOST to the owned C domain;
+// publish its AASA association separately. Never invent a signing team here.
+POST_SHARE_HOST = community.hnuhole.invalid
+CODE_SIGN_ENTITLEMENTS = $(POST_SHARE_ENTITLEMENTS)

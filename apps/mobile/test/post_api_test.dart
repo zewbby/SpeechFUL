@@ -169,6 +169,97 @@ Matcher _failure(PostFailureKind kind, {int? status, String? code}) =>
         .having((e) => e.code, 'code', code);
 
 void main() {
+  test('post sharing uses protected endpoints, exact content-free DTO and original-post edit metadata', () async {
+    final endpoint = await _Endpoint.start();
+    addTearDown(endpoint.close);
+    final api = HttpPostApi(
+      communityBaseUri: endpoint.uri,
+      client: endpoint.client(),
+    );
+    addTearDown(api.close);
+    final url = '${endpoint.uri}/s/posts/$_id';
+    endpoint.respond = (r) => _json(r, 200, {
+      'postId': _id,
+      'url': url,
+      'shareText': 'SpeechFUL\n$url',
+    });
+    final shared = await api.shareLink(sessionToken: _token, postId: _id);
+    expect(shared.value.text, 'SpeechFUL\n$url');
+    expect(endpoint.requests.single.uri.path, '/api/v1/posts/$_id/share');
+    expect(endpoint.requests.single.headers['authorization'], [
+      'Bearer $_token',
+    ]);
+    endpoint.respond = (r) {
+      r.response.headers.set('Post-Edited-At', _time);
+      return _json(r, 200, {
+        'post': {..._card(), 'body': '现在的正文'},
+      });
+    };
+    final post = await api.resolvePostLink(sessionToken: _token, url: url);
+    expect(post.value.body, '现在的正文');
+    expect(post.value.editedAt, DateTime.parse(_time));
+    expect(endpoint.requests.last.method, 'POST');
+    expect(endpoint.requests.last.uri.path, '/api/v1/post-links/resolve');
+    expect(jsonDecode(endpoint.requests.last.body), {'url': url});
+    expect(
+      endpoint.requests.last.headers.containsKey('idempotency-key'),
+      isFalse,
+    );
+    final before = endpoint.requests.length;
+    await expectLater(
+      api.resolvePostLink(
+        sessionToken: _token,
+        url: 'https://attacker.invalid/s/posts/$_id',
+      ),
+      throwsA(isA<PostFailure>()),
+    );
+    expect(endpoint.requests.length, before);
+  });
+
+  test('share transport rejects metadata leakage, forged links and inaccessible originals', () async {
+    final endpoint = await _Endpoint.start();
+    addTearDown(endpoint.close);
+    final api = HttpPostApi(
+      communityBaseUri: endpoint.uri,
+      client: endpoint.client(),
+    );
+    addTearDown(api.close);
+    final url = '${endpoint.uri}/s/posts/$_id';
+    for (final value in [
+      {
+        'postId': _id,
+        'url': url,
+        'shareText': 'SpeechFUL\n$url',
+        'title': '不应泄露',
+      },
+      {'postId': _id, 'url': url, 'shareText': '标题\n$url'},
+      {
+        'postId': _id,
+        'url': 'https://attacker.invalid/s/posts/$_id',
+        'shareText': 'SpeechFUL\nhttps://attacker.invalid/s/posts/$_id',
+      },
+    ]) {
+      endpoint.respond = (r) => _json(r, 200, value);
+      await expectLater(
+        api.shareLink(sessionToken: _token, postId: _id),
+        throwsA(
+          isA<PostFailure>().having(
+            (e) => e.kind,
+            'kind',
+            PostFailureKind.invalidResponse,
+          ),
+        ),
+      );
+    }
+    endpoint.respond = (r) =>
+        _json(r, 404, _error('POST_NOT_FOUND'), success: false);
+    await expectLater(
+      api.resolvePostLink(sessionToken: _token, url: url),
+      throwsA(
+        isA<PostFailure>().having((e) => e.code, 'code', 'POST_NOT_FOUND'),
+      ),
+    );
+  });
   test(
     'published edit uses private routes, exact image bytes and revision',
     () async {

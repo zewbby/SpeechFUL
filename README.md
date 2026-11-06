@@ -40,7 +40,7 @@
 
 ## Related Work
 
-- [帖子分享与原帖链接后端](docs/tasks/POST-SHARE-01.md)：任务分支提供固定分享链接、登录后读取最新原帖及无内容预览的通用引导页；App 接线与发布另行完成。
+- [帖子分享与原帖链接](docs/tasks/POST-SHARE-01.md)：后端已合并；App 分支接入系统分享、冷／热启动及认证后恢复原帖，验证与交付状态见任务记录。
 
 - [开发环境旧启动入口修复](docs/branches/fix-development-runtime-resume.md)：三个原入口已统一版本绑定恢复器，C28/V7与三Redis冷启、重复执行验证通过，PR状态见任务。
 

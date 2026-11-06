@@ -2,13 +2,26 @@
 
 - 模式：常规。
 - 负责人／状态维护人：当前 Session。
-- 分支／Worktree／PR：`codex/feat/post-sharing`；`E:/Hnuhole-env/source/SpeechFUL-post-sharing`；[PR #108](https://github.com/zewbby/SpeechFUL/pull/108)。实际基线为 2026-11-06 fetch 后的 `origin/main` `48bcbc7cf90d163597d1f8a5f5944d9a08cb3ebf`。
+- 分支／Worktree／PR：后端分支 `codex/feat/post-sharing`、[PR #108](https://github.com/zewbby/SpeechFUL/pull/108) 已合并为 `4a3115dad4c0ecd257afc85f3abaea3a8ea3de69`。App 续做使用 `codex/feat/post-sharing-mobile`，复用干净 Worktree `E:/Hnuhole-env/source/SpeechFUL-post-sharing`，实际基线为 fetch 后的 `origin/main` `4a3115d`；App PR 未创建。
 - 授权依据与边界：用户要求“新增 帖子分享与链接打开原帖 后端功能”，后续明确授权“推送本次分支并创建 PR，相关产品 CI 全部通过后合并”。覆盖本任务分支推送、PR 及适用产品 CI 全部通过后的合并；不包含部署，不修改现有开发／正式业务数据。
 - 需求确认：用户于本会话回答 Q1–Q3 时全部选择推荐方案，确认外部链接分享、仅后端交付、登录后阅读／网页仅通用引导，以及每帖固定长期链接／打开最新公开内容。使用 `grill-with-docs` 及其 `grilling`、`domain-modeling` 依赖完成收敛，无未决产品取舍。
 - 更新日期：2026-11-06。
-- 状态：实现 已完成；本地验证 PASS；远端验证与合并以 [PR #108 当前 head 检查及合并记录](https://github.com/zewbby/SpeechFUL/pull/108/checks)为准；发布 未发布。
+- 状态：后端已完成、全部适用 CI 通过并合并；App 实现进行中、验证 NOT_RUN、未合并；发布 未发布。
 
 ## 目标与范围
+
+### App 续做（2026-11-06）
+
+- 用户最新指令：“继续实现 App 端的分享按钮、链接唤起和登录后返回原帖，接入这次新增的后端接口。”本轮扩展到 App 本地实现、验证和必要本地提交；先前“推送本次分支并创建 PR，CI 通过后合并”的授权已用于后端分支，不擅自延伸为新分支发布或部署授权。
+- Q4 用户确认推荐方案：运行中打开外部链接，在原页面之上打开原帖，返回保留此前页面及位置；冷启动／登录或注册后，在首页之上打开原帖，返回回首页。
+- Q5 用户单独确认推荐方案：等待登录／注册或基础身份设置时，以最后点击的原帖为准；只在本次 App 运行中保留，取消登录仍保留，主动退出账号清除；重启 App 后需再次点链接。仅存公开目标，不缓存帖子内容或认证凭据。
+- 按既有 `AUTH-SHARE-01`／`AUTH-INTENT-01`，登录、注册收尾和基础身份检查必须结束后才能展示原帖；收到链接不产生发言绑定。当前 App 没有外部链接入口，认证成功原逻辑 pop 到根路由；本轮接入目标恢复，沿用现有身份 Gate。
+- 系统分享入口覆盖首页卡片、详情底部及详情菜单；分享文字严格来自后端 `{postId,url,shareText}` 且只含产品名和当前 C origin 的固定链接。共享 busy 与授权窗口阻止重复请求和退出后迟到面板；取消系统面板不记作分享成功。
+- 接收完整 HTTPS 分享 URL 或 `speechful://posts/{postId}`；严格验证 origin、规范 ID 和无额外参数，冷／热启动交由同一 inbox，等待授权后调用新解析接口读取最新原帖。Flutter 原生路由通知先被目标 inbox 接收，MaterialApp 初始路由固定为根，避免直接暴露未授权详情。
+- Android HTTPS intent filter 从同一 `AUTH_COMMUNITY_BASE_URL` build define 取得 host；iOS 提供 scheme 和 Associated Domains 配置。域名侧仍需在真实公开 HTTPS 域部署 `assetlinks.json`／AASA 并匹配签名／Team ID。当前默认域为 `.invalid`，本轮不部署域名或正式服务；不得把显式 adb Intent、scheme 成功或配置文件当作自动 HTTPS 域名关联已通过。
+- 平台依据：[Flutter 路由通知保留完整 URI](https://api.flutter.dev/flutter/widgets/WidgetsBindingObserver/didPushRouteInformation.html)、[初始路由](https://api.flutter.dev/flutter/widgets/WidgetsApp/initialRoute.html)、[Android App Links](https://docs.flutter.dev/cookbook/navigation/set-up-app-links)、[iOS Universal Links](https://docs.flutter.dev/cookbook/navigation/set-up-universal-links)。
+
+以下为后端阶段的范围及证据快照；本轮 App 结果在末尾追加，不覆盖后端结论。
 
 交付可复制到微信等外部应用的固定 HTTPS 帖子链接、受登录保护的原帖解析接口及不包含帖子内容的通用落地页。系统分享按钮、App 外部唤起接线、登录／注册／初始身份设置后的路由恢复和设备验证由后续前端工作完成，本轮不宣称已交付完整手机跳转链路。
 

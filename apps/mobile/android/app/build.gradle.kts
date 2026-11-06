@@ -1,7 +1,22 @@
+import java.net.URI
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Keep the platform filter tied to the same build-time C origin as Dart. The
+// Dart receiver still checks the complete origin, port and canonical path.
+val postShareDefines = providers.gradleProperty("dart-defines").orNull.orEmpty().split(',')
+    .filter { it.isNotBlank() }.mapNotNull { encoded ->
+        val pair = String(Base64.getDecoder().decode(encoded), Charsets.UTF_8).split('=', limit = 2)
+        if (pair.size == 2) pair[0] to pair[1] else null
+    }.toMap()
+val postShareOrigin = URI(postShareDefines["AUTH_COMMUNITY_BASE_URL"] ?: "https://community.hnuhole.invalid")
+require(postShareOrigin.scheme == "https" && !postShareOrigin.host.isNullOrBlank() && postShareOrigin.rawUserInfo == null) {
+    "Post links require the fixed C HTTPS origin"
 }
 
 android {
@@ -17,6 +32,7 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "org.hnuhole.hnuhole_mobile"
+        manifestPlaceholders["postShareHost"] = postShareOrigin.host
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 29
