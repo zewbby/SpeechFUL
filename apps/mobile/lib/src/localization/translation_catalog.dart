@@ -19,8 +19,8 @@ final _placeholder = RegExp(r'\{([A-Za-z][A-Za-z0-9_]*)\}');
 final _literalWord = RegExp(r'\p{L}', unicode: true);
 final _sourceTemplates =
     [
-          for (final source in uiTranslations.keys)
-            if (_placeholder.hasMatch(source)) _UiSourceTemplate(source),
+          for (final (index, source) in uiTranslations.keys.indexed)
+            if (_placeholder.hasMatch(source)) _UiSourceTemplate(source, index),
         ]
         .where(
           (template) => _literalWord.hasMatch(
@@ -28,10 +28,17 @@ final _sourceTemplates =
           ),
         )
         .toList()
-      ..sort((a, b) => b.literalLength.compareTo(a.literalLength));
+      ..sort((a, b) {
+        final specificity = b.literalLength.compareTo(a.literalLength);
+        // List.sort is unstable. Equal-specificity templates must retain
+        // catalog order when unrelated category translations are added.
+        return specificity != 0
+            ? specificity
+            : a.sourceOrder.compareTo(b.sourceOrder);
+      });
 
 class _UiSourceTemplate {
-  _UiSourceTemplate(this.source) {
+  _UiSourceTemplate(this.source, this.sourceOrder) {
     final pattern = StringBuffer('^');
     var offset = 0;
     for (final token in _placeholder.allMatches(source)) {
@@ -51,6 +58,7 @@ class _UiSourceTemplate {
   }
 
   final String source;
+  final int sourceOrder;
   final names = <String>[];
   late final RegExp expression;
   int literalLength = 0;

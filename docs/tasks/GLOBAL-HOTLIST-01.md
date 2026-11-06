@@ -68,5 +68,6 @@
 - 外部权威回执：`E:/Hnuhole-env/global-hotlist-release-20261106/backend-receipt.json`、`phone-install-receipt.json`、`android-package-receipt.json`；Windows日常后端／包指针已备份并更新，Linux恢复manifest已更新。应用源码绑定上述b462提交，后续恢复器和本文提交不改变已装应用代码。正式生产未部署。
 - 此次安装不重启性能优化或长测；下述30分钟持续负载FAIL结论保持不变，合并不代表搜索增幅≤5%达标。
 - 送审PR [#112](https://github.com/zewbby/SpeechFUL/pull/112)：追加整合主线分享客户端后，`a150be4` Flutter analyze及搜索／标签／API／分享78项PASS；手机已装b462包未随此次主线整合重装。首次CI发现共享隐私权限审计遗漏0034四表，补齐与grant一致的最小白名单，保留其他角色及UPDATE／候选DELETE拒绝；`a150be4`＋该审计和越权测试差异在WSL一次性双PG集群15项PASS（`premerge-role-audit.log`，外部装机证据目录）。最终head的远程CI与合并状态以PR实时记录为准。
+- CI后续修复（`07e95de`＋本条差异）：私信／头像／信息流迁移断言更新为C34，三项真实独立fixture全部PASS（`migration-dm.log`、`migration-avatar.log`、`migration-feed.log`）。分类词条数量变化暴露List.sort对同优先级翻译模板排序不稳定，新增目录顺序作为次级排序键；保留既有用户名模板和多行参数原样传递，搜索／翻译27项PASS（`premerge-localization.log`）。这些追加修复未重新部署或装机。
 
 本轮按用户限定只执行长测和增幅验收，已完成并记录FAIL，不自动优化或再跑。48事件／秒的基线出现掉队，保留失败记录；正式对照与后台均固定16事件／RAW秒、32逻辑客户端。后台实际平均在途2.25、峰值32，不称为持续32在途。算榜在真实周期持续发布六版，未以停算换延迟；≤5%仍未达到，不能用整场平均稀释计算时尖峰。完整数值、环境、版本和原始证据见[持续负载证据](evidence/global-hotlist-sustained-20261106.md)。
