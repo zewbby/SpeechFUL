@@ -24,12 +24,20 @@ Widget app(
   Brightness brightness = Brightness.dark,
   String? fontFamily,
   double scale = 1,
+  bool disableAnimations = false,
+  bool accessibleNavigation = false,
+  bool tickerEnabled = true,
+  ValueChanged<List<String>>? visible,
 }) => MaterialApp(
   debugShowCheckedModeBanner: false,
   theme: HhTelegramTheme.create(brightness, fontFamily: fontFamily),
   builder: (context, child) => MediaQuery(
-    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
-    child: child!,
+    data: MediaQuery.of(context).copyWith(
+      textScaler: TextScaler.linear(scale),
+      disableAnimations: disableAnimations,
+      accessibleNavigation: accessibleNavigation,
+    ),
+    child: TickerMode(enabled: tickerEnabled, child: child!),
   ),
   home: HhDirectMessageScreen(
     view: view,
@@ -45,6 +53,7 @@ Widget app(
     onSource: () {},
     onBack: () {},
     onLoadOlder: loadOlder,
+    onVisible: visible,
   ),
 );
 

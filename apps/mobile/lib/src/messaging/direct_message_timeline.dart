@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../design_system/motion.dart';
 import '../design_system/telegram_theme.dart';
 import '../localization/app_localizations.dart';
 import 'direct_message_bubble.dart';
@@ -34,11 +35,14 @@ class HhDmTimeline extends StatefulWidget {
   State<HhDmTimeline> createState() => _HhDmTimelineState();
 }
 
-class _HhDmTimelineState extends State<HhDmTimeline> {
+class _HhDmTimelineState extends State<HhDmTimeline>
+    with WidgetsBindingObserver {
   final _scroll = ScrollController();
   final _viewport = GlobalKey();
   final _anchors = <String, GlobalKey>{};
+  final _entering = <String>{};
   var _epoch = 0;
+  var _allowEntrance = true;
   var _loading = false;
   var _failed = false;
   var _away = false;
@@ -50,12 +54,28 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _allowEntrance =
+        lifecycle == null || lifecycle == AppLifecycleState.resumed;
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // This projection does not distinguish a live append from multi-batch
+    // recovery. Once backgrounded, keep this mounted scope static until reopen
+    // or a scope change; button/status feedback remains available.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _allowEntrance = false;
+    }
   }
 
   @override
@@ -64,10 +84,14 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
     final old = oldWidget.view, next = widget.view;
     if (old.scopeKey != next.scopeKey) {
       _epoch++;
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      _allowEntrance =
+          lifecycle == null || lifecycle == AppLifecycleState.resumed;
       _loading = _failed = _away = _attempted = false;
       _attemptedCursor = null;
       _newMessages = 0;
       _anchors.clear();
+      _entering.clear();
       _latest(animate: false);
       return;
     }
@@ -80,6 +104,36 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
     final latestChanged =
         next.messages.isNotEmpty &&
         (old.messages.isEmpty || old.messages.last.id != next.messages.last.id);
+    // Only a real suffix added to an already displayed conversation may enter.
+    // Polling a receipt, restoring history and rebuilding a row never qualify.
+    final latestIndex = old.messages.isEmpty
+        ? -1
+        : next.messages.indexWhere(
+            (message) => message.id == old.messages.last.id,
+          );
+    final atBottom = _scroll.hasClients && _scroll.position.pixels.abs() <= 1;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (latestChanged &&
+        _allowEntrance &&
+        latestIndex >= 0 &&
+        atBottom &&
+        !HhMotion.reduced(context) &&
+        TickerMode.valuesOf(context).enabled &&
+        (ModalRoute.of(context)?.isCurrent ?? true) &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed)) {
+      final known = old.messages.map((m) => m.id).toSet();
+      _entering.addAll(
+        next.messages
+            .skip(latestIndex + 1)
+            .where((m) => !known.contains(m.id) && !m.recalled)
+            .map((m) => m.id),
+      );
+      final epoch = _epoch;
+      // An unbuilt row must not animate when later scrolled into view.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && epoch == _epoch) _entering.clear();
+      });
+    }
     if (latestChanged && !_away) {
       _latest(animate: false);
     } else if (latestChanged) {
@@ -150,12 +204,8 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
     final epoch = _epoch;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || epoch != _epoch || !_scroll.hasClients) return;
-      if (animate && !MediaQuery.disableAnimationsOf(context)) {
-        _scroll.animateTo(
-          0,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-        );
+      if (animate && !HhMotion.reduced(context)) {
+        _scroll.animateTo(0, duration: HhMotion.quick, curve: HhMotion.curve);
       } else {
         _scroll.jumpTo(0);
       }
@@ -351,22 +401,26 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
                   ),
                 Container(
                   key: _anchors.putIfAbsent(message.id, () => GlobalKey()),
-                  child: HhDirectMessageBubble(
-                    message: message,
-                    imageBuilder: widget.imageBuilder,
-                    joinsPrevious: joins(i - 1),
-                    joinsNext: joins(i + 1),
-                    selected:
-                        widget.selectedMessage == message.id &&
-                        widget.selectedImage == null,
-                    selectedImageId: widget.selectedMessage == message.id
-                        ? widget.selectedImage
-                        : null,
-                    onMenu: (image, anchor) =>
-                        widget.onMenu(message, image, anchor),
-                    onImage: widget.onImage,
-                    onRetry: () => widget.onRetry(message),
-                    onReedit: () => widget.onReedit(message),
+                  child: _DmMessageEntrance(
+                    key: ValueKey('${view.scopeKey}:${message.id}'),
+                    animate: _entering.remove(message.id),
+                    child: HhDirectMessageBubble(
+                      message: message,
+                      imageBuilder: widget.imageBuilder,
+                      joinsPrevious: joins(i - 1),
+                      joinsNext: joins(i + 1),
+                      selected:
+                          widget.selectedMessage == message.id &&
+                          widget.selectedImage == null,
+                      selectedImageId: widget.selectedMessage == message.id
+                          ? widget.selectedImage
+                          : null,
+                      onMenu: (image, anchor) =>
+                          widget.onMenu(message, image, anchor),
+                      onImage: widget.onImage,
+                      onRetry: () => widget.onRetry(message),
+                      onReedit: () => widget.onReedit(message),
+                    ),
                   ),
                 ),
               ],
@@ -403,4 +457,71 @@ class _HhDmTimelineState extends State<HhDmTimeline> {
       ],
     );
   }
+}
+
+/// Paint-only movement leaves row geometry and visible/read reporting unchanged.
+class _DmMessageEntrance extends StatefulWidget {
+  const _DmMessageEntrance({
+    super.key,
+    required this.animate,
+    required this.child,
+  });
+  final bool animate;
+  final Widget child;
+  @override
+  State<_DmMessageEntrance> createState() => _DmMessageEntranceState();
+}
+
+class _DmMessageEntranceState extends State<_DmMessageEntrance>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final AnimationController _controller;
+  late final CurvedAnimation _progress;
+  bool _started = false;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: HhMotion.quick,
+      value: widget.animate ? 0 : 1,
+    );
+    _progress = CurvedAnimation(parent: _controller, curve: HhMotion.curve);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (HhMotion.reduced(context) || !TickerMode.valuesOf(context).enabled) {
+      _controller.value = 1;
+      _started = true;
+    } else if (!_started) {
+      _started = true;
+      if (widget.animate) _controller.forward();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _controller.value = 1;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _progress.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _progress,
+    child: widget.child,
+    builder: (context, child) => Transform.translate(
+      key: const ValueKey('dm-message-enter'),
+      offset: Offset(0, 8 * (1 - _progress.value)),
+      child: child,
+    ),
+  );
 }
