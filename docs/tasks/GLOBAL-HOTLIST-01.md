@@ -36,7 +36,7 @@
 | 项目 | 被测版本／环境 | 结果与证据 |
 | --- | --- | --- |
 | 需求与基线 | main `e9bfa80`；用户两项明确答复 | PASS，需求如上，分支初始无已有改动。 |
-| 实现 | main `e9bfa80`＋本任务源码、迁移、契约与回归差异；由本地实现提交承载 | 分类术语、固定导航、全站总榜、分片精确合并及分块补位完成。 |
+| 实现 | `b41482e8c0d44e5c521c587df6d943b72e9c7df8`，基于main `e9bfa80` | 分类术语、固定导航、全站总榜、分片精确合并及分块补位完成。 |
 | 独立审查 | GPT 6-Astra／xhigh，两轮；原始main及本轮产品差异 | PASS（静态范围）。修复前缀失效掩盖深处高分帖、权限任意／全部语义及缺块检测，静态复核无新增阻塞问题。详见[审查证据](evidence/global-hotlist-astra-review-20261106.md)；不计GitHub成员批准。 |
 | Go host | WSL2 Linux文件系统、Go1.22，`go test ./...`、`go build ./...`、`go vet ./...` | PASS，外部 `go-host-final.log`。 |
 | 真实SQL／Redis／HTTPS | 一次性PG16双库及独立Redis，`FEED_RANKINGS_REDIS=1 sh authlab/run-feed-isolated.sh`，含race | PASS，`go-sql-final.log`。覆盖作者排除、讨论去重、复用、未来／到期边界、深块补位、全站排序反例、屏蔽、删帖、Gate冻结／恢复、迁移白名单、最小权限及v2 ACL升级。 |
@@ -48,7 +48,7 @@
 | 分块SQL与规模对照 | 实际rankBlockSQL、3万帖；另独立简化SQL模型1万／10万／100万候选，0%／80%失效 | PASS，真实查询0.476ms，主键索引7次、FunctionScan 64×7＝448项。简化模型10万无失效161.76→0.307ms；只证明候选查询形状收益，不等同接口加速。详见[证据及边界](evidence/global-hotlist-astra-review-20261106.md)。 |
 | 未覆盖 | 本任务远程产品CI、真机可见时间、公网、持续30min高负载、多进程及生产配置容量 | NOT_RUN。代码／本地检查完成不等于合并或发布；旧任务性能数据不外推这些范围。 |
 
-上述外部日志、探针、独立fixture脚本、EXPLAIN JSON与构建产物保存在 `E:/Hnuhole-env/global-hotlist-validation-20261106`；被测Linux源码副本与本地实现提交的产品文件一致，格式化及后续测试／证据文档差异单列，不重新冒充产品变更。
+上述外部日志、探针、独立fixture脚本、EXPLAIN JSON与构建产物保存在 `E:/Hnuhole-env/global-hotlist-validation-20261106`；逐文件核对22个变更产品文件，被测Linux副本与实现提交 `b41482e` 字节一致。该提交新增Dart探针／联调回归另有真实PASS。仅证据文档更新不改变被测产品；Android包未包含独立探针文件，本轮未装机。
 
 ## 阻碍与下一步
 

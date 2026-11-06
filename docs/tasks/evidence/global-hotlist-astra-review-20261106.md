@@ -1,6 +1,6 @@
 # GPT 6-Astra／xhigh 热榜专项审查
 
-关联任务：[GLOBAL-HOTLIST-01](../GLOBAL-HOTLIST-01.md)。日期：2026-11-06。
+关联任务：[GLOBAL-HOTLIST-01](../GLOBAL-HOTLIST-01.md)。日期：2026-11-06。新实现及适用验证绑定 `b41482e8c0d44e5c521c587df6d943b72e9c7df8`，后续证据文档更新不改变产品。
 
 本记录由主 Session 整理独立审查回报及本地验证结果。审查实际通过子 Agent 使用 `gpt-6-astra`、`xhigh`，两轮均只读；不是 GitHub 成员批准。
 
