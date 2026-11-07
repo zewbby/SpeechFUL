@@ -145,3 +145,31 @@
 - PR：[SpeechFUL #114](https://github.com/zewbby/SpeechFUL/pull/114)。提交后 main 已合并另一任务 #113（314162a），已合入最新主线并保留近期工作中双方条目；相对当前 main 仍只修改本任务记录和索引。该同步不修改运行环境，不将另一任务的功能或验收记为本 PR 实现。适用远程文档 CI 待当前 head 核对。
 
 - 文档检查回执：[Collaboration](https://github.com/zewbby/SpeechFUL/actions/runs/42339207984) 在归档前 head 3f8eec4 PASS；本地 19 项协作回归 PASS。最终合并状态与最新 head 检查以 [PR #114](https://github.com/zewbby/SpeechFUL/pull/114) 为实时依据。无 GitHub 成员批准记录，不将维护者授权合并或本地复核表述为独立成员批准。
+
+## 真实开户与最新公网包跟进（2026-11-07，进行中）
+
+- 用户在原 Android 验收会话明确要求“做2，3”，对应真实校园验证码提交/开户，以及将最新修复统一到公网试用包并复验；随后确认“可以，装好后提醒我”配合真实开户。范围为既有独立 publictrial 包/独立公网资源，不覆盖日常包、日常后端或正式发布。用户自行输入真实验证码、设置密码并保存恢复码，不输出或归档真实凭据。
+- 常规模式，无委派。复核干净任务分支 `codex/chore/public-trial-access-01` / HEAD `354aec9`，保留既有 Worktree。构建冻结实际最新 main **`e399fd34453ad294b04b56489ac86716c6779404`**；其 App/packages/C 产品树与已验收 `baa817e` 无差异，产品 CI/真机旧证据仍按所载范围适用。已合并 PR113/114 不因本轮新增记录自动授权再次 Push/PR/合并。
+- realme RMX3366 `7e0660f1` 已连接，用户0当前 publictrial 版本2026110701，实际安装 APK SHA256仍为 `a7b5695d50c567001654e6030c0a5d63a395ceda10455151f733780a822e48c8`；测试签名与既有验收签名一致。准备同包升级2026110706，保留数据，不清除/卸载。C35/V7公网后端及两个HTTPS origin沿用既有资源，监控就绪200；不重启/迁移已有服务。
+- 新包导出到任务自有全新构建目录，只有 applicationId/可见标签包装，正常 `lib/main.dart`、profile/arm64、同测试签名、同公网 defines。首次启动构建脚本被 Windows PowerShell 默认非UTF8解析拒绝，尚未执行任何脚本动作；改为显式UTF8读取原脚本后构建进行中。该工具编码问题不记为产品缺陷。
+- 当前：构建/装机/公网复验 IN_PROGRESS；真实开户待装机后用户输入。最终包摘要、设备与真实服务证据在本节追加，未完成前不记PASS。
+
+### 最新公网包统一结果及真实开户交接
+
+- **第3项PASS（同源构建/保留数据升级/公网最小复验）**：从最新 main `e399fd34453ad294b04b56489ac86716c6779404` 冻结构建正常main、profile/arm64新版2026110706 / `0.1.0-public-main`；同独立publictrial包、既有测试签名、相同两个公网HTTPS origin和defines摘要。APK **59,754,309字节**，SHA256 **`a6181bd61d161bc43eee7b88411bf7c433cfb925c2c0a4cbc73d1fd04fbb39e1`**；未将profile测试包称为正式发布产物。
+- [源码核对](E:/Hnuhole-env/public-trial-access-01/main-2026110706-source-proof.json)逐一检查2322个归档普通文件，无非预期构建输入差异；只有包名和可见标签包装。相对PR113实际25成功/1条件跳过的head，App/packages/API产品差异为空；相对已装验收源baa817e的App也无差异。现有C构建6483ac1相对main只有两项Go测试差异；实际C二进制仍3e12436c、C35/V7、Gate OPEN C1/V2，不需为无生产差异替换/重启后端。
+- [新包](E:/Hnuhole-env/public-trial-access-01/SpeechFUL-public-main-2026110706.apk)、[构建](E:/Hnuhole-env/public-trial-access-01/main-2026110706-build.log)、[签名](E:/Hnuhole-env/public-trial-access-01/main-2026110706-signature.log)、[构建回执](E:/Hnuhole-env/public-trial-access-01/main-2026110706-receipt.json)、[装机](E:/Hnuhole-env/public-trial-access-01/main-2026110706-install.log)、[设备读回](E:/Hnuhole-env/public-trial-access-01/main-2026110706-device.json)。realme Android14用户0执行同包install-r成功，实际base.apk摘要一致，firstInstallTime仍原11:25:12；未卸载/清数据，未修改日常包或androidv1验收包。
+- 真机正常入口冷启恢复既有合成账号，无重新登录，经公网读回原3帖；分享选择器显示本人身份及“暂无可分享的会话，请先与对方互相回复”，取消回首页。[首页](E:/Hnuhole-env/public-trial-access-01/main-2026110706-home.png)、[站内选择器](E:/Hnuhole-env/public-trial-access-01/main-2026110706-share.png)。当前环境只有一个合成账号，本轮不冒称完成公网双人卡片投递；完整卡片、举报展示和未知结果等D/H/S证据仍绑定原验收候选，同源性已核对。
+- 真实开户前[只读基线](E:/Hnuhole-env/public-trial-access-01/real-registration-before.json)：既定真实邮箱尚无资格保留/确认记录，C有1个既有合成账号及1次CONSUMED注册；不输出邮箱、验证码、账号ID、密码或恢复码，不跨库关联实名和账号。为真实开户，已通过正常“账号与安全→退出本机”退出本任务合成账号并进入创建账号；其凭据仍仅在既有合成私有材料中。
+- **第2项IN_PROGRESS**：正常页面恢复上次未完成的OTP确认，邮箱及再次发送被锁定；点击只读“核对校邮确认结果”后仍为待确认，未重复发码、清除本机状态或改后端。代码事实：V在原flow/anchor已不存在时保守返回PENDING；客户端提供“使用原验证码继续确认”，原POST明确过期/无效后才允许“结束过期操作，重新收码”。已向用户集中说明需在手机输入原邮件验证码；用户操作期间停止所有手机UI/截图/装机，不收集真实秘密。尚未完成真实验证码确认/开户，不能记PASS；若原码不可得，再调查可行恢复，不擅自改安全边界。
+
+### D05：验证码错误核对后“下一步”禁用（修复/待最终包）
+
+- 用户按页面提交原邮件码后收到明确过期拒绝，正常“结束过期操作，重新收码”；核对界面收件人仍为用户此前批准的同一地址后，于13:06:31只申请一次新OTP，严格公网正常App请求，实际outbox SENT。用户随后收到“验证码不正确”，只读服务证据为该flow ACTIVE、失败1次、有效至13:11:31；不读取或输出服务端OTP。该次输错本身不是产品缺陷。
+- 用户随后报告“点击下一步没反应”，并明确“输入验证码以后点下一步变灰”；依用户明确要求截图，观察到下一步禁用，无可见继续原因。该图含用户输入，仅作为私有材料，不链接/提交或再展示。无效操作仍未产生资格或新C账号；未重复发送。后续仅正常冷启该试用包保留数据，确认该申请已不能从本机页面恢复，未清数据或改Gate。
+- **D05/P1确定性缺陷**：错误OTP的确认返回NOT_COMMITTED时，`reconcileOtpConfirmation`将confirmation和仍有效的request一起删除并置idle，导致正确输入也不能继续。合成控制器回归在旧实现真实FAIL（期望otpRequested，实际idle），与用户可见状态一致；[修复前](E:/Hnuhole-env/public-trial-access-01/otp-retry-before.log)。首次误在冻结构建副本执行新增测试，未匹配用例的原日志另存otp-retry-wrong-target，不算复现证据。
+- 最小修复：仅NOT_COMMITTED保留原OTP request/flow与bootstrap，丢弃已确定未提交的confirmation key，让改正后的码使用新确认key；REVERIFY_REQUIRED继续结束原验证。PENDING/超时/未知结果仍保留原key，只有服务端权威未提交结果才允许更换，不绕过认证、预算、最终Gate，不自动发码或授予资格。
+- 新增控制器回归覆盖原flow/bootstrap保留、无重复发码、确认key更换、码不落盘，以及REVERIFY_REQUIRED原边界；新增Widget回归完整点击错误→提示→改码→核对→再次确认→账号设置。修复后两组认证回归 **51 PASS**：[日志](E:/Hnuhole-env/public-trial-access-01/otp-retry-after.log)。后续analyze/关联认证回归/统一新包/真机与真实开户继续，暂不以51项替身测试关闭真实开户。
+- 工具脱敏纠错：既有phone.py仅按EditText脱敏，忙碌时只读View的旧已过期六位输入曾出现在一次工具返回及2份本机XML。已将六位码标签统一脱敏，并修正2份XML，[回执](E:/Hnuhole-env/public-trial-access-01/otp-view-sanitization.json)；不声称能撤回既有工具返回。用户自行填写期间不再读取完整页面，完成状态工具只输出导航布尔值，真实密码/恢复码仍不读取、不存档。
+- D05最终源码检查：App完整analyze零问题，[七个认证测试文件146 PASS](E:/Hnuhole-env/public-trial-access-01/otp-retry-auth-all.log)，覆盖API解析/加密/存储/会话/流程/页面/展示；[analyze](E:/Hnuhole-env/public-trial-access-01/otp-retry-analyze.log)。本轮仅Dart流程与测试改变，C/V、OpenAPI、迁移无变动；不重跑无变化的Go/SQL，把已有真实服务/PR113证据按原范围使用。新增修复尚无远程CI，不将旧25成功提升为新修复已跑远程检查。
+- 已将任务分支正常合入实际最新main，保留原提交和所有修改（本地对齐合并4108cf3）；D05产品差异仅上述流程文件及两项测试。下一步冻结本地修复候选、复用本任务构建缓存统一2026110707，再验证设备。13:06那次OTP现已过期，不要求用户继续使用过期码；新包就绪后通过正常App新申请一次，保持原预算及Gate。

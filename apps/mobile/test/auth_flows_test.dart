@@ -41,6 +41,7 @@ class Api implements AuthApi {
   Future<OtpRequestAccepted> Function()? onOtp;
   AuthFailure? otpResultFailure;
   AuthFailure? confirmationFailure;
+  OtpConfirmationState confirmationResult = OtpConfirmationState.pending;
   Future<AuthSession> Function()? onRegistration;
   final resetCommits = <Map<String, String>>[];
   final closureRequests = <Map<String, String>>[];
@@ -174,7 +175,7 @@ class Api implements AuthApi {
     required String flowId,
     required String installationId,
     required String idempotencyKey,
-  }) async => const OtpConfirmationResult(state: OtpConfirmationState.pending);
+  }) async => OtpConfirmationResult(state: confirmationResult);
   @override
   Future<RegistrationIntent> createRegistrationIntent({
     required String registrationTicket,
@@ -279,6 +280,60 @@ class Harness {
 }
 
 void main() {
+  test('uncommitted OTP confirmation preserves the original flow for corrected input', () async {
+    final h = Harness();
+    await h.flows.requestOtp('Exact@hainanu.edu.cn');
+    final original = (await h.store.read()).registration!;
+    h.api.confirmationFailure = const AuthFailure(
+      kind: AuthFailureKind.rejected,
+      statusCode: 422,
+      code: 'OTP_INVALID',
+    );
+    await h.flows.confirmOtp('111111');
+    final rejectedKey = h.api.confirmations.single['key'];
+    h.api.confirmationResult = OtpConfirmationState.notCommitted;
+    await h.flows.reconcileOtpConfirmation();
+    expect(h.flows.status, AuthFlowStatus.otpRequested);
+    final reconciled = (await h.store.read()).registration!;
+    expect(reconciled['request'], original['request']);
+    expect(reconciled['confirmation'], isNull);
+    for (final field in ['seed', 'publicKey', 'slotId']) {
+      expect(reconciled[field], original[field]);
+    }
+    h.api.confirmationFailure = null;
+    await h.flows.confirmOtp('222222');
+    expect(h.api.otpRequests, hasLength(1));
+    expect(h.api.confirmations, hasLength(2));
+    expect(h.api.confirmations.last['key'], isNot(rejectedKey));
+    expect(
+      h.api.confirmations.last['flowId'],
+      h.api.confirmations.first['flowId'],
+    );
+    expect(h.api.confirmations.last['otp'], '222222');
+    expect(h.api.registrations, isEmpty);
+    expect(h.vault.value, isNot(contains('111111')));
+    expect(h.vault.value, isNot(contains('222222')));
+  });
+
+  test('reverify-required confirmation still discards only the expired verification', () async {
+    final h = Harness();
+    await h.flows.requestOtp('Exact@hainanu.edu.cn');
+    final original = (await h.store.read()).registration!;
+    h.api.confirmationFailure = const AuthFailure(
+      kind: AuthFailureKind.timeout,
+    );
+    await h.flows.confirmOtp('111111');
+    h.api.confirmationResult = OtpConfirmationState.reverifyRequired;
+    await h.flows.reconcileOtpConfirmation();
+    expect(h.flows.status, AuthFlowStatus.idle);
+    final reconciled = (await h.store.read()).registration!;
+    expect(reconciled['request'], isNull);
+    expect(reconciled['confirmation'], isNull);
+    expect(reconciled['seed'], original['seed']);
+    expect(h.api.otpRequests, hasLength(1));
+    expect(h.api.registrations, isEmpty);
+  });
+
   test('code must be hidden before full confirmation and raw input is never stored', () async {
     final h = Harness();
     await h.flows.beginCodeReset('OLD RECOVERY INPUT');

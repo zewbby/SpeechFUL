@@ -648,18 +648,24 @@ class AuthFlows extends ChangeNotifier {
     }
     if (result.state == OtpConfirmationState.notCommitted ||
         result.state == OtpConfirmationState.reverifyRequired) {
+      final reverify = result.state == OtpConfirmationState.reverifyRequired;
       await _store.update((latest) {
         if (_map(latest.registration?['confirmation'])?['key'] != key) {
           return latest;
         }
         final next = Map<String, dynamic>.from(latest.registration!)
           ..remove('confirmation')
-          ..remove('request')
           ..remove('ticket');
+        // NOT_COMMITTED terminates only this confirmation key. Its original
+        // OTP flow may still be valid (for example after a wrong code), so a
+        // corrected code must use a new confirmation key on that same flow.
+        // Only V's REVERIFY_REQUIRED invalidates the verification itself.
+        if (reverify) next.remove('request');
         return latest.copyWith(registration: next);
       });
+      if (!_current(epoch)) return;
       _originalOtp = null;
-      _status = AuthFlowStatus.idle;
+      _status = reverify ? AuthFlowStatus.idle : AuthFlowStatus.otpRequested;
     } else {
       // TICKET_AVAILABLE is not a ticket: original confirm POST is required
       // to receive it, within V's bounded window, without changing the key.

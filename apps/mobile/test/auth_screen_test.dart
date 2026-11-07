@@ -208,6 +208,49 @@ class _EmailApi extends _Api implements EmailLoginApi {
   }
 }
 
+class _OtpRetryApi extends _Api {
+  final confirmationKeys = <String>[];
+  final confirmationFlows = <String>[];
+
+  @override
+  Future<OtpConfirmation> confirmOtp({
+    required String flowId,
+    required String otp,
+    required String slotId,
+    required String bootstrapPublicKey,
+    required String installationId,
+    required String idempotencyKey,
+    String? releaseReceipt,
+  }) async {
+    confirmationKeys.add(idempotencyKey);
+    confirmationFlows.add(flowId);
+    if (confirmationKeys.length == 1) {
+      throw const AuthFailure(
+        kind: AuthFailureKind.rejected,
+        statusCode: 422,
+        code: 'OTP_INVALID',
+      );
+    }
+    final ticket = Uint8List(156);
+    ticket.setRange(0, 20, [...ascii.encode('HNUHOLE/REGISTER/V2'), 0]);
+    ByteData.sublistView(ticket).setUint32(20, 1);
+    ticket.setRange(28, 60, AuthCrypto.decode(slotId, bytes: 32));
+    ticket.setRange(60, 92, AuthCrypto.decode(bootstrapPublicKey, bytes: 32));
+    return OtpConfirmation(
+      state: OtpConfirmationState.ticketAvailable,
+      registrationTicket: AuthCrypto.encode(ticket),
+    );
+  }
+
+  @override
+  Future<OtpConfirmationResult> otpConfirmationResult({
+    required String flowId,
+    required String installationId,
+    required String idempotencyKey,
+  }) async =>
+      const OtpConfirmationResult(state: OtpConfirmationState.notCommitted);
+}
+
 class _Harness {
   _Harness({_Api? api}) : api = api ?? _Api() {
     sessions = AuthSessionController(
@@ -361,6 +404,47 @@ Future<void> _seedEligibility(_Harness h) async {
 }
 
 void main() {
+  testWidgets(
+    'wrong registration code can be corrected after uncommitted-result reconciliation',
+    (tester) async {
+      final api = _OtpRetryApi();
+      final h = _Harness(api: api);
+      await h.mount(tester);
+      await _tap(tester, '创建账号');
+      await tester.enterText(
+        find.byKey(const ValueKey('registration-email')),
+        'exact',
+      );
+      await _tap(tester, '发送验证码');
+      final otp = find.byKey(const ValueKey('registration-otp'));
+      await tester.enterText(otp, '111111');
+      await _tap(tester, '确认验证码');
+      expect(find.text('验证码不正确，请重新输入。'), findsOneWidget);
+      await _tap(tester, '确定');
+      await tester.enterText(otp, '222222');
+      await tester.tap(find.byKey(const ValueKey('registration-next')));
+      await tester.pumpAndSettle();
+      expect(h.flows.status, AuthFlowStatus.otpRequested);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('registration-next')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(tester.widget<TextFormField>(otp).controller!.text, '222222');
+      await _tap(tester, '确认验证码');
+      expect(find.text('设置你的账号'), findsOneWidget);
+      expect(api.otpRequests, 1);
+      expect(api.confirmationKeys, hasLength(2));
+      expect(api.confirmationKeys[0], isNot(api.confirmationKeys[1]));
+      expect(api.confirmationFlows[0], api.confirmationFlows[1]);
+      expect(h.sessions.isAuthenticated, isFalse);
+      await h.finish(tester);
+    },
+  );
+
   testWidgets(
     'known OTP cooldown permits correcting email and confirming only its current request',
     (tester) async {
