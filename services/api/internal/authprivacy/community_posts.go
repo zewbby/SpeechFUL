@@ -143,7 +143,7 @@ func (c *Community) withPostSession(ctx context.Context, bearer [32]byte, action
 		finishForeground := c.rankings.ForegroundStarted()
 		defer finishForeground()
 	}
-	decision, err := c.gate.Snapshot(ctx)
+	decision, err := c.postCandidateDecision(ctx, c.pool)
 	if err != nil {
 		return result, err
 	}

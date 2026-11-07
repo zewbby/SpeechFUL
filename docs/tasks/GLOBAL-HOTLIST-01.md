@@ -66,6 +66,8 @@
 - 仅去掉冗余Abort后，同32客户端／16事件每RAW秒短profile为0错误／0丢弃，P95370.7ms；准备连接P95约0.27ms，实际候选SQLP95约178ms。现状profile曾过载，不能把两者P95比值全部归因代码。
 - 进一步按启动时核对的`edited_title/body text`与`tags text[] NOT NULL`选择固定直接列SQL；旧库保留完整动态JSON查询。排序、Unicode匹配、标签、游标和最终Gate重验不变。真实C29 WithPosts启动＋私有候选／投影查询及升级链路PASS，不冒充C29完整HTTPS授权验收；已有分页／标签／最终重验race回归通过。新增对照fixture先后使用不允许的希腊字符标签及无图片空正文，被业务校验拒绝；已改为合法标签和非空编辑正文，对照新断言待复验，不将错误fixture计PASS。
 - 所有诊断使用独立一次性PG／Redis，日常后端及手机未改。外部证据目录`E:/Hnuhole-env/hotlist-performance-20261107`。首次诊断收尾因执行中修改runner触发重复启动，部分输出被截断，保留残留为无效记录；已增加证据目录必须新建检查，后续runner冻结后执行。正式长测尚未开始，旧≤5% FAIL保持有效；不改变16事件/s、真实五分钟周期或验收阈值。
+- `ba387b5`诊断的typed候选SQLmean约89ms/P95约107ms，但仍有3次约1秒热榜503及6次容量丢弃，全部不与实际算榜窗口交叠，未启动该版本正式长测。Astra确认详情／互动等的准备Snapshot仍重复写检查点；续修为复用已验证签名／锚点／代次／时间的`postCandidateDecision`，只读准备回滚，所有业务仍在最终CommitAuthorized中执行。预计省约3.84次锚点写／秒、约19%为本负载模型估算，不冒充延迟实测。
+- 最新准备流程补充PASS（`ba387b5`＋准备调用一行差异及测试）：`go-host-prepare.log`、`go-vet-prepare.log`、`sql-prepare-regression.log`；typed／兼容分页与合法编辑对照、标签候选后清除的最终拒绝均通过。真实未包装C Gate的详情／条件互动只写一次最终检查点；pgx tracer在准备后分别触发freeze／recover／revoke／expired，详情不返回、互动不写入、过期独立冻结持久化；未知Gate仍调用Snapshot。Astra Xhigh静态复核无阻塞。正式验收待采集，不调整1秒读预算、Redis40ms超时、5%阈值或负载速率。
 
 ### 日常开发升级与装机（2026-11-06）
 
