@@ -58,3 +58,10 @@
 - 已准备名为speechful-pc的隧道创建表单，未提交。创建持续连接凭据的当次确认已提出，待用户回答；尚无DNS/公网路由改动。
 - [公网路由草稿](E:/Hnuhole-env/public-trial-access-01/cloudflare-route-draft.json)已保存，不含任何令牌。后续主域社区/auth子域认证，数据库、Redis和内部mTLS不公开。
 - 本地托管修正：任务专用隐藏WSL宿主持续持有会话，原PID身份检查后重启任务进程；仅对既有OPEN Gate执行resume/watch，不再次recover。启动后独立第二次health PASS，未修改日常或旧验收实例。当前尚非系统开机自启服务，电脑重启后恢复流程仍待验证。
+
+### 隧道连接与本地上游验证
+
+- 用户已授权创建`speechful-pc`隧道，并明确要求连接电脑。Cloudflare实际显示Healthy、一个连接、无路由。官方cloudflared 2026.10.7连接器使用任务私有令牌文件，权限0600；未提交令牌。连接器为隐藏进程，开机自动恢复尚未配置。
+- 本任务独立本地Nginx代理C/V分别使用不同回环端口，上游经任务CA严格验证；通过两个代理访问`/health/ready`均HTTP 200。公网路由和DNS尚未提交。
+- 后端当前对外origin仍是本机回环地址，真实邮箱供应商未配置；直接映射不代表公网App可用。需先配置两个域名的规范origin，保持C/V独立、Gate和内部mTLS，完成真实业务验证。
+- 当前无连接Android设备；站内分享尚有未提交改动，不能将旧客户端冒充符合新需求的日常包。
