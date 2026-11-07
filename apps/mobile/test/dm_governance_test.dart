@@ -186,6 +186,37 @@ void main() {
     },
   );
   testWidgets(
+    'post evidence preview hides reference and preserves fixed report payload',
+    (tester) async {
+      final c = _Controller();
+      final snapshot = await dmEvidenceSnapshot(
+        directory: p2.directory(),
+        rows: [
+          {...incoming(1), 'kind': 'POST', 'text': p1.post},
+        ],
+        first: 1,
+        last: 1,
+        photo: (_, _) async => Uint8List(0),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DmEvidencePreview(
+            controller: c,
+            scope: c.scope,
+            snapshot: snapshot,
+            select: true,
+          ),
+        ),
+      );
+      expect(find.text(p1.post), findsNothing);
+      expect(find.text('分享'), findsOneWidget);
+      expect(snapshot['entries'][0]['kind'], 'POST');
+      expect(snapshot['entries'][0]['text'], p1.post);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    },
+  );
+  testWidgets(
     'evidence preview immediately hides private text when authority expires',
     (tester) async {
       final c = _Controller();
