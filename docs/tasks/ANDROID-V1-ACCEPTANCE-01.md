@@ -121,8 +121,8 @@
 | M04 恢复提醒 | 首页／我的／私信页回前台立即同步；进程结束后重开补收并提醒；杀进程期间无保活要求 | D+R；B真实发信，A前后台／force-stop后正常入口重开 | PASS：D+R 主页面回前台补收；force-stop时无进程/通知0，正常入口冷启补收并提醒；不要求进程终止期间后台保活。 |
 | M05 权限／DND／去重 | 权限关闭／恢复和免打扰仍生效，默认隐藏正文；重复同步不重复提醒；点击进正确身份会话 | D+R；系统通知许可、合成A/B | PASS：D+R 关权限新seq16从未ACK/有body→ACK/清body、手机可读而通知0；恢复权限seq17通知1，清通知再回前台0；免打扰/点击正确会话初始候选D证据保留。最终包权限/去重证据notifications-permission-off-acknowledged.json、notifications-permission-restored.json、notifications-final-dedup.json。 |
 | N01 通知分类／身份 | 回复、点赞、系统分类及身份切换、未读与目标跳转；已删／下架目标诚实显示不可用 | D+R/S；不同身份通知、失效目标 | PASS：D+R UTC修复后全部/回复/赞/系统、身份筛选、未读和跳转正常；B真实删除被通知评论后保留通知，点击原帖显示该评论暂不可读。[已删评论目标](E:/Hnuhole-env/android-v1-acceptance-01/30-deleted-notification-target.png)。下架细分S PASS。 |
-| G01 举报审核 | App提交合成举报→网页审核处理→用户处理通知，权限限制真实生效；证据不随编辑改写 | D+R+网页/S；独立管理员及A/B举报 | BLOCKED（网页）：D App举报→真实C审核API处理→D通知/限制PASS；浏览器审核网页因私有CA不被信任受阻，未绕过，不用API充当网页验收。 |
-| G02 申诉／限制 | 从处理通知申诉；审核通过撤销对应处罚；非管理员与其他账号不越权 | D+R+网页/S；仅合成处罚／申诉 | BLOCKED（网页）：D B处罚通知/申诉、独立D审核API接受、B撤销/结果通知及恢复发送PASS；S越权边界PASS；网页同G01。 |
+| G01 举报审核 | App提交合成举报→网页审核处理→用户处理通知，权限限制真实生效；证据不随编辑改写 | D+R+网页/S；独立管理员及A/B举报 | PASS（分层证据）：原D App提交/通知/限制按原版本保留；本轮6483ac1真实网页补完证据核对、领取及禁言，非API代替网页操作；新工单由正常API准备。详见文末补验，手机新工单通知回看待设备释放。 |
+| G02 申诉／限制 | 从处理通知申诉；审核通过撤销对应处罚；非管理员与其他账号不越权 | D+R+网页/S；仅合成处罚／申诉 | PASS（分层证据）：原D申诉/结果通知按原版本保留；本轮真实网页原处理人回避、独立管理员复核通过，真实API核对处罚撤销/原帖恢复/通知生成/普通账号403；新工单App通知回看待验，不称全部环节同次D执行。 |
 | P01 我的分类 | 帖子／评论／点赞／收藏／转帖现有分类刷新分页和返回；失效内容按既有状态 | D+R/H/S；A各分类数据及删除帖 | PASS：D+R 帖子/回复/喜欢/收藏/转帖、身份筛选、删帖/删身份失效内容；列表大分页和缓存返回S/H PASS，D未为每种分类生成多页。 |
 | P02 四语言 | 简／繁／英／日即时且持久；不重置路由、用户内容、输入与阅读位；换号仍保留设备偏好 | D+R/H；多语言／重启／A→B | PASS：D+R 简/繁/英/日切换，繁/英/日分别冷启保留；恢复CN后冷启、A/B切换仍CN；用户正文未翻译。路由/输入边界H PASS。 |
 | P03 外观与安全入口 | 主题字号、窄屏大字、减少动画；黑名单、当前设备／最近替代设备、账号安全入口正确 | D+R/H；系统字体、两身份、黑名单 | PASS（分层）：D Auth浅深主题、320dp+1.6字体设置/语言、系统关闭动态效果后路由；黑名单、当前设备会话/期限、账号安全及Passkey入口均实际到达。已恢复密度408/字号0.9/动画各1.0，[设备最终核对](E:/Hnuhole-env/android-v1-acceptance-01/device-final-reconciled.json)。全页面窄屏组合H PASS，D未逐页穷举。 |
@@ -245,3 +245,6 @@
 - 2026110703真机已验证：正常分享入口、双方身份确认、取消回选择器；A实际发送POST，B普通登录并冷启补收后显示最新卡片、正确原帖打开/返回；原A私人备注未串给B。B带未发送聊天草稿进入卡片/分享取消后，返回仍保留原草稿；A通过正常本人编辑命令改题为AV1 card edited，B回前台实际读到新标题。后续离线/删除/治理及最终包复验继续。
 - 手机被另一publictrial任务多次抢前台，已暂停依赖点击并加前台包名检查，阻止向其他包输入；uiautomator137及草稿检查无目标控件均为资源冲突，不记产品缺陷。用户已授权本轮独占，等待实际停止冲突；40-card-current-title.png在冲突窗口捕获，不作为本链证据。
 - 文案最小调整：卡片标题、会话列表/本地预览和开启正文预览时的通知统一复用既有四语言“分享”翻译，移除不用的“帖子分享”翻译键；不改变引用/发送/权限/通知隐私协议。analyze零问题、现有卡片/分享入口/通知导航/多语言共30项PASS：[analyze](E:/Hnuhole-env/android-v1-acceptance-01/share-label-analyze.log)、[测试](E:/Hnuhole-env/android-v1-acceptance-01/share-label-tests.log)。统一新包构建及装机回执待后续补录，未提前宣称手机文案已更新。
+- **文案包已构建/安装，未完成最终可见状态复验**：代码`503c8fd8bef1cc355694b6776c6482d5dd68fe61`，2026110704、`0.1.0-android-v1-share-label`、profile/arm64、正常main；59,754,301字节，APK SHA256 **`6dd613253465db39a9fdb7c3bbd94fa0e966b63d418cb36075ffda971e3f544d`**。独立任务包用户0安装，实际base.apk摘要一致；既有测试签名、defines及C35后端不变。[构建](E:/Hnuhole-env/android-v1-acceptance-01/android-share-label-build.log)、[包回执](E:/Hnuhole-env/android-v1-acceptance-01/android-share-label-receipt.json)、[装机摘要](E:/Hnuhole-env/android-v1-acceptance-01/device-share-label-receipt.json)。没有替换publictrial或日常包。
+- 用户最新明确指示：“不行，等他做完你再做”。据此不向另一个聊天发消息，不再启动/点击手机应用；等待“执行 Android 首版完整验收 (2)”（publictrial）结束后继续本站内卡片及文案最终D复验。只是等待共享设备，网页和源码证据已经完成的部分保持结果；不把站内全部场景提前改PASS，也不恢复延期外链。
+- 补验工具纠错：新夹具最初标签超过10字、标题超过15簇，分别收到MALFORMED_REQUEST和明确POST_CONTENT_INVALID；权威GET确认原命令REJECTED后才用新命令发布合法短标题，没有重发结果未知任务。自有处罚通过`/sanctions/{id}`读取，通知撤销类型为SANCTION/state=REVOKED；准备脚本误用列表路径/枚举已纠正，不记产品缺陷或绕过服务端规则。
