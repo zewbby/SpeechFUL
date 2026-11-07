@@ -1,12 +1,12 @@
 # ANDROID-V1-ACCEPTANCE-01 — Android 首版完整业务验收
 
 - 模式：常规；负责人／状态维护人：当前 Session；无委派。
-- 分支／Worktree／PR：`codex/test/android-v1-acceptance-01`；`E:/Hnuhole-env/source/SpeechFUL-android-v1-acceptance-01`；未创建 PR。
+- 分支／Worktree／PR：`codex/test/android-v1-acceptance-01`；`E:/Hnuhole-env/source/SpeechFUL-android-v1-acceptance-01`；[PR #113](https://github.com/zewbby/SpeechFUL/pull/113)已合并。
 - 初始主线基线（最新候选见文末）：2026-11-06 fetch 的 `origin/main`：`6b722f071f07cbd94d96095734499f8cdd061641`。远端配置 `https://github.com/zewbby/HnuHole.git`（项目已更名 SpeechFUL）。实际共享仓库 `E:/Hnuhole-env/source/HnuHole`，detached `af272dc`、干净；外层用户目录为无提交的交接仓库，所有内容保留。既有 Worktree 未切换、未清理。
 - 授权依据与边界：本次用户完整验收指令。允许隔离 Worktree、一次性 PostgreSQL/Redis、合成账号／数据、独立验收包构建和安装、正常 App／系统权限操作、确定性最小修复及必要本地提交。未获得本任务覆盖日常包／修改日常后端、Push、PR、合并、正式部署的新授权；完成可独立准备后再处理。只清理本任务明确创建且无依赖的资源。
 - 需求确认：以本次指令及下列已确认任务为准；私信运行中提醒，进程结束后再次进入同步并提醒，保留权限和免打扰；iOS 延期；热榜既有30分钟持续负载 FAIL 保留，先调查适用性及交付影响，不自动长测或优化。业务取舍有歧义时使用本机 `grill-with-docs` 及依赖；当前事实调查阶段无新增取舍。
 - 更新日期：2026-11-07。
-- 状态：实现 四项确定性验收修复及站内私信分享本地完成；验证 本轮网页/站内分享补验PASS（分层范围见文末），整体交付仍FAIL（热榜及远程CI/合并等未闭环）；合并 未合并；最新独立包2026110705 已安装并实际复验；日常安装 未执行；正式发布 未发布。
+- 状态：实现 四项确定性验收修复及站内私信分享完成；验证 本轮补验及合并head适用CI通过，整体交付仍FAIL（热榜等发布缺口保留）；合并 PR113已合入main；最新独立包2026110705已安装并实际复验；日常安装 未执行；正式发布 未发布。最终回执见末节。
 
 ## 目标与范围
 
@@ -274,3 +274,10 @@
 - 再核对实际根目录/分支/远端及干净Worktree，fetch后origin/main仍6b722f071f07cbd94d96095734499f8cdd061641；任务产品候选baa817e及上述构建/真机证据保持适用。整包差异51文件，包含四项验收缺陷、站内分享/C35、兼容与对应验证/契约；不包含实验室凭据、APK、日志或其他任务改动。
 - 已推送并创建[PR #113](https://github.com/zewbby/SpeechFUL/pull/113)，目标main，产品树仍baa817e。作者自检覆盖最终授权/互回限制、可靠命令、旧客户端能力过滤、只存引用、举报快照与迁移，未发现新增阻断问题。当前无独立GitHub成员review或未解决review thread，不将作者自检算成员批准。
 - 远程CI进行中；最终PR head、适用产品检查及合并回执在本节追加。actual-process-acceptance为workflow_dispatch专用SKIP；其余以当前head实际checks为准。既有Q06持续负载FAIL和其暂停边界保留，正常代码合并不代表首版整体交付通过或正式发布。
+
+### PR113最终回执
+
+- 已完成Push、PR及正常Squash Merge。被检查/实际合并的PR head为 **89fa1af7564e15104e9299e1ba6b7362d918272c**，产品树与Android构建源baa817e相同；[全部CI](https://github.com/zewbby/SpeechFUL/pull/113/checks)共26项，**25 success／1按workflow_dispatch条件skipped**，无失败或运行中项。[原始检查回执](E:/Hnuhole-env/android-v1-acceptance-01/pr113-ci-final.json)。包含私信真实SQL/Android、完整契约、Go/PG、头像、评论、治理、限流、Feed、候选构建与升级演练；协作检查不冒充产品验证。
+- 合并前再次核对PR head未移动、base仍6b722f0、mergeable=true；无成员review或未解决review thread。遵循用户维护者授权正常调用GitHub合并，未请求作者自批、未解除或绕过保护。[PR #113](https://github.com/zewbby/SpeechFUL/pull/113)实际merged=true，2026-11-07 12:33:49 +08完成。
+- 合并SHA **314162a17ae2736eae41af230fdddd038af1471a**。fetch后origin/main实际为该SHA；与已通过CI的89fa1af完整Git tree无差异。本任务之外所有Worktree/已有改动保留，未切换或重置共享main工作区。
+- 本最终状态记录单独提交并保留在任务分支，未另开仅同步状态的文档PR；其与main的差异仅本文回执，不改变已合并产品，也不将归档文档提交冒充经产品CI检查的head。实现/适用CI/合并完成；日常包/后端更新和正式部署未执行。既有热榜30分钟FAIL、其他延期/外部缺口与证据边界仍保留，整体首版发布验收结论不因本次合并改为PASS。
