@@ -54,8 +54,8 @@ INSERT INTO public.identity_change_receipts(account_id,change_key_digest,intent_
 			if e = run("up"); e != nil {
 				t.Fatal("0025 migration", e)
 			}
-			if version := count(t, pool, `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`); version != 34 {
-				t.Fatalf("migration chain incomplete: got %d, want 34", version)
+			if version := count(t, pool, `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`); version != 35 {
+				t.Fatalf("migration chain incomplete: got %d, want 35", version)
 			}
 			if count(t, pool, `SELECT count(*) FROM public.identity_avatar_assets`) != 0 {
 				t.Fatal("avatar migration fabricated data")
