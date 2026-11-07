@@ -30,6 +30,8 @@ type AuthorizationDecision struct {
 type AuthorizationGate interface {
 	Snapshot(context.Context) (AuthorizationDecision, error)
 	RecheckForCommit(context.Context, pgx.Tx, uint64) (AuthorizationDecision, error)
+	// A nil error means tx is committed. Abort is required on failed or
+	// panicked paths, including when the transaction is already closed.
 	CommitAuthorized(context.Context, pgx.Tx, uint64, ...func(AuthorizationDecision) error) (AuthorizationDecision, error)
 	Abort(context.Context, pgx.Tx) error
 }

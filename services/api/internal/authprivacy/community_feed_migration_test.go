@@ -7,8 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/posts"
 )
 
 func TestFeedGooseFreshAndUpgradePostgres(t *testing.T) {
@@ -16,7 +19,7 @@ func TestFeedGooseFreshAndUpgradePostgres(t *testing.T) {
 	if tool == "" {
 		t.Skip("owned Goose fixture absent")
 	}
-	for _, mode := range []string{"fresh", "upgrade", "interactions", "versions", "reposts", "history"} {
+	for _, mode := range []string{"fresh", "upgrade", "interactions", "versions", "reposts", "history", "legacy_search"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx := context.Background()
 			dsn := os.Getenv("FEED_" + strings.ToUpper(mode) + "_DSN")
@@ -41,6 +44,7 @@ func TestFeedGooseFreshAndUpgradePostgres(t *testing.T) {
 				return exec.Command(tool, append([]string{"-dir", dir, "postgres", dsn, command}, args...)...).Run()
 			}
 			var before string
+			var legacySearch *Community
 			preserved := `SELECT md5(jsonb_build_object('posts',(SELECT jsonb_agg(to_jsonb(p)-ARRAY['edit_revision','edited_at','edited_title','edited_body','edited_image_ids','tags','tag_keys']) FROM c_posts.posts p),'contents',(SELECT jsonb_agg(to_jsonb(x)-'tags') FROM c_posts.attempt_contents x),'tasks',(SELECT jsonb_agg(to_jsonb(t)) FROM c_posts.publication_tasks t),'channels',(SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM public.channels c))::text)`
 			if mode != "fresh" {
 				base := "18"
@@ -56,8 +60,19 @@ func TestFeedGooseFreshAndUpgradePostgres(t *testing.T) {
 				if mode == "history" {
 					base = "28"
 				}
+				if mode == "legacy_search" {
+					base = "29"
+				}
 				if e = run("up-to", base); e != nil {
 					t.Fatal("main schema install", e)
+				}
+				if mode == "legacy_search" {
+					legacy := &lab{c: &Community{pool: pool}}
+					enablePostLab(t, legacy)
+					legacySearch = legacy.c
+					if legacySearch.posts.typedSearchEnabled {
+						t.Fatal("C29 startup selected nonexistent edit/tag columns")
+					}
 				}
 				mustExec(t, pool, `INSERT INTO c_auth.accounts(account_id,platform_number,username,password_hash,password_salt,password_params_version) VALUES('d2c920f5-5563-452d-901c-be133844b0fa','001829','feed_upgrade',decode(repeat('11',32),'hex'),decode(repeat('22',16),'hex'),1)`)
 				mustExec(t, pool, `BEGIN;
@@ -81,6 +96,23 @@ func TestFeedGooseFreshAndUpgradePostgres(t *testing.T) {
 				}
 				if e = pool.QueryRow(ctx, preserved).Scan(&before); e != nil {
 					t.Fatal(e)
+				}
+				if legacySearch != nil {
+					account := uuid.MustParse("d2c920f5-5563-452d-901c-be133844b0fa")
+					query := posts.SearchQuery{Keyword: "upgrade", Sort: posts.SearchRelevance, Limit: 1}
+					prepared, err := legacySearch.preparePostSearch(ctx, account, query, time.Now())
+					if err != nil || len(prepared.candidates) != 1 {
+						t.Fatal("C29 candidate query failed", err)
+					}
+					tx, err := pool.Begin(ctx)
+					if err != nil {
+						t.Fatal(err)
+					}
+					page, err := legacySearch.finishPostSearch(ctx, tx, account, query, prepared, time.Now())
+					_ = tx.Rollback(ctx)
+					if err != nil || len(page.Items) != 1 || page.Items[0].Title != "UpgradeTitle" || len(page.Items[0].Tags) != 0 {
+						t.Fatal("C29 final query changed compatibility content", err)
+					}
 				}
 			}
 			if e = run("up"); e != nil {

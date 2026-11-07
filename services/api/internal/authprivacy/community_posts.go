@@ -24,6 +24,7 @@ type postServices struct {
 	commandTag, fingerprintTag [32]byte
 	editEnabled                bool
 	tagsEnabled                bool
+	typedSearchEnabled         bool
 }
 type PostResponse struct {
 	Value                 any
@@ -62,6 +63,11 @@ func (c *Community) WithPosts(ctx context.Context, config PostConfig) (*Communit
 		return nil, err
 	}
 	if err = c.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='c_posts.posts'::regclass AND attname='tags' AND NOT attisdropped)`).Scan(&clone.posts.tagsEnabled); err != nil {
+		return nil, err
+	}
+	// Older deployments can lack edit/tag columns. Only parse direct-column
+	// search SQL after checking every required column and type at startup.
+	if err = c.pool.QueryRow(ctx, postSearchColumnsSQL).Scan(&clone.posts.typedSearchEnabled); err != nil {
 		return nil, err
 	}
 	clone.posts.commandTag = postKeyCommitment("HNUHOLE/POST-COMMAND-KEY-COMMITMENT/V1", config.KeyKey)
@@ -137,7 +143,7 @@ func (c *Community) withPostSession(ctx context.Context, bearer [32]byte, action
 		finishForeground := c.rankings.ForegroundStarted()
 		defer finishForeground()
 	}
-	decision, err := c.gate.Snapshot(ctx)
+	decision, err := c.postCandidateDecision(ctx, c.pool)
 	if err != nil {
 		return result, err
 	}
@@ -158,7 +164,12 @@ func (c *Community) withPostSessionAt(ctx context.Context, token [32]byte, accou
 	if err != nil {
 		return result, ErrAuthorizationUnavailable
 	}
-	defer observedAuthorizationAbort(ctx, c.gate, tx)
+	committed := false
+	defer func() {
+		if !committed {
+			observedAuthorizationAbort(ctx, c.gate, tx)
+		}
+	}()
 	a := credentialAccount{account: account}
 	var session credentialSession
 	var mute restriction
@@ -210,6 +221,10 @@ func (c *Community) withPostSessionAt(ctx context.Context, token [32]byte, accou
 		}
 		return PostResponse{}, err
 	}
+	// A successful final authority call has already durably committed. Abort
+	// would open another transaction and contend on the same global Gate row.
+	// Failed and panicked paths still persist any independent safety freeze.
+	committed = true
 	result.ExpiresAt = result.ExpiresAt.UTC()
 	return result, nil
 }

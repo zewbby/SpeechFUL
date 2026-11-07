@@ -17,6 +17,11 @@ import (
 
 var errPostSearchChanged = errors.New("post search candidates or preferences changed")
 
+const postSearchColumnsSQL = `SELECT count(*)=3 FROM pg_attribute
+WHERE attrelid='c_posts.posts'::regclass AND NOT attisdropped AND
+((attname IN ('edited_title','edited_body') AND atttypid='text'::regtype)
+ OR (attname='tags' AND atttypid='text[]'::regtype AND attnotnull))`
+
 func (c *Community) SearchPosts(ctx context.Context, bearer [32]byte, query posts.SearchQuery) (PostResponse, error) {
 	keyword, err := posts.NormalizeSearchKeyword(query.Keyword)
 	if err != nil {
@@ -154,6 +159,19 @@ SELECT p.post_id, p.published_at, p.publication_ordinal, p.group_position, p.rel
 FROM page p CROSS JOIN group_order g
 ORDER BY p.group_position, p.relevance DESC, p.published_at DESC, p.publication_ordinal DESC`
 
+// Reuse the exact predicates/order/cursor rules while avoiding repeated whole
+// post JSON conversion on schemas whose edit and tag columns have been checked.
+// These replacements are fixed SQL expressions, never request values.
+var typedSearchExpressions = strings.NewReplacer(
+	"jsonb_array_elements_text(COALESCE(to_jsonb(p)->'tags','[]'::jsonb))", "unnest(p.tags)",
+	"COALESCE(to_jsonb(p)->'tags','[]'::jsonb)", "COALESCE(to_jsonb(p.tags),'[]'::jsonb)",
+	"to_jsonb(p)->>'edited_title'", "p.edited_title",
+	"to_jsonb(p)->>'edited_body'", "p.edited_body",
+)
+
+var typedSearchCandidatesSQL = typedSearchExpressions.Replace(searchCandidatesSQL)
+var typedProjectSearchCandidatesSQL = typedSearchExpressions.Replace(projectSearchCandidatesSQL)
+
 type searchCandidate struct {
 	id          string
 	publishedAt time.Time
@@ -170,7 +188,9 @@ type preparedPostSearch struct {
 func (c *Community) preparePostSearch(ctx context.Context, account uuid.UUID, query posts.SearchQuery, at time.Time) (preparedPostSearch, error) {
 	defer readtiming.Span(ctx, "search_candidates")()
 	var prepared preparedPostSearch
+	finishBegin := readtiming.Span(ctx, "search_prepare_begin")
 	tx, err := begin(ctx, c.pool)
+	finishBegin()
 	if err != nil {
 		return prepared, err
 	}
@@ -200,7 +220,12 @@ func (c *Community) preparePostSearch(ctx context.Context, account uuid.UUID, qu
 	} else if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(publication_ordinal),0) FROM c_posts.posts`).Scan(&position.Ceiling); err != nil {
 		return prepared, err
 	}
-	rows, err := tx.Query(ctx, searchCandidatesSQL, query.Sort == posts.SearchRelevance, query.Keyword, position.Ceiling,
+	defer readtiming.Span(ctx, "search_candidate_query")()
+	candidateSQL := searchCandidatesSQL
+	if c.posts.typedSearchEnabled {
+		candidateSQL = typedSearchCandidatesSQL
+	}
+	rows, err := tx.Query(ctx, candidateSQL, query.Sort == posts.SearchRelevance, query.Keyword, position.Ceiling,
 		nullablePostID(query.ChannelID), preferences.BlockedChannelIDs, groups, lastAt,
 		position.SearchGroup, position.SearchRank, position.LastOrdinal, query.Limit+1)
 	if err != nil {
@@ -281,7 +306,11 @@ func (c *Community) finishPostSearch(ctx context.Context, tx pgx.Tx, account uui
 	if len(ids) == 0 {
 		return page, nil
 	}
-	rows, err := tx.Query(ctx, projectSearchCandidatesSQL, ids, nullablePostID(query.ChannelID), preferences.BlockedChannelIDs, query.Keyword)
+	projectionSQL := projectSearchCandidatesSQL
+	if c.posts.typedSearchEnabled {
+		projectionSQL = typedProjectSearchCandidatesSQL
+	}
+	rows, err := tx.Query(ctx, projectionSQL, ids, nullablePostID(query.ChannelID), preferences.BlockedChannelIDs, query.Keyword)
 	if err != nil {
 		return page, err
 	}

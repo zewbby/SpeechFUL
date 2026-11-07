@@ -34,11 +34,17 @@ type rankingLoadFixture struct {
 	channels, canaries []string
 	sample             string
 	clockMu            sync.Mutex
-	traces             []readtiming.Observation
+	traces             []rankingLoadTrace
 	traceMu            sync.Mutex
 }
 
-func newRankingLoadFixture(t *testing.T, clients int) *rankingLoadFixture {
+type rankingLoadTrace struct {
+	At          int64                  `json:"at_ns"`
+	End         int64                  `json:"end_ns"`
+	Observation readtiming.Observation `json:"observation"`
+}
+
+func newRankingLoadFixture(t *testing.T, clients int, recorder *rankingLoadRecorder) *rankingLoadFixture {
 	t.Helper()
 	started := time.Now()
 	socket, address := os.Getenv("RANKING_REDIS_SOCKET"), os.Getenv("RANKING_REDIS_TCP_ADDRESS")
@@ -81,6 +87,7 @@ func newRankingLoadFixture(t *testing.T, clients int) *rankingLoadFixture {
 	config := s.cp.Config()
 	config.MaxConns, config.MinConns = 1, 0
 	config.ConnConfig.RuntimeParams["max_parallel_workers_per_gather"] = "0"
+	config.ConnConfig.RuntimeParams["application_name"] += "_ranking_worker"
 	worker, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		t.Fatal(err)
@@ -96,9 +103,11 @@ func newRankingLoadFixture(t *testing.T, clients int) *rankingLoadFixture {
 				return
 			}
 			ctx, trace := readtiming.Start(r.Context())
+			at := recorder.now()
 			handler.ServeHTTP(w, r.WithContext(ctx))
+			entry := rankingLoadTrace{At: at, End: recorder.now(), Observation: trace.Snapshot()}
 			f.traceMu.Lock()
-			f.traces = append(f.traces, trace.Snapshot())
+			f.traces = append(f.traces, entry)
 			f.traceMu.Unlock()
 		})
 		t.Cleanup(func() {
@@ -113,6 +122,9 @@ func newRankingLoadFixture(t *testing.T, clients int) *rankingLoadFixture {
 				t.Error(err)
 			}
 		})
+	}
+	if os.Getenv("RANKING_LOAD_DIAGNOSTICS") == "1" {
+		startRankingLoadDiagnostics(t, f, recorder)
 	}
 	owner, ownerID := e2ePrivacySignup(t, s, "rank_load_owner")
 	identity := postHTTPSIdentity(t, s, owner, "合成作者", 71)
