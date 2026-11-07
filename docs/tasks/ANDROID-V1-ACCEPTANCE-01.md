@@ -2,11 +2,11 @@
 
 - 模式：常规；负责人／状态维护人：当前 Session；无委派。
 - 分支／Worktree／PR：`codex/test/android-v1-acceptance-01`；`E:/Hnuhole-env/source/SpeechFUL-android-v1-acceptance-01`；未创建 PR。
-- 基线／候选：2026-11-06 fetch 的 `origin/main`：`6b722f071f07cbd94d96095734499f8cdd061641`。远端配置 `https://github.com/zewbby/HnuHole.git`（项目已更名 SpeechFUL）。实际共享仓库 `E:/Hnuhole-env/source/HnuHole`，detached `af272dc`、干净；外层用户目录为无提交的交接仓库，所有内容保留。既有 Worktree 未切换、未清理。
+- 初始主线基线（最新候选见文末）：2026-11-06 fetch 的 `origin/main`：`6b722f071f07cbd94d96095734499f8cdd061641`。远端配置 `https://github.com/zewbby/HnuHole.git`（项目已更名 SpeechFUL）。实际共享仓库 `E:/Hnuhole-env/source/HnuHole`，detached `af272dc`、干净；外层用户目录为无提交的交接仓库，所有内容保留。既有 Worktree 未切换、未清理。
 - 授权依据与边界：本次用户完整验收指令。允许隔离 Worktree、一次性 PostgreSQL/Redis、合成账号／数据、独立验收包构建和安装、正常 App／系统权限操作、确定性最小修复及必要本地提交。未获得本任务覆盖日常包／修改日常后端、Push、PR、合并、正式部署的新授权；完成可独立准备后再处理。只清理本任务明确创建且无依赖的资源。
 - 需求确认：以本次指令及下列已确认任务为准；私信运行中提醒，进程结束后再次进入同步并提醒，保留权限和免打扰；iOS 延期；热榜既有30分钟持续负载 FAIL 保留，先调查适用性及交付影响，不自动长测或优化。业务取舍有歧义时使用本机 `grill-with-docs` 及依赖；当前事实调查阶段无新增取舍。
 - 更新日期：2026-11-07。
-- 状态：实现 三项验收修复及新确认的站内私信帖子分享已本地实现；验证 原验收结论FAIL保留，站内分享H/S通过、构建准备中、新版真机BLOCKED（设备已离线）；合并 未合并；原独立验收包 已安装，新版未安装；日常安装 未执行；正式发布 未发布。最新追加状态见文末。
+- 状态：实现 三项验收修复及新确认的站内私信帖子分享已本地实现；验证 原验收结论FAIL保留，站内分享H/S及生产Dart真实HTTPS通过、APK已构建/装机摘要已核对，完整真机链路由用户另轮跟进中；合并 未合并；独立验收包 新版2026110703已装并独立核对摘要；日常安装 未执行；正式发布 未发布。最新追加状态见文末。
 
 ## 目标与范围
 
@@ -145,7 +145,7 @@
 - 故障代理已停止，唯一故障规则终态forwarded；仅本任务C/V ADB映射恢复直连55183/60331。C/V Gate均OPEN、generation1，未再次recover、未改钟/改Gate行。[最终实验室核对](E:/Hnuhole-env/android-v1-acceptance-01/lab-final-check.json)。独立实验室保留供已装包使用；设备字体/密度/动画恢复原值，通知许可保留开启。日常环境及其他Worktree未改。
 - 884份UI XML已统一去除输入框值和独立恢复码，自动化实时内存树不变；[脱敏回执](E:/Hnuhole-env/android-v1-acceptance-01/evidence-sanitization.json)。私有凭据/恢复码/证书私钥仅留任务私有运行材料，不纳入证据链接或Git。图片、日志及APK均不提交。
 
-## 最终冻结与交付结论
+## 上一轮冻结与交付结论（外部分享方案，已被最新范围取代）
 
 **结论：FAIL，暂不具备Android首版交付条件。** 主线发现的D01/D02/P2计数问题及D03/P1通知页不可读均已最小本地修复、对应回归和真机复验通过；这些修复尚未合并。不存在以已装日常旧包冒充当前候选的情况。
 
@@ -158,7 +158,7 @@
 - [源码等价核对回执](E:/Hnuhole-env/android-v1-acceptance-01/final-source-equivalence.json)：候选相对已构建App及packages无差异；相对已构建C仅上述privacy测试夹具差异。后续任务记录提交只改文档，不增加产品差异。
 - [证据摘要清单](E:/Hnuhole-env/android-v1-acceptance-01/final-evidence-manifest.json)记录本文所链本机证据的字节数/摘要，链接均实际存在；私有运行凭据和私钥排除。
 
-### 阻断项及必要工作
+### 上一轮阻断项（分享相关取舍以后文最新确认为准）
 
 1. **Q06 FAIL（既有性能门槛未闭环）**：旧30分钟计算窗口搜索P95+77.8335%、2次503、40次capacity drop保留；全程+4.7985%不能抵消窗口FAIL。核心竞争路径未有性能修复，不能用旧数值冒充新候选测量。需沿既有授权/暂停边界另行完成性能处置与获准的同门槛验证，本轮未扩压或自动优化。
 2. **L03 BLOCKED（公网HTTPS关联）**：缺已确认实际公开C域/发布指纹及可验证assetlinks，设备状态1024；AASA亦无实际公网证据，iOS客户端仍延期。需域名、实际正式包签名、服务配置及Android设备验证闭环。
@@ -195,22 +195,43 @@
 - 新增受保护的最小卡片预览GET，仅postId/title/channelId/channelName；前端按权限代次丢弃迟到响应，离线/失效无旧预览。外部Android intent filter已撤下，默认入口不接收外链；旧链路实现/显式注入单元测试保留为延期兼容证据，不算首版功能。
 - 实现/验证进行中：Go host test/build/vet与完整私信OpenAPI初检PASS；真实SQL卡片发收、互回限制、重复核对、ACK清除与旧治理链路PASS，旧迁移夹具对34的固定断言已随新0035明确更新并复验中。Flutter四项引用/存储/去重测试已PASS，选择与预览界面专项正在收敛；未构建或更新设备包，不提升新版本验收结论。
 
-### 站内分享验证与构建准备（最新状态）
+### 构建前验证（历史阶段，最新回执见下节）
 
 - 本地Go host test/build/vet PASS：[日志](E:/Hnuhole-env/android-v1-acceptance-01/cards-go-host.log)。真实PG/HTTPS/race包含卡片命令/去重/互回限制、引用ACK清除、举报原引用/伪造拒绝、拉黑/撤回、101张卡片不阻塞旧客户端文字分页、新旧能力头兼容，以及旧DM治理/文字/图片HTTP与Goose fresh/upgrade/down拒绝，均实际PASS：[日志](E:/Hnuhole-env/android-v1-acceptance-01/cards-real-sql-https.log)。新迁移0035无新增角色授权或表，运行时要求对应kind约束；旧文字请求不传kind时指纹不变。
 - App完整回归1173 PASS/4既有SKIP：[最终完整日志](E:/Hnuhole-env/android-v1-acceptance-01/cards-flutter-final.log)。最后补充不可用原帖禁选后，卡片8项与分享入口10项共18项聚焦实际PASS：[聚焦日志](E:/Hnuhole-env/android-v1-acceptance-01/cards-focused-final.log)。这部分是H；引用持久化/重启/未知去重测试使用真实加密SQLite与网络替身，界面测试明确使用presentation double。最终analyze零问题，完整OpenAPI及私信契约PASS。网页admin展示POST仅为“帖子卡片引用”，[核心13项](E:/Hnuhole-env/android-v1-acceptance-01/cards-admin-core.log)PASS，不能替代网页浏览器验收。
-- 第一轮Goose固定34断言失败已保留在历史运行；更新为实际35后fresh/upgrade与down拒绝均真实PASS。早期Widget测试将动画等待与真实SQLite异步混用产生fixture等待失败，后改为明确展示替身，存储/恢复单独验证；并修正确认期间不应显示发送进度的UI问题。没有将早期失败日志写成通过。
+- 第一轮Goose固定34断言失败保留于此前工具输出与本记录摘要；原临时fixture日志在WSL整体退出后已不可用，不声称仍有其原始文件。更新为实际35后的fresh/upgrade与down拒绝均真实PASS，最终日志已保存在上述外部证据目录。早期Widget测试将动画等待与真实SQLite异步混用产生fixture等待失败，后改为明确展示替身，存储/恢复单独验证；并修正确认期间不应显示发送进度的UI问题。没有将早期失败运行改记为通过。
 - 老客户端能力协商：HTTP不带`X-DM-Post-Cards: v1`时目录省略canShare，并在SQL分页前过滤POST；支持该头的生产Dart HTTP适配器读取新类型。发送权限仍由最终事务决定，能力头不授予权限。原安装包读取旧文字/图片不受新字段影响；POST等待支持版本补收。
 - ADB复核已无在线设备，因此本次新包安装及正常App真实点击链路BLOCKED；原2026110702装机证据不外推新增卡片。继续完成可独立执行的构建及真实生产Dart/HTTPS联合探针，不要求用户当前配合。日常包/日常后端不改。
 
 | 新场景 | 已确认预期 | 环境/数据 | 最新结果 |
 | --- | --- | --- | --- |
-| PC01 入口/选择 | 首页、详情及菜单分享进入站内；仅已互回会话；显示双方身份并确认；取消不发送 | H/S；A/B已有会话及非互回会话 | BLOCKED（D设备离线）；H选择/取消/单次发送PASS，S最终互回/身份校验PASS |
-| PC02 投递/草稿 | 同一稳定命令核对未知，原次重试；发送后留阅读页，真实结果提示；不动聊天草稿 | H/S/真实SQLite；丢响应/重启 | BLOCKED（D）；H/S存储、去重、草稿及阅读页保留PASS |
-| PC03 最新卡片 | 只读最新标题/分类，不存正文图片/旧预览；原帖点击、返回及前台恢复刷新 | H/S；编辑及缺失目标 | BLOCKED（D）；H更新/离线/占位，S最小字段与权限PASS；生产Dart探针待执行 |
-| PC04 失效与迟到 | 删除/下架不可读；不可用原帖不能再发；切号/失权迟到不展示 | H/S；合成失效帖/挂起响应 | BLOCKED（D）；H迟到拒绝/不可用禁选，S隐藏读拒绝及最终Gate PASS |
-| PC05 治理/通知 | 卡片沿原撤回、举报、拉黑、禁言、免打扰/默认隐私规则；无UUID正文预览 | H/S；原引用、伪造引用、同一会话 | BLOCKED（D）；S举报/伪造拒绝/拉黑/撤回PASS，既有通知规则及新增通用预览H回归PASS |
+| PC01 入口/选择 | 首页、详情及菜单分享进入站内；仅已互回会话；显示双方身份并确认；取消不发送 | H/S；A/B已有会话及非互回会话 | NOT_RUN（D由用户另轮跟进，本轮未重复操作）；H选择/取消/单次发送PASS，S最终互回/身份校验PASS |
+| PC02 投递/草稿 | 同一稳定命令核对未知，原次重试；发送后留阅读页，真实结果提示；不动聊天草稿 | H/S/真实SQLite；丢响应/重启 | NOT_RUN（D跟进中）；H/S存储、去重、草稿及阅读页保留PASS |
+| PC03 最新卡片 | 只读最新标题/分类，不存正文图片/旧预览；原帖点击、返回及前台恢复刷新 | H/S；编辑及缺失目标 | NOT_RUN（D跟进中）；H更新/离线/占位，S最小字段与权限、生产Dart真实HTTPS探针PASS |
+| PC04 失效与迟到 | 删除/下架不可读；不可用原帖不能再发；切号/失权迟到不展示 | H/S；合成失效帖/挂起响应 | NOT_RUN（D跟进中）；H迟到拒绝/不可用禁选，S隐藏读拒绝及最终Gate PASS |
+| PC05 治理/通知 | 卡片沿原撤回、举报、拉黑、禁言、免打扰/默认隐私规则；无UUID正文预览 | H/S；原引用、伪造引用、同一会话 | NOT_RUN（D跟进中）；S举报/伪造拒绝/拉黑/撤回PASS，既有通知规则及新增通用预览H回归PASS |
 | PC06 升级/兼容 | C34→35保留文字/图片/回执；旧客户端不解析/ACK卡片，后续文字不被卡片分页阻塞 | S；fresh/upgrade、101引用 | PASS（S）；新旧HTTP能力头与分页、迁移保留和down拒绝实际通过 |
-| PC07 构建/装机 | 独立包正常main、同测试签名、摘要与最终源一致；真机正常入口复验 | Windows/Android arm64；realme目标 | BLOCKED（D离线）；构建及新后端版本待下节回执，未称已装新版 |
+| PC07 构建/装机 | 独立包正常main、同测试签名、摘要与最终源一致；真机正常入口复验 | Windows/Android arm64；realme目标 | PASS（APK构建/装机摘要核对）；正常App完整业务见PC01–PC05（跟进中） |
 
 - 旧L01–L03按用户已确认的新范围改为SKIP，原系统分享/外链证据与自动审批拒绝历史不抹去；旧热榜FAIL、网页审核BLOCKED及其他外部缺口维持。当前仍不具备完整交付条件。
+
+## 最新冻结与交付结论（站内私信分享）
+
+**实现已完成，验证有必要缺口，整体验收仍FAIL／暂不具备交付条件。** 外部分享与外链唤起已按用户明确确认延期，旧L01–L03不再作为当前首版分享交付门槛；站内卡片和网页审核的正常App/浏览器完整链路正在用户另轮跟进。热榜既有持续负载FAIL、其他原有外部边界及修复候选远程产品CI NOT_RUN继续保留。本轮未执行Push、PR、合并、日常安装或正式发布。
+
+- 最新代码候选 **`481fcd9f6a9eb2df521f036d29df4fe758e9dccf`**；产品实现提交 **`6483ac119c97ce17c3f4f360c68bc229cccef066`**。后续提交仅更新Feed/头像迁移测试的0035完整链断言（不是放宽），产品树无差异；[源码等价回执](E:/Hnuhole-env/android-v1-acceptance-01/cards-source-equivalence.json)。最终远端main核对仍为`6b722f071f07cbd94d96095734499f8cdd061641`。
+- 新APK **2026110703 / `0.1.0-android-v1-dm-share`**，正常`lib/main.dart`、profile/arm64，独立包`org.hnuhole.hnuhole_mobile.androidv1`，59,754,305字节，SHA256 **`6d11a19252a5f7490f1deb602984c14b4466fc7d15dccc70ee71b8e5129b0ac6`**。构建源6483ac1；仅包名/可见标签包装，defines摘要仍`c0df5ca0a03a304e1fc013811ff632f95947ad429a1ff882fea7e83c128bdd4e`，现有debug测试签名摘要仍`1538fb309499d651d7d12d7711a646c4a80fde4b1397857a9e39ce672b3dc9ae`，不是正式发布签名。
+- [安装包](E:/Hnuhole-env/android-v1-acceptance-01/SpeechFUL-android-v1-dm-cards-profile.apk)、[包回执](E:/Hnuhole-env/android-v1-acceptance-01/android-cards-receipt.json)、[构建](E:/Hnuhole-env/android-v1-acceptance-01/android-cards-build.log)、[签名](E:/Hnuhole-env/android-v1-acceptance-01/android-cards-signature.log)、[实际包元数据](E:/Hnuhole-env/android-v1-acceptance-01/android-cards-badging.log)、[Manifest](E:/Hnuhole-env/android-v1-acceptance-01/android-cards-manifest.log)。实际APK已核对没有外部BROWSABLE/autoVerify入口；未将仅源码修改当作打包结果。
+- **新版2026110703已安装并独立核对**：[安装日志](E:/Hnuhole-env/android-v1-acceptance-01/device-cards-install-followup.log)、[本Session只读装机核对](E:/Hnuhole-env/android-v1-acceptance-01/device-cards-reconciled.json)。设备重新上线后，用户另开的“执行 Android 首版完整验收 (3)”（`01a1b401-786c-72b1-a65d-4cec4272dca3`）已按用户后续要求安装并开始站内卡片/网页验收。本Session发现该轮正在控制同一设备后停止并发UI操作，只读验证真实base.apk SHA256与本包一致、版本/机型/USB映射正确。2026110702不再是最新安装证据；完整正常App链路仍由跟进实际执行，未把仅安装/选择面板出现当作全部PC场景PASS。
+- 独立C实际源6483ac1，二进制SHA256 **`3e12436cc42587741ab86c1659654c36003ca9bf86e2000e3924f53f867b30a0`**，实际迁移 **C35/V7**；V仍main6b722f0。构建及首轮联测C配置摘要`3263ffe2b17961b83dc492bb8ebbb7254341148b0965bb7636033a53c487372a`，origins、严格CA/mTLS、Redis和权限配置不变；[后端回执](E:/Hnuhole-env/android-v1-acceptance-01/backend-cards-receipt.json)以181个生产Go输入逐一核对绑定构建源，覆盖旧C34后端回执的当前版本。
+- 检测到原WSL进程均退出后，按原`resume`/watch流程恢复，**未recover/重建Gate/改钟/改Gate行**；C/V均OPEN generation1、各RECOVER审计仍只有初始化的1条。[普通恢复回执](E:/Hnuhole-env/android-v1-acceptance-01/lab-cards-resume.json)、[最终真实服务/权限/ACK核对](E:/Hnuhole-env/android-v1-acceptance-01/cards-final-service-proof.json)。启动仅本任务隐藏WSL持有进程以避免CLI结束导致实验室退出，[进程归属回执](E:/Hnuhole-env/android-v1-acceptance-01/lab-keeper-receipt.json)；原实验室和新包仍有后续依赖，未清理。
+- 生产Dart原生可执行通过实际HTTP适配器、严格任务CA、真实C35最小权限runtime/PG完成：最新最小预览、可分享会话、稳定命令重复核对、POST引用补收、ACK及不可变原回执。[结果](E:/Hnuhole-env/android-v1-acceptance-01/cards-dart-real.json)、[编译](E:/Hnuhole-env/android-v1-acceptance-01/cards-dart-build.log)。仅合成C/B账号的正常社区API创建会话与互回，无正式数据；没有替代真机或原生SQLite证据。SQL另确认该POST已ACK且body=NULL，runtime无kind/sender UPDATE或messages DELETE权限。
+- 追加实际补验：[Feed迁移6种基线](E:/Hnuhole-env/android-v1-acceptance-01/cards-migration-compat.log)及[头像fresh/upgrade、DM最小权限并发首发、九图与设置/撤回生命周期](E:/Hnuhole-env/android-v1-acceptance-01/cards-runtime-compat.log)PASS。最后的诊断文案仅将“want34”同步为35，不影响已通过断言。最终[App analyze](E:/Hnuhole-env/android-v1-acceptance-01/cards-final-analyze.log)零问题、完整1173 PASS/4 SKIP，加最新8个卡片/10个分享入口聚焦18 PASS，区别于上一阶段1172项；最后新增的不可用原帖禁选用例在18项聚焦中通过，不伪称已包含在1173项完整运行内。
+- [完整OpenAPI与DM契约](E:/Hnuhole-env/android-v1-acceptance-01/cards-openapi.log)PASS；适用direct-messages CI已纳入新SQL/HTTP、Flutter场景，远程实际运行NOT_RUN。合并/正式部署仍需本任务对应明确授权，本文不产生授权。
+
+剩余必要工作：由正在使用设备的跟进继续复验入口/身份确认/取消与单次发送/原阅读位置、冷启卡片补收、最新标题/分类/离线失效、草稿/通知/撤回/举报和换号隔离；沿原暂停边界处置热榜性能；补实际网页审核及已列外部条件；获得授权后运行远程产品CI、审查合并，再按授权更新日常环境和正式发布。本轮源码、构建、H/S/真实Dart验证和只读装机核对已完成；不重复安装同摘要的2026110703，不抢占正在使用的设备，不替跟进填写尚未取得的业务结论。
+
+
+- 跟进环境已有配置增量：[网页挂载回执](E:/Hnuhole-env/android-v1-acceptance-01/web-followup-environment.json)将同源adminDirectory启用，C二进制仍为上述6483ac1/3e12436c，当前C配置SHA256变为 **`feb2241d75dcd266c748b57e339c0e49c04203cda7b4723abcb82d63b4ccc409`**。本Session只读重算实际配置摘要及四个静态资产摘要，均与该回执、冻结源码一致；未覆盖该轮配置。原3263ffe摘要只适用于先前构建/首轮联测。网页处理/申诉等完整UI结论待该轮后续证据，HTTP200挂载不等于网页业务PASS。
+- 模式仍为常规，本Session未派出子Agent；上述另轮工作由用户在另一聊天直接发起。本轮仅归档自己执行或独立读回的事实，完整任务状态继续由本唯一记录维护，不创建平行状态文档。
+- [本轮证据摘要清单](E:/Hnuhole-env/android-v1-acceptance-01/cards-evidence-manifest.json)校验所有本文本机链接存在并记录摘要；阶段/版本按本文明确边界使用，不将旧日志提升为新版本结果。[装机及跟进配置独立读回](E:/Hnuhole-env/android-v1-acceptance-01/cards-followup-readback.json)确认本轮记录的版本组合。
