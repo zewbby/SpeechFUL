@@ -1,12 +1,12 @@
 # ANDROID-V1-ACCEPTANCE-01 — Android 首版完整业务验收
 
 - 模式：常规；负责人／状态维护人：当前 Session；无委派。
-- 分支／Worktree／PR：`codex/test/android-v1-acceptance-01`；`E:/Hnuhole-env/source/SpeechFUL-android-v1-acceptance-01`；未创建 PR。
+- 分支／Worktree／PR：`codex/test/android-v1-acceptance-01`；`E:/Hnuhole-env/source/SpeechFUL-android-v1-acceptance-01`；[PR #113](https://github.com/zewbby/SpeechFUL/pull/113)已合并。
 - 初始主线基线（最新候选见文末）：2026-11-06 fetch 的 `origin/main`：`6b722f071f07cbd94d96095734499f8cdd061641`。远端配置 `https://github.com/zewbby/HnuHole.git`（项目已更名 SpeechFUL）。实际共享仓库 `E:/Hnuhole-env/source/HnuHole`，detached `af272dc`、干净；外层用户目录为无提交的交接仓库，所有内容保留。既有 Worktree 未切换、未清理。
 - 授权依据与边界：本次用户完整验收指令。允许隔离 Worktree、一次性 PostgreSQL/Redis、合成账号／数据、独立验收包构建和安装、正常 App／系统权限操作、确定性最小修复及必要本地提交。未获得本任务覆盖日常包／修改日常后端、Push、PR、合并、正式部署的新授权；完成可独立准备后再处理。只清理本任务明确创建且无依赖的资源。
 - 需求确认：以本次指令及下列已确认任务为准；私信运行中提醒，进程结束后再次进入同步并提醒，保留权限和免打扰；iOS 延期；热榜既有30分钟持续负载 FAIL 保留，先调查适用性及交付影响，不自动长测或优化。业务取舍有歧义时使用本机 `grill-with-docs` 及依赖；当前事实调查阶段无新增取舍。
 - 更新日期：2026-11-07。
-- 状态：实现 四项确定性验收修复及站内私信分享本地完成；验证 本轮网页/站内分享补验PASS（分层范围见文末），整体交付仍FAIL（热榜及远程CI/合并等未闭环）；合并 未合并；最新独立包2026110705 已安装并实际复验；日常安装 未执行；正式发布 未发布。
+- 状态：PR113及热榜性能PR115已合并并有适用CI；新一轮热榜30分钟隔离长测PASS，旧FAIL保留原版本。D05已本地修复、146项认证回归通过，新修复远程CI/合并未执行。公网试用包2026110707的真实开户/冷启/公网读取PASS，但公网后端尚无PR115部署与联合复验。当前仍不具备完整交付条件；日常更新/正式发布未执行。最新复核见文末。
 
 ## 目标与范围
 
@@ -274,3 +274,41 @@
 - 再核对实际根目录/分支/远端及干净Worktree，fetch后origin/main仍6b722f071f07cbd94d96095734499f8cdd061641；任务产品候选baa817e及上述构建/真机证据保持适用。整包差异51文件，包含四项验收缺陷、站内分享/C35、兼容与对应验证/契约；不包含实验室凭据、APK、日志或其他任务改动。
 - 已推送并创建[PR #113](https://github.com/zewbby/SpeechFUL/pull/113)，目标main，产品树仍baa817e。作者自检覆盖最终授权/互回限制、可靠命令、旧客户端能力过滤、只存引用、举报快照与迁移，未发现新增阻断问题。当前无独立GitHub成员review或未解决review thread，不将作者自检算成员批准。
 - 远程CI进行中；最终PR head、适用产品检查及合并回执在本节追加。actual-process-acceptance为workflow_dispatch专用SKIP；其余以当前head实际checks为准。既有Q06持续负载FAIL和其暂停边界保留，正常代码合并不代表首版整体交付通过或正式发布。
+
+### PR113最终回执
+
+- 已完成Push、PR及正常Squash Merge。被检查/实际合并的PR head为 **89fa1af7564e15104e9299e1ba6b7362d918272c**，产品树与Android构建源baa817e相同；[全部CI](https://github.com/zewbby/SpeechFUL/pull/113/checks)共26项，**25 success／1按workflow_dispatch条件skipped**，无失败或运行中项。[原始检查回执](E:/Hnuhole-env/android-v1-acceptance-01/pr113-ci-final.json)。包含私信真实SQL/Android、完整契约、Go/PG、头像、评论、治理、限流、Feed、候选构建与升级演练；协作检查不冒充产品验证。
+- 合并前再次核对PR head未移动、base仍6b722f0、mergeable=true；无成员review或未解决review thread。遵循用户维护者授权正常调用GitHub合并，未请求作者自批、未解除或绕过保护。[PR #113](https://github.com/zewbby/SpeechFUL/pull/113)实际merged=true，2026-11-07 12:33:49 +08完成。
+- 合并SHA **314162a17ae2736eae41af230fdddd038af1471a**。fetch后origin/main实际为该SHA；与已通过CI的89fa1af完整Git tree无差异。本任务之外所有Worktree/已有改动保留，未切换或重置共享main工作区。
+- 本最终状态记录单独提交并保留在任务分支，未另开仅同步状态的文档PR；其与main的差异仅本文回执，不改变已合并产品，也不将归档文档提交冒充经产品CI检查的head。实现/适用CI/合并完成；日常包/后端更新和正式部署未执行。既有热榜30分钟FAIL、其他延期/外部缺口与证据边界仍保留，整体首版发布验收结论不因本次合并改为PASS。
+
+## 用户追加第2/3项：真实开户与公网包统一（2026-11-07，进行中）
+
+- 用户明确“做2，3”，对应最新缺口清单的真实校园验证码提交/开户，以及将最新修复统一到公网试用包；允许独立publictrial同包升级与正常操作，不覆盖日常包/正式发布。沿用既有PUBLIC-TRIAL-ACCESS-01隔离资源和任务分支，部署专项详细证据续写[该唯一专项记录](E:/Hnuhole-env/source/SpeechFUL-public-trial-access-01/docs/tasks/PUBLIC-TRIAL-ACCESS-01.md)，本节保留Android整体验收权威结论与对应关系；未派出子Agent。
+- 最新main已实际到 **e399fd34453ad294b04b56489ac86716c6779404**（PR113产品＋PR114文档）。先完成2026110706同源公网构建/装机，实际保留既有合成账号及3帖、正常公网分享空态/取消；旧包/证据不覆盖，日常包不变。
+- **D05/P1新发现**：真实用户OTP输入失败后，核对返回NOT_COMMITTED时客户端误删仍有效的原OTP申请，导致下一步变灰。用户截图与合成测试复现相符（旧实现期望otpRequested、实际idle）；已修复为仅清除已确定未提交的确认key并保留原flow/bootstrap；REVERIFY_REQUIRED仍结束验证，未知结果不换key/不自动发码，不放宽服务端认证/Gate。新增控制器及完整Widget改码恢复回归，App analyze零问题、认证七文件146 PASS。D05尚未伪称已在真实用户账号故意输错/穷举复验。
+- 新本地产品候选 **97ee00f998bae7f9880f76ecb16543bd852f524e**，承载在专项分支`codex/chore/public-trial-access-01`；主线之上产品只改auth_flows.dart，两项关联测试另列。**新修复远程CI NOT_RUN、未Push/PR/合并**；PR113既有25成功/1跳过保持原适用版本。热榜旧FAIL不变。
+- **当前公网包2026110707** / 正常main/profile/arm64 / 原publictrial独立包和测试签名，APK59,754,317字节，SHA256 **0f58c903d9e2bacfbf77728baa559105e309c03d5faca978c3ed67d6dda7b6bb**；realme Android14用户0实际base.apk摘要一致，install-r且firstInstallTime不变。C仍6483ac1/3e12436c、C35/V7、Gate OPEN C1/V2；未修改后端产品或恢复Gate。[新包及源码/设备指针](E:/Hnuhole-env/public-trial-access-01/current-public-package.json)。原2026110705验收包未替换，其旧D/H/S证据按各自范围适用。
+- 第2项真实开户仍进行中：新版正常App于13:18:26向既定批准邮箱发码，真实服务SENT/ACTIVE、0失败，有效至13:23:26；已交用户在手机自行完成账号/密码、恢复码及首次身份，不收集真实凭据。第3项同源/新包/签名/装机通过，最新版最终公网业务复验等待该链路完成；不能把测试替身或旧包结果提升为新版真实开户PASS。后续真实服务/脱敏页面完成结果将在此归档。
+
+### 第2/3项关闭回执
+
+- **第2项PASS**：用户明确“已进入首页”；在2026110707正常App完成真实校园新码确认、账号/密码、恢复码及首次身份。随后真实服务只读确认该邮箱OTP CONSUMED/0失败、资格已保留，C聚合账号及CONSUMED注册由1→2；不保留实名、账号ID、验证码、密码或恢复码，不跨库导出实名与匿名账号关联。[真实服务结果](E:/Hnuhole-env/public-trial-access-01/real-registration-registered.json)、[完成页脱敏布尔结果](E:/Hnuhole-env/public-trial-access-01/real-user-page-registered.json)。
+- **第3项PASS**：当前公网包97ee00f/2026110707已同包更新、签名/摘要核对、正常真实开户和公网读帖；结束进程再正常冷启，原新账号无需重登且可读已有测试帖，[新包冷启结果](E:/Hnuhole-env/public-trial-access-01/real-user-page-registered-cold-start.json)。原独立验收包和日常包/后端不变；当前手机留在新账号首页。
+- D05的控制器/Widget错误改码完整回归PASS，真实用户完成的是正常注册/冷启路径，没有故意向其账号注入错码，不冒称该错误分支在新包逐项D复现。新本地修复97ee00f仍须适用远程CI、审查和合并；本轮未Push/PR/合并、未正式发布。热榜既有30分钟FAIL及其他原延期/设备边界仍保留，整体Android交付仍不通过。
+
+## 最新状态复核（2026-11-07，PR115之后）
+
+- 用户要求再次检查；实际远端main已为 **8808d0087822f95e78672bafcb51b3f90ca11ef7**，含[热榜性能PR115](https://github.com/zewbby/SpeechFUL/pull/115)，已核对实际merged=true及最终head各项checks完成、无失败（actual-process-acceptance按条件SKIP）。本次仅状态核对，未重新压测、部署、构建或操作手机业务。
+- **热榜源码/隔离性能缺口已有新PASS**：固定被测3d29500与新main的services/api无差异；新正式长测600.002秒基线＋1800.543秒后台，仍32逻辑客户端/16业务事件每RAW秒、真实五分钟周期、≤5%原阈值；计算匹配窗口搜索P95 **363.197→279.561ms（−23.028%）**，全程40764个HTTP无错误/超时、0容量丢弃，六轮定时榜及期限通过。[新性能证据](E:/Hnuhole-env/source/SpeechFUL-global-hotlist/docs/tasks/evidence/global-hotlist-performance-20261107.md)。本Session重算summary/requests/worker-events三个原始文件SHA256，与该证据一致；退出状态0。旧2026-11-06 FAIL仍按旧版本保留，不再泛称主线性能“尚未修复”。
+- **部署/候选仍有缺口**：PR115明确没有部署/装机；本任务公网候选仍97ee00f/2026110707，现存公网C二进制摘要仍3e12436c（6483ac1），监控本机两个上游健康200，尚无8808新后端部署及联合业务复验回执。因此新隔离PASS不能自动提升当前公网运行环境为已通过新性能候选。
+- **D05仍未进入main**：逐文件diff确认新main的auth_flows.dart仍缺97ee00f修复；远端public-trial任务分支仍354aec9，无本修复的新PR/CI/合并记录。需要将D05并入当前main，满足新head适用产品CI/审查，再按部署授权统一公网版本并聚焦复验。
+- 真实校园邮箱开户、首页/冷启及站内分享/网页治理此前PASS保持各自版本；外部分享SKIP/iOS延期不重开。本次ADB无连接设备，当前手机包仅引用13:18–13:20版本7安装/业务证据，未宣称这次重新真机核对。其他原生Passkey、第二物理设备、旧Android权限与正式发布范围仍维持原边界。
+
+## D05送审与合并执行（2026-11-07）
+
+- 用户选中“97ee00f还缺远程CI、PR和合并”并明确“做这个”，授权本次D05修复推送、提PR、运行适用CI并在检查通过后正常合并；不包含公网/日常后端部署、安装包更新或正式发布。常规模式，无委派，不绕过保护或成员审查。
+- 在干净`codex/chore/public-trial-access-01`中正常合入最新main **8808d0087822f95e78672bafcb51b3f90ca11ef7**，保留PR115全部性能修复。App/packages产品树与已装2026110707的97ee00f逐文件无差异；本次相对main只含D05一个流程文件、两项回归测试及已有任务记录。将本权威记录的最新版本串行集成到送审Worktree，原记录Worktree不并行改写，不新增任务ID或交接文档。
+- 自检覆盖：只有V权威NOT_COMMITTED结果允许丢弃该确认key，仍沿用原flow/bootstrap且使用新确认key；REVERIFY_REQUIRED仍结束验证；未知/PENDING及超时不得换key，客户端不授予资格、不自动发码。原API/预算/最终Gate不变，146项关联认证测试和已记录真实注册/冷启证据按其版本适用。最新main整合后的本地复验及最终head远程状态以下列PR/检查为准；不把作者自检当GitHub独立成员批准。
+- 合并前必须复核实际head、适用checks完成且无失败、未解决审查及保护状态；回执在合并后归档。不重复构建或装机，不部署新后端，本任务之外所有Worktree/数据保留。
+- 最新main整合后的本地复验PASS：`flutter analyze --no-pub`零问题、七文件认证146项通过（`otp-pr-analyze.log` / `otp-pr-auth-tests.log`，原公网外部证据目录）。检查发现Auth feedback原CI只选择页面/会话等测试，现补入`auth_flows_test.dart`，让本次新增NOT_COMMITTED/REVERIFY_REQUIRED控制器回归在远程实际运行；无新增产品差异。当前提交仅两任务记录和这一行CI选择器追加，产品树仍与97ee00f/已装7一致。

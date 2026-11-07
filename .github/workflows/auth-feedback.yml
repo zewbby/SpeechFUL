@@ -36,6 +36,7 @@ jobs:
         working-directory: apps/mobile
         run: >-
           flutter test --no-pub --reporter expanded
+          test/auth_flows_test.dart
           test/auth_screen_test.dart
           test/email_login_test.dart
           test/auth_session_controller_test.dart
