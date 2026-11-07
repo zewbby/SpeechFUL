@@ -7,7 +7,7 @@
 - 范围：独立公网试用环境及接入准备；不改日常后端、正式数据和验收实验室；不购买套餐/域名、不开启付费续费；不Push/PR/合并/正式发布。外部分享已取消，公网App Links不再作为这个接入目标。
 - 需求确认：公网地址是App连接业务/认证后端的地址；现有C/V独立HTTPS origin及所有认证/Gate保留。来源`apps/mobile/lib/src/auth/http_auth_api.dart`与`services/api/internal/authprivacyruntime/config.go`；不为省一个地址而放宽隔离。域名固定不等于永久免费/无限流量。
 - 更新日期：2026-11-07。
-- 状态（以下及文末复验为当前权威状态，早期调查按历史快照阅读）：公网最小链路 PASS；真实校园邮箱投递 PASS；首页发布自动显示 PASS；登录 Windows 后自动启动已配置，任务资源冷启动/故障恢复 PASS；整机重启首轮 FAIL；本轮修复后已恢复，下一次无人干预重启待验；合并未执行；独立试用包已安装；日常包未覆盖；正式发布未发布。
+- 状态（以下及文末复验为当前权威状态，早期调查按历史快照阅读）：公网最小链路 PASS；真实校园邮箱投递 PASS；首页发布自动显示 PASS；登录 Windows 后自动启动已配置，任务资源冷启动/故障恢复 PASS；整机重启首轮 FAIL 保留，修复后第二次真实重启自动恢复 PASS（Windows 登录后）；合并未执行；独立试用包已安装；日常包未覆盖；正式发布未发布。
 
 ## 目标与范围
 
@@ -96,7 +96,7 @@
 | 持久自动启动 | PASS（配置/当前启动） | Windows 任务 `SpeechFUL-PublicTrial-Access-01` 使用当前用户交互登录触发，不保存 Windows 密码。隐藏监控持有任务专属 WSL 前台 keepalive，启动两个已 enable 的持久 systemd 单元、检查并重启本任务连接器。使用互斥锁和 PID/启动时间/路径核对，不依赖另一验收任务维持 WSL。该方案在 Windows 用户登录后启动，登录前服务不承诺可用。 |
 | 服务/连接器退出后恢复 | PASS | 仅停止任务服务及已校验身份的连接器，监控自动拉起；新的连接器 PID 已核对。未停止其他会话资源。 |
 | 修正停机顺序后完整冷启动 | PASS | 连续两轮停止任务 API/watch/Redis/代理及两个 PostgreSQL，再由已注册监控自动启动；健康入口均 200，C/V Gate 保持 OPEN，代次分别 1/2。[最终健康回执](E:/Hnuhole-env/public-trial-access-01/runtime-health.json)、[当前监控回执](E:/Hnuhole-env/public-trial-access-01/resume-status.json)。该结果不等价 Windows/WSL 整机重启。 |
-| 真实 Windows 重启 | NOT_RUN | 用户明确回答“稍后重启，先保留整机待验”。不能记 PASS；重启后须登录相同 Windows 用户，再核对任务回执、两个公网入口和 App 会话/数据。 |
+| 真实 Windows 重启 | PASS（最新第二轮） | 首轮失败与后续人工恢复保留；第二轮于 12:26:16.5 开机，在任何 WSL/服务干预前已自动恢复，手机冷启/刷新 PASS；详见文末第二轮证据。 |
 | 最终公网 HTTPS | PASS（PC 探针） | 两个域名 `/health/ready` 均 200，使用公共 DoH 实际 A 记录固定连接地址并保留正常域名/证书验证。本机默认假 IP DNS/代理路径曾出现 TLS/403，未修改系统网络配置；手机公网业务证据为上文版本范围，最终电脑探针不冒充新的真机业务回归。 |
 | 部署配置校验 | PASS | Python AST、PowerShell parser、`systemd-analyze verify`；不把这些检查当作 Go/Flutter 产品 CI。 |
 
@@ -109,7 +109,7 @@
 
 ### 剩余未通过或待验
 
-- 本任务：整机重启 NOT_RUN（用户延期）；真实校园验证码确认/真实开户 NOT_RUN，仅实际投递与收信 PASS；登录前启动、掉电/强杀后的安全恢复、广泛外网和长期在线运行未验。系统安全检测到不一致时仍应冻结，不能承诺异常断电后必定自动解冻。
+- 本任务：整机重启已完成第二轮自动恢复 PASS（见文末）；真实校园验证码确认/真实开户 NOT_RUN，仅实际投递与收信 PASS；登录前启动、掉电/强杀后的安全恢复、广泛外网和长期在线运行未验。系统安全检测到不一致时仍应冻结，不能承诺异常断电后必定自动解冻。
 - Android 完整候选：沿用[原唯一记录](E:/Hnuhole-env/source/SpeechFUL-android-v1-acceptance-01/docs/tasks/ANDROID-V1-ACCEPTANCE-01.md)的适用版本和结论。热榜旧 30 分钟持续负载 FAIL（窗口搜索 P95 +77.8335%、2 次 503、40 次 capacity drop）未修复、未重测；本次接入不关闭它。站内卡片和网页治理完整真机/网页复验由“执行 Android 首版完整验收 (3)”继续，结果以其后续证据为准，不抢写其记录。
 - 修复候选远程产品 CI 未运行，未 Push/PR/合并；仍为独立 profile 试用包与独立后端，未覆盖日常包/数据、未正式发布。外部分享及链接关联按用户取消范围，不重新列为首版接入阻断；iOS 保留延期。
 
@@ -123,3 +123,13 @@
 - 真机复验 PASS（本次已获用户授权）：realme 7e0660f1，独立公网包 2026110701；两个公网域名严格 TLS 健康检查均 200，首页下拉刷新可读旧测试帖；force-stop 本任务包后正常冷启恢复原合成账号，推荐页读回原有三帖。未操作其他安装包、真实账号或清除数据。
 - [本次回执](E:/Hnuhole-env/public-trial-access-01/reboot-validation.json)绑定修复后启动器 SHA256、Windows 开机时间和当前监控数据。该运维修复没有修改 App/Go 产品代码，不重复构建；本地语法及进程归属专项与实际恢复验证不替代产品 CI。
 - 结论：**目前服务与 App 已恢复可用；修复后再次真实、无人干预 Windows 重启仍 NOT_RUN**。原热榜负载 FAIL、候选远程 CI/合并/发布及其他验收会话负责的缺口不因本次恢复而关闭。
+
+
+## 第二次真实 Windows 重启：自动恢复 PASS（2026-11-07）
+
+- 用户再次明确“已重启”。本次实测 Windows 开机时间 **12:26:16.5 +08:00**，计划任务最近触发 **12:26:26**，任务宿主进程创建 **12:26:29.761561**；本任务 systemd 两单元进入 running **12:26:58**，Cloudflare 连接器创建 **12:27:01.514945**。监控回执 boot UTC 与本次开机一致，两个健康入口均 200，任务持续 Running，未出现本次开机后的新恢复失败日志。
+- 先只读取 Windows 记录和已有监控文件，保存[干预前启动证据](E:/Hnuhole-env/public-trial-access-01/reboot-second-startup.json)，之后才执行只读 WSL 状态/Gate 查询；本轮没有手动启动 WSL、后端或代理，没有重启计划任务、没有 recovery、没有修改部署脚本。不能将首轮人为恢复混入本轮自动恢复结论。
+- 外部 HTTPS：电脑使用实际 Cloudflare A 地址及原域名正常 TLS 验证，社区/认证健康均 200；真机直接访问两个公开域名也均 200。
+- 用户上一轮已明确允许使用手机，本轮 realme `7e0660f1`、独立包 `org.hnuhole.hnuhole_mobile.publictrial` / 2026110701 / 原 APK 摘要不变。仅 force-stop 本任务包再由正常入口冷启，无需重新登录；首页加载及下拉刷新后读回 `AV1 first`、`AV1 pub2`、`AV1 a`。C/V Gate 均 OPEN，代次 **C=1、V=2**，无本轮代次变化。
+- [完整第二轮回执](E:/Hnuhole-env/public-trial-access-01/reboot-second-validation.json)保存 Windows/任务/监控时间、部署脚本摘要、干预边界和设备结果；脱敏 UI 在原任务 ui-dumps。实现与 APK 无新增变化，本轮只更新本地证据及任务文档，无 Push/PR/合并/正式发布。
+- **结论：本任务“Windows 重启并登录后自动恢复原独立公网服务及 App 会话/数据”PASS，可以关闭该缺口。** 登录前可用、非正常断电/强杀后恢复、长期运行和广泛外网仍不在此次 PASS 范围。首轮 FAIL 原证据保留；热榜旧负载 FAIL、真实校园码确认/开户、候选远程产品 CI 及其他会话负责的验收结论继续按原记录处理，不提升整体验收或正式发布状态。
