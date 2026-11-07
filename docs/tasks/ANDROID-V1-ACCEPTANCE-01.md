@@ -267,3 +267,9 @@
 - 最终独立实验室严格TLS健康；C/V Gate均OPEN/1，各RECOVER审计仍只有初始化1次，角色仍无kind/sender UPDATE或messages DELETE；POST 19/20/21均已ACK清body、20已撤回，原命令回执保留，未多发。故障代理停止、C/V两条任务USB映射直连，实验室保留供已装包使用。[最终服务核对](E:/Hnuhole-env/android-v1-acceptance-01/followup-final-service.json)、[最后重复恢复通知0](E:/Hnuhole-env/android-v1-acceptance-01/notifications-card-final-dedup.json)。旧lab-final-check历史回执已恢复原摘要，新故障收尾另存lab-followup-final-check，不覆盖旧版本事实。
 - 手机操作已结束，回到系统首页；未修改publictrial/日常包及对应后端，未重启Windows/WSL。合成新工单2已完成处罚撤销；卡片举报工单仅PENDING、未处罚，均非正式用户。截图/日志/私有运行材料不提交，本文本机证据链接及摘要见[本次证据清单](E:/Hnuhole-env/android-v1-acceptance-01/followup-34-evidence-manifest.json)。
 - **整体首版仍不具备交付条件**：本次已关闭网页缺口及新范围站内分享待验，不消除Q06已有持续负载FAIL，也不替代最新本地修复的远程产品CI/审查/合并与正式发布。其他原生Passkey、旧Android权限分支、第二物理设备及iOS原延期/缺口维持；公网试用、真实邮件/电脑恢复另按PUBLIC-TRIAL-ACCESS-01其独立候选记录，不以本实验室替代。实现本地完成；本项验证完成（明确分层）；未Push/PR/合并；独立安装完成；日常安装未执行；正式发布未执行。
+
+## PR与合并执行（2026-11-07）
+
+- 用户明确授权：“把这次验收修复和站内分享一起推上去提 PR，跑完 CI，没问题就合并到 main。”本轮授权覆盖该任务分支Push、PR及检查通过后的正常合并；不覆盖日常包/后端更新、正式部署，不绕过分支保护或成员审查。
+- 再核对实际根目录/分支/远端及干净Worktree，fetch后origin/main仍6b722f071f07cbd94d96095734499f8cdd061641；任务产品候选baa817e及上述构建/真机证据保持适用。整包差异51文件，包含四项验收缺陷、站内分享/C35、兼容与对应验证/契约；不包含实验室凭据、APK、日志或其他任务改动。
+- PR/远程CI进行中；最终PR head、适用产品检查、审查及合并回执在本节追加。既有Q06持续负载FAIL和其暂停边界保留；正常代码合并不代表首版整体交付通过或正式发布。
