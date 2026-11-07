@@ -7,7 +7,7 @@
 - 范围：独立公网试用环境及接入准备；不改日常后端、正式数据和验收实验室；不购买套餐/域名、不开启付费续费；本轮用户明确“先把已经做了的提交合并”，授权本任务 Push/PR/合并；不正式发布。外部分享已取消，公网App Links不再作为这个接入目标。
 - 需求确认：公网地址是App连接业务/认证后端的地址；现有C/V独立HTTPS origin及所有认证/Gate保留。来源`apps/mobile/lib/src/auth/http_auth_api.dart`与`services/api/internal/authprivacyruntime/config.go`；不为省一个地址而放宽隔离。域名固定不等于永久免费/无限流量。
 - 更新日期：2026-11-07。
-- 状态（以下及文末复验为当前权威状态，早期调查按历史快照阅读）：公网最小链路 PASS；真实校园邮箱投递 PASS；首页发布自动显示 PASS；登录 Windows 后自动启动已配置，任务资源冷启动/故障恢复 PASS；整机重启首轮 FAIL 保留，修复后第二次真实重启自动恢复 PASS（Windows 登录后）；合并状态以 [PR #114](https://github.com/zewbby/SpeechFUL/pull/114) 实时结果为准；独立试用包已安装；日常包未覆盖；正式发布未发布。
+- 状态（文末为最新，早期按历史快照阅读）：公网最小链路、真实校园邮箱确认/开户、首页读取、真实账号冷启恢复 PASS；最新独立公网包2026110707已安装并复验。Windows登录后重启自动恢复既有PASS；PR113/114已合并；本轮D05恢复缺陷97ee00f本地修复、analyze/146认证回归通过，新修复远程CI/PR/合并未执行。日常包未覆盖；正式发布未发布。
 
 ## 目标与范围
 
@@ -173,3 +173,18 @@
 - 工具脱敏纠错：既有phone.py仅按EditText脱敏，忙碌时只读View的旧已过期六位输入曾出现在一次工具返回及2份本机XML。已将六位码标签统一脱敏，并修正2份XML，[回执](E:/Hnuhole-env/public-trial-access-01/otp-view-sanitization.json)；不声称能撤回既有工具返回。用户自行填写期间不再读取完整页面，完成状态工具只输出导航布尔值，真实密码/恢复码仍不读取、不存档。
 - D05最终源码检查：App完整analyze零问题，[七个认证测试文件146 PASS](E:/Hnuhole-env/public-trial-access-01/otp-retry-auth-all.log)，覆盖API解析/加密/存储/会话/流程/页面/展示；[analyze](E:/Hnuhole-env/public-trial-access-01/otp-retry-analyze.log)。本轮仅Dart流程与测试改变，C/V、OpenAPI、迁移无变动；不重跑无变化的Go/SQL，把已有真实服务/PR113证据按原范围使用。新增修复尚无远程CI，不将旧25成功提升为新修复已跑远程检查。
 - 已将任务分支正常合入实际最新main，保留原提交和所有修改（本地对齐合并4108cf3）；D05产品差异仅上述流程文件及两项测试。下一步冻结本地修复候选、复用本任务构建缓存统一2026110707，再验证设备。13:06那次OTP现已过期，不要求用户继续使用过期码；新包就绪后通过正常App新申请一次，保持原预算及Gate。
+
+### D05修复包与真实用户最终复验（进行中）
+
+- 本地产品修复 **`97ee00f998bae7f9880f76ecb16543bd852f524e`**，最新main基线e399fd3＋D05；新增产品差异只有auth_flows.dart（两项测试另列）。主线PR113修复及站内卡片全部保留，C/V未改变。本轮未Push/PR/合并新修复，旧CI不能覆盖该新候选的远程验收。
+- **2026110707 / `0.1.0-public-otp-fix` 已构建并install-r升级成功**，正常main/profile/arm64、原publictrial包、同测试签名/两个公网origin。APK59,754,317字节，SHA256 **`0f58c903d9e2bacfbf77728baa559105e309c03d5faca978c3ed67d6dda7b6bb`**，设备实算一致、原首次安装时间不变。[源码](E:/Hnuhole-env/public-trial-access-01/main-2026110707-source-proof.json)、[构建](E:/Hnuhole-env/public-trial-access-01/main-2026110707-build.log)、[签名](E:/Hnuhole-env/public-trial-access-01/main-2026110707-signature.log)、[包回执](E:/Hnuhole-env/public-trial-access-01/main-2026110707-receipt.json)、[装机](E:/Hnuhole-env/public-trial-access-01/main-2026110707-install.log)、[设备](E:/Hnuhole-env/public-trial-access-01/main-2026110707-device.json)、[APK](E:/Hnuhole-env/public-trial-access-01/SpeechFUL-public-main-2026110707.apk)。复用本任务构建缓存前重新导出冻结候选，2322输入再次核对无非预期差异；旧6归档/成品/回执保留，不把6的冷启合成账号证据改写成7的新结果。
+- [当前公网包指针](E:/Hnuhole-env/public-trial-access-01/current-public-package.json)指向7；旧android-receipt.json和SpeechFUL-public-trial.apk保持历史版本，未覆盖旧证据，日常全局包指针不变。待真实开户和新包正常业务复验后再补最终PASS，装机不等于全部复验完成。
+- 正常App已于 **13:18:26** 向此前同一用户批准地址新发一次OTP，[真实服务读回](E:/Hnuhole-env/public-trial-access-01/real-registration-fixed-requested.json)为SENT、ACTIVE/0失败、截止13:23:26，C仍1个旧合成账号，Gate OPEN C1/V2。[脱敏交接状态](E:/Hnuhole-env/public-trial-access-01/real-user-page-fixed-handoff.json)只存页面导航布尔值。已把操作交回用户完成验证码、账号/恢复码及首次身份；期间停止手机读屏/截图/点击。真实开户仍待用户完成及只读最终核对，未提前标PASS。
+
+### 本轮第2/3项最终结果（2026-11-07 13:20后）
+
+- **第2项PASS，真实校园邮箱确认/开户闭环关闭**：用户在2026110707正常App自行输入13:18新码、设置账号/密码、保存确认恢复码及首次身份，明确回答“已进入首页”。随后[只读真实服务证据](E:/Hnuhole-env/public-trial-access-01/real-registration-registered.json)确认该真实地址OTP为CONSUMED、失败0次、V资格已保留；C聚合ACTIVE账号及CONSUMED signup均从1→2。C/V分别核对自己的事实，不导出实名、账号ID或跨库关联资料；密码/恢复码未读取或输出。
+- [完成页状态](E:/Hnuhole-env/public-trial-access-01/real-user-page-registered.json)确认正常首页导航、无注册或初始身份阻断、无错误对话框。仅force-stop该独立publictrial包，再正常入口冷启：[冷启复验](E:/Hnuhole-env/public-trial-access-01/real-user-page-registered-cold-start.json)无需重新登录，正常首页及已有合成测试帖可见；只输出导航/已知测试帖布尔值，无用户界面文本落盘。新账号留在首页供用户使用，不退出/注销，不替用户发帖或测试处罚/删除。
+- **第3项PASS，当前公网包已统一为97ee00f / 2026110707**：正常main、原包名/测试签名、原公网origin、实际安装摘要一致；2322构建输入与冻结候选绑定，装机/最终真实注册及冷启/公网内容读取证据齐全。2026110706已被新候选覆盖为历史构建阶段；既有androidv1验收包和日常包、日常后端均未修改。只读最终C35/V7、二进制3e12436c、Gate OPEN C1/V2，未再次recover。
+- D05实现已修复，H控制器+Widget完整错误改码恢复链路及全部146关联认证回归PASS；D真实注册正常成功路径/冷启PASS。没有在真实用户账号故意输错注入，因此不把该专属错误改码分支宣称为新包逐步真机复现PASS；旧FAIL和测试替身边界保留。
+- 实现：本地97ee00f完成；验证：本项第2/3通过，范围如上；新修复远程产品CI NOT_RUN；新修复未Push/PR/合并；独立公网包已安装；日常更新/正式发布未执行。用户前轮PR113/114已合并不被回退，也不自动授权本轮新提交发布。Android整体仍保留热榜30分钟FAIL和其他原边界，不能因本项关闭改为完整发布PASS。
