@@ -1,6 +1,7 @@
 # GLOBAL-HOTLIST-01 — 分类术语与搜索全站热榜
 
 - 模式：常规；负责人／状态维护人：当前 Session。
+- 2026-11-07 性能续修：用户明确要求解决未通过的热榜性能项，指定GPT‑6 Astra／xhigh用于深入分析与方案审查，常规实现／验证由当前模型处理。新分支 `codex/perf/global-hotlist-search-isolation`，实际基线main `e399fd3`（包含已合并PR #112）；沿用本任务记录。保留榜单语义、安全Gate及真实五分钟刷新，先诊断和聚焦验证，再以同固定速率的基线＋至少30分钟持续负载核对计算窗口与整场搜索P95≤5%、无错误／丢弃、发布时限和榜龄。此次未授权自动部署／装机或合并新修复，历史FAIL不覆盖。
 - 分支／Worktree：`codex/refactor/categories-global-hotlist`，`E:/Hnuhole-env/source/SpeechFUL-global-hotlist`；实际 main 基线 `e9bfa80595cd05621ff86bd9da8fade284150110`。
 - 授权依据与边界：2026-11-06 用户同意将产品中的“通道”统一为“分类”，要求搜索只维护全站总榜，并明确指定 GPT 6-Astra／xhigh 独立审查算法、实现及性能优化收益。本轮授权本地实现、隔离验证和独立 AI 审查；未授权本任务合并或正式部署。
 - 需求确认：用户分别确认两项具体场景：任何分类搜索的空输入展示同一全站“大家都在看”并注明全站范围，关键词结果仍限定选中分类，榜单点击按帖子的真实分类进入详情，个人屏蔽及当前可见性仍生效；分类选择器固定目录顺序，推荐第一，取消分类活跃度统计和动态排序。无未决产品取舍。
@@ -58,6 +59,13 @@
 上述外部日志、探针、独立fixture脚本、EXPLAIN JSON与构建产物保存在 `E:/Hnuhole-env/global-hotlist-validation-20261106`；逐文件核对22个变更产品文件，被测Linux副本与实现提交 `b41482e` 字节一致。该提交新增Dart探针／联调回归另有真实PASS。仅证据文档更新不改变被测产品；Android包未包含独立探针文件，本轮未装机。
 
 ## 阻碍与下一步
+
+### 性能续修（2026-11-07）
+
+- Astra Xhigh只读分析与两轮代码审查确认：成功`withPostSessionAt`仍会defer Abort并新开事务争抢全局Gate；现状一分钟profile中该冗余阶段mean210ms/P95677ms，池等待随后放大。修复只跳过已成功提交后的Abort，保留失败／panic／取消及独立冻结持久化；真实PG四分支及C/V取消、checkpoint后数据库失败回归PASS。
+- 仅去掉冗余Abort后，同32客户端／16事件每RAW秒短profile为0错误／0丢弃，P95370.7ms；准备连接P95约0.27ms，实际候选SQLP95约178ms。现状profile曾过载，不能把两者P95比值全部归因代码。
+- 进一步按启动时核对的`edited_title/body text`与`tags text[] NOT NULL`选择固定直接列SQL；旧库保留完整动态JSON查询。排序、Unicode匹配、标签、游标和最终Gate重验不变。真实C29 WithPosts启动＋私有候选／投影查询及升级链路PASS，不冒充C29完整HTTPS授权验收；已有分页／标签／最终重验race回归通过。新增对照fixture先后使用不允许的希腊字符标签及无图片空正文，被业务校验拒绝；已改为合法标签和非空编辑正文，对照新断言待复验，不将错误fixture计PASS。
+- 所有诊断使用独立一次性PG／Redis，日常后端及手机未改。外部证据目录`E:/Hnuhole-env/hotlist-performance-20261107`。首次诊断收尾因执行中修改runner触发重复启动，部分输出被截断，保留残留为无效记录；已增加证据目录必须新建检查，后续runner冻结后执行。正式长测尚未开始，旧≤5% FAIL保持有效；不改变16事件/s、真实五分钟周期或验收阈值。
 
 ### 日常开发升级与装机（2026-11-06）
 

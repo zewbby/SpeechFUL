@@ -619,15 +619,19 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	if mode == "" {
 		t.Skip("explicit sustained-load mode required")
 	}
-	if mode != "calibrate" && mode != "soak" && mode != "diagnostic" {
-		t.Fatal("mode must be calibrate, diagnostic or soak")
+	if mode != "calibrate" && mode != "soak" && mode != "diagnostic" && mode != "profile" {
+		t.Fatal("mode must be calibrate, diagnostic, profile or soak")
 	}
 	clients := rankingLoadInt(t, "RANKING_LOAD_CLIENTS", 32, 32, 64)
 	dir := os.Getenv("RANKING_LOAD_ARTIFACT_DIR")
 	if dir == "" {
 		t.Fatal("private load artifact directory required")
 	}
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	// A failed restart must never truncate evidence from an earlier run.
+	if err := os.MkdirAll(filepath.Dir(dir), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
 	rawFile, err := os.Create(filepath.Join(dir, "requests.jsonl"))
@@ -657,7 +661,7 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 	prior := slog.Default()
 	slog.SetDefault(slog.New(r))
 	defer slog.SetDefault(prior)
-	f := newRankingLoadFixture(t, clients)
+	f := newRankingLoadFixture(t, clients, r)
 	clockCtx, stopClock := context.WithCancel(context.Background())
 	clockDone := make(chan struct{})
 	defer func() { stopClock(); <-clockDone }()
@@ -733,10 +737,30 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 		return
 	}
 	rate := rankingLoadInt(t, "RANKING_LOAD_RPS", 64, 16, 128)
-	if mode == "diagnostic" {
+	if mode == "diagnostic" || mode == "profile" {
 		e := newRankingLoadEngine(f, r, rate, clients)
 		e.start()
 		defer e.close()
+		// Same traffic before the real worker cycle provides stage-level
+		// evidence. This short diagnostic never counts as long-test acceptance.
+		e.await(t, "baseline", time.Minute)
+		if mode == "profile" {
+			e.close()
+			samples, _ := r.copy()
+			result := rankingSummarize(samples, "baseline")
+			data, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "profile.json"), data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("profile_result %s", data)
+			if result.Errors > 0 || result.Dropped > 0 {
+				t.Error("profile load had errors or dropped arrivals")
+			}
+			return
+		}
 		e.setPhase("diagnostic")
 		fence, err := e.canaryFence(true)
 		if err != nil {
@@ -770,7 +794,7 @@ func TestRealHTTPSRankingsSustainedLoadPostgres(t *testing.T) {
 		e.close()
 		samples, _ := r.copy()
 		result := rankingSummarize(samples, "diagnostic")
-		b, _ := json.MarshalIndent(result, "", "  ")
+		b, _ := json.MarshalIndent(map[string]any{"baseline": rankingSummarize(samples, "baseline"), "diagnostic": result}, "", "  ")
 		if err := os.WriteFile(filepath.Join(dir, "diagnostic.json"), b, 0600); err != nil {
 			t.Fatal(err)
 		}
