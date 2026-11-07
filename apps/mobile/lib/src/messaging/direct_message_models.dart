@@ -44,6 +44,7 @@ class DmMessage {
     required this.outgoing,
     required this.time,
     this.text = '',
+    this.postId,
     this.images = const [],
     this.state = DmSendState.sent,
     this.canRecall = false,
@@ -53,6 +54,7 @@ class DmMessage {
     this.visibleMessageIds = const [],
   });
   final String id, time, text;
+  final String? postId;
   final bool outgoing, canRecall, recalled;
   final List<DmImage> images;
   final DmSendState state;
@@ -67,6 +69,7 @@ class DmMessage {
     outgoing: outgoing,
     time: time,
     text: text,
+    postId: postId,
     images: images,
     state: state ?? this.state,
     canRecall: canRecall,

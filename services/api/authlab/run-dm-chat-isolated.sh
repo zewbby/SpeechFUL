@@ -51,5 +51,5 @@ with (p/'fixtures/png.bin').open('rb') as source:
 (p/'fixtures/png.json').write_bytes(r.stdout)
 PY
 cd "$root"
-go test -timeout=35m -race -count=1 -p 1 ./internal/authprivacy ./internal/authprivacyhttp -run "${DM_CHAT_TEST_PATTERN:-^(TestDMChat|TestDMFirstContact|TestDMReliableText|TestDMGoose)}" -v >"$work/tests.log" 2>&1 || { cat "$work/tests.log"; exit 1; }
+go test -timeout=35m -race -count=1 -p 1 ./internal/authprivacy ./internal/authprivacyhttp -run "${DM_CHAT_TEST_PATTERN:-^(TestDMPostCard|TestDMChat|TestDMFirstContact|TestDMReliableText|TestDMGoose)}" -v >"$work/tests.log" 2>&1 || { cat "$work/tests.log"; exit 1; }
 cat "$work/tests.log"

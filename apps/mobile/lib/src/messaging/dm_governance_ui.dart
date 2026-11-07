@@ -286,6 +286,8 @@ Future<Map<String, dynamic>> dmEvidenceSnapshot({
           ? 'UNKNOWN'
           : image
           ? 'IMAGE'
+          : (row['messageType'] == 'POST' || row['kind'] == 'POST')
+          ? 'POST'
           : 'TEXT',
       'text': text,
       'data': data,

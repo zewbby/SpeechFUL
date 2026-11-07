@@ -221,6 +221,8 @@ class DmNotifications {
           'text': preview(account)
               ? (item['kind'] == 'IMAGE'
                     ? translateUi('[图片]', _language)
+                    : item['kind'] == 'POST'
+                    ? translateUi('帖子分享', _language)
                     : item['text'])
               : '',
         });

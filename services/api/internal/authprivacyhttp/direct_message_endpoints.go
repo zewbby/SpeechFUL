@@ -178,7 +178,7 @@ func (b *boundary) communityDM(w http.ResponseWriter, r *http.Request, backend D
 				return
 			}
 			fields := []string{"identityId", "peerId", "conversationId", "sourcePostId", "sourceCommentId", "text", "attempt"}
-			o, err := readRequestObject(r, 100000, fields, nil)
+			o, err := readRequestObject(r, 100000, fields, []string{"kind"})
 			if err != nil {
 				b.postBad(w, err)
 				return
@@ -196,6 +196,13 @@ func (b *boundary) communityDM(w http.ResponseWriter, r *http.Request, backend D
 			if err != nil {
 				b.postBad(w, err)
 				return
+			}
+			if _, ok := o["kind"]; ok {
+				in.Kind, err = stringField(o, "kind")
+				if err != nil || in.Kind != "POST" {
+					b.postBad(w, errMalformed)
+					return
+				}
 			}
 			result, e = backend.SendDMText(r.Context(), bearer, id, in)
 		}

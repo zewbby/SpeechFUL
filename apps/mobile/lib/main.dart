@@ -694,7 +694,8 @@ class _HnuholeAppState extends State<HnuholeApp> with WidgetsBindingObserver {
     super.initState();
     _postLinks =
         widget.postLinks ?? PostLinkInbox(widget.postApi.communityBaseUri);
-    _postLinks.start();
+    // External links are deferred for Android V1; explicit legacy fixtures remain testable.
+    if (widget.postLinks != null) _postLinks.start();
     _lastLogoutVersion = widget.sessions.logoutVersion;
     _postLinks.addListener(_schedulePostLink);
     widget.identities.addListener(_schedulePostLink);

@@ -34,6 +34,7 @@ func (c *Community) WithDirectMessages(ctx context.Context) (*Community, error) 
 func (c *Community) DirectMessagesEnabled() bool { return c != nil && c.directMessages }
 
 type DMTextIntent struct {
+	Kind            string `json:"kind,omitempty"`
 	IdentityID      string `json:"identityId"`
 	PeerID          string `json:"peerId"`
 	ConversationID  string `json:"conversationId"`
@@ -136,6 +137,12 @@ func dmUUID(v string) bool {
 	return e == nil && u != uuid.Nil && u.String() == v
 }
 func (in DMTextIntent) Validate() error {
+	if in.Kind != "" && in.Kind != "POST" {
+		return postError("MALFORMED_REQUEST", 400)
+	}
+	if in.Kind == "POST" && (!dmUUID(in.ConversationID) || !dmUUID(in.Text) || in.SourcePostID != "" || in.SourceCommentID != "") {
+		return postError("MALFORMED_REQUEST", 400)
+	}
 	n, e := posts.CountGraphemes(in.Text)
 	if !dmUUID(in.IdentityID) || !dmUUID(in.PeerID) || in.IdentityID == in.PeerID || in.Attempt < 1 || in.Attempt > 1000 || e != nil || n > 4000 || len(in.Text) > 16384 || strings.TrimSpace(in.Text) == "" {
 		return postError("MALFORMED_REQUEST", 400)
@@ -322,6 +329,21 @@ func (c *Community) sendDMTextOnce(ctx context.Context, b [32]byte, id string, i
 		if in.IdentityID == high {
 			ownSent, otherSent = highSent, lowSent
 		}
+		if in.Kind == "POST" {
+			if !ownSent || !otherSent {
+				return reject("WAITING_FOR_REPLY")
+			}
+			// The reference is checked in the same final authorized transaction.
+			// Do not bind a reading/sharing identity to the shared post.
+			var visible bool
+			err := tx.QueryRow(ctx, `SELECT visibility='PUBLISHED' AND NOT moderation_hidden FROM c_posts.posts WHERE post_id=$1 FOR SHARE`, in.Text).Scan(&visible)
+			if errors.Is(err, pgx.ErrNoRows) || err == nil && !visible {
+				return reject("POST_NOT_FOUND")
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
 		if ownSent && !otherSent {
 			return reject("WAITING_FOR_REPLY")
 		}
@@ -351,7 +373,11 @@ func (c *Community) sendDMTextOnce(ctx context.Context, b [32]byte, id string, i
 		if e != nil {
 			return nil, e
 		}
-		_, e = tx.Exec(ctx, `INSERT INTO c_dm.messages(message_id,conversation_id,sequence,sender,recipient,body,accepted_at,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, msg, conv, seq, in.IdentityID, in.PeerID, in.Text, at, c.dmEvidenceDigest(msg, in.Text))
+		kind := "TEXT"
+		if in.Kind == "POST" {
+			kind = "POST"
+		}
+		_, e = tx.Exec(ctx, `INSERT INTO c_dm.messages(message_id,conversation_id,sequence,sender,recipient,body,accepted_at,evidence_digest,kind) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, msg, conv, seq, in.IdentityID, in.PeerID, in.Text, at, c.dmEvidenceDigest(msg, in.Text), kind)
 		if e != nil {
 			return nil, e
 		}

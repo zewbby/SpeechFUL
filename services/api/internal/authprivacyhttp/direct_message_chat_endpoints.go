@@ -29,7 +29,7 @@ func dmChatRoute(path, method string) bool {
 	case "/api/v1/dm/chat/conversations", "/api/v1/dm/chat/pending", "/api/v1/dm/chat/controls":
 		return method == "GET"
 	}
-	for _, prefix := range []string{"/api/v1/dm/chat/images/", "/api/v1/dm/chat/media/", "/api/v1/dm/chat/operations/"} {
+	for _, prefix := range []string{"/api/v1/dm/chat/images/", "/api/v1/dm/chat/media/", "/api/v1/dm/chat/operations/", "/api/v1/dm/chat/posts/"} {
 		if strings.HasPrefix(path, prefix) {
 			id := strings.TrimPrefix(path, prefix)
 			u, e := uuid.Parse(id)
@@ -39,7 +39,7 @@ func dmChatRoute(path, method string) bool {
 			switch prefix {
 			case "/api/v1/dm/chat/images/":
 				return method == "PUT"
-			case "/api/v1/dm/chat/media/":
+			case "/api/v1/dm/chat/posts/", "/api/v1/dm/chat/media/":
 				return method == "GET"
 			default:
 				return method == "GET" || method == "PUT"
@@ -62,7 +62,13 @@ func (b *boundary) communityDMChat(w http.ResponseWriter, r *http.Request, backe
 			b.postBad(w, errMalformed)
 			return
 		}
-		result, e = backend.PullDMChat(r.Context(), bearer)
+		if legacy, ok := backend.(interface {
+			PullDMChatLegacy(context.Context, [32]byte) (authprivacy.PostResponse, error)
+		}); ok && r.Header.Get("X-DM-Post-Cards") != "v1" {
+			result, e = legacy.PullDMChatLegacy(r.Context(), bearer)
+		} else {
+			result, e = backend.PullDMChat(r.Context(), bearer)
+		}
 	case "/api/v1/dm/chat/conversations", "/api/v1/dm/chat/controls":
 		q, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil || r.ContentLength != 0 {
@@ -100,7 +106,16 @@ func (b *boundary) communityDMChat(w http.ResponseWriter, r *http.Request, backe
 				b.postBad(w, errMalformed)
 				return
 			}
-			if strings.Contains(path, "/media/") {
+			if strings.Contains(path, "/posts/") {
+				cards, ok := backend.(interface {
+					ReadDMPostCard(context.Context, [32]byte, string) (authprivacy.PostResponse, error)
+				})
+				if !ok {
+					b.postFail(w, 503, "SERVICE_UNAVAILABLE", 0)
+					return
+				}
+				result, e = cards.ReadDMPostCard(r.Context(), bearer, id)
+			} else if strings.Contains(path, "/media/") {
 				result, e = backend.ReadDMPrivateMedia(r.Context(), bearer, id)
 			} else {
 				result, e = backend.GetDMChatOperation(r.Context(), bearer, id)
@@ -180,7 +195,7 @@ func (b *boundary) communityDMChat(w http.ResponseWriter, r *http.Request, backe
 		return
 	}
 	switch result.Value.(type) {
-	case authprivacy.DMReceipt, authprivacy.DMPrivateMedia, authprivacy.DMChatDirectory, authprivacy.DMChatPending, authprivacy.DMChatResult, authprivacy.DMControls:
+	case authprivacy.DMPostCard, authprivacy.DMReceipt, authprivacy.DMPrivateMedia, authprivacy.DMChatDirectory, authprivacy.DMChatPending, authprivacy.DMChatResult, authprivacy.DMControls:
 	default:
 		b.postFail(w, 503, "SERVICE_UNAVAILABLE", 0)
 		return
@@ -188,6 +203,14 @@ func (b *boundary) communityDMChat(w http.ResponseWriter, r *http.Request, backe
 	if !validPostTime(result.ServerTime) || !result.ExpiresAt.After(result.ServerTime) {
 		b.postFail(w, 503, "SERVICE_UNAVAILABLE", 0)
 		return
+	}
+	if r.Header.Get("X-DM-Post-Cards") != "v1" {
+		if directory, ok := result.Value.(authprivacy.DMChatDirectory); ok {
+			for i := range directory.Items {
+				directory.Items[i].CanShare = false
+			}
+			result.Value = directory
+		}
 	}
 	payload, e := json.Marshal(result.Value)
 	if e != nil {

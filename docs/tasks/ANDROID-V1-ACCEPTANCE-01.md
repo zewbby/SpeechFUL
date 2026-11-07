@@ -6,7 +6,7 @@
 - 授权依据与边界：本次用户完整验收指令。允许隔离 Worktree、一次性 PostgreSQL/Redis、合成账号／数据、独立验收包构建和安装、正常 App／系统权限操作、确定性最小修复及必要本地提交。未获得本任务覆盖日常包／修改日常后端、Push、PR、合并、正式部署的新授权；完成可独立准备后再处理。只清理本任务明确创建且无依赖的资源。
 - 需求确认：以本次指令及下列已确认任务为准；私信运行中提醒，进程结束后再次进入同步并提醒，保留权限和免打扰；iOS 延期；热榜既有30分钟持续负载 FAIL 保留，先调查适用性及交付影响，不自动长测或优化。业务取舍有歧义时使用本机 `grill-with-docs` 及依赖；当前事实调查阶段无新增取舍。
 - 更新日期：2026-11-07。
-- 状态：实现 三项最小修复完成；验证 本轮可执行验收完成、结论不通过（历史性能FAIL及外部BLOCKED保留）；合并 未合并；独立验收包 已安装并核对；日常安装 未执行；正式发布 未发布。最终版本与交付条件见文末。
+- 状态：实现 三项验收修复及新确认的站内私信帖子分享已本地实现；验证 原验收结论FAIL保留，站内分享H/S通过、构建准备中、新版真机BLOCKED（设备已离线）；合并 未合并；原独立验收包 已安装，新版未安装；日常安装 未执行；正式发布 未发布。最新追加状态见文末。
 
 ## 目标与范围
 
@@ -126,14 +126,14 @@
 | P01 我的分类 | 帖子／评论／点赞／收藏／转帖现有分类刷新分页和返回；失效内容按既有状态 | D+R/H/S；A各分类数据及删除帖 | PASS：D+R 帖子/回复/喜欢/收藏/转帖、身份筛选、删帖/删身份失效内容；列表大分页和缓存返回S/H PASS，D未为每种分类生成多页。 |
 | P02 四语言 | 简／繁／英／日即时且持久；不重置路由、用户内容、输入与阅读位；换号仍保留设备偏好 | D+R/H；多语言／重启／A→B | PASS：D+R 简/繁/英/日切换，繁/英/日分别冷启保留；恢复CN后冷启、A/B切换仍CN；用户正文未翻译。路由/输入边界H PASS。 |
 | P03 外观与安全入口 | 主题字号、窄屏大字、减少动画；黑名单、当前设备／最近替代设备、账号安全入口正确 | D+R/H；系统字体、两身份、黑名单 | PASS（分层）：D Auth浅深主题、320dp+1.6字体设置/语言、系统关闭动态效果后路由；黑名单、当前设备会话/期限、账号安全及Passkey入口均实际到达。已恢复密度408/字号0.9/动画各1.0，[设备最终核对](E:/Hnuhole-env/android-v1-acceptance-01/device-final-reconciled.json)。全页面窄屏组合H PASS，D未逐页穷举。 |
-| L01 系统分享 | 首页／详情／菜单共享忙态；仅品牌和规范URL；取消不提示发送成功，迟到失权不弹面板 | D+R/H；公开帖和失效会话 | PASS：D+R 实际系统分享面板仅SpeechFUL+规范URL、取消；异步忙态/迟到失权H PASS。原候选D分享与最终包分享产品代码相同。 |
-| L02 链接恢复 | 热启动在原路由上开帖，冷启动／登录注册后首页开原帖；登录中最后点击为准，退出清除，最近任务旧Intent不重放 | D+R/H/S；A/B、多个有效与无效链接 | BLOCKED（部分D）：已执行热/冷scheme正常打开PASS；无效+连续HTTPS+登录恢复组合被自动审批拒绝（blocked by policy，未说明更具体原因），未改命令绕过；H及真实Dart分享探针PASS不代替该D缺口。 |
-| L03 公网关联 | 实际公开C域HTTPS、应用ID及签名匹配assetlinks，设备验证；AASA配置单列，iOS延期 | P；当前仅loopback私有CA、缺已确认公开域及发布签名 | BLOCKED；显式Intent／scheme不等价域关联 |
+| L01 系统分享 | 首页／详情／菜单共享忙态；仅品牌和规范URL；取消不提示发送成功，迟到失权不弹面板 | D+R/H；公开帖和失效会话 | SKIP（最新需求延期外部分享）：原候选系统面板证据仅原版本适用；新版入口改为站内卡片，见PC01。 |
+| L02 链接恢复 | 热启动在原路由上开帖，冷启动／登录注册后首页开原帖；登录中最后点击为准，退出清除，最近任务旧Intent不重放 | D+R/H/S；A/B、多个有效与无效链接 | SKIP（最新需求延期外链）：原候选热/冷scheme及自动审批拒绝记录保留；新版默认入口不接收外链，Android外链intent filter撤下。不是修复或验收通过。 |
+| L03 公网关联 | 实际公开C域HTTPS、应用ID及签名匹配assetlinks，设备验证；AASA配置单列，iOS延期 | P；当前仅loopback私有CA、缺已确认公开域及发布签名 | SKIP（最新需求延期外链关联）：首版不交付外链唤起App，assetlinks/AASA不再作为此次分享功能的交付门槛；软件上线公网业务后端仍需单独部署。 |
 | X01 iOS | 保留用户原延期边界 | 无macOS／Xcode／iOS设备 | SKIP（本次用户明确延期） |
 
 ## 最终验证收尾
 
-- 矩阵共44个链路组：行级38 PASS、1 FAIL、4 BLOCKED、1 SKIP；PASS组内仍标明仅H/S覆盖或D未执行的子场景，不能当作38组全子项真机通过。全部证据均由本Session调查/执行/复验，未使用执行子Agent。
+- 上一轮冻结时矩阵共44个链路组：行级38 PASS、1 FAIL、4 BLOCKED、1 SKIP；PASS组内仍标明仅H/S覆盖或D未执行的子场景，不能当作38组全子项真机通过。全部证据均由本Session调查/执行/复验，未使用执行子Agent。
 - 命令入口：App执行`flutter analyze --no-pub`及`flutter test --no-pub test --concurrency=2 --reporter expanded`；Go执行`go test -mod=readonly ./...`、`go build -mod=readonly ./...`、`go vet -mod=readonly ./...`，真实环境再运行仓库`authlab/run-*-isolated.sh`与formal-Goose/race分组。可追溯的任务外部包装器为`run-backend.sh`、`run-other-sql.sh`、`run-gate-cohorts.sh`、`run-gate-rest.sh`、`run-migration-followup.sh`，仅连接归属明确的一次性资源。
 - 最终Android命令：`flutter build apk --profile --no-pub --target-platform android-arm64 --target lib/main.dart --build-number=2026110702 --build-name=0.1.0-android-v1-acceptance3 --dart-define-from-file=<任务build-defines.json>`，随后apksigner核验、ADB明确realme序列号安装；[构建日志](E:/Hnuhole-env/android-v1-acceptance-01/android-final-build.log)、[签名](E:/Hnuhole-env/android-v1-acceptance-01/android-final-signature.log)、[安装](E:/Hnuhole-env/android-v1-acceptance-01/device-final-install.log)。
 - **Go真实回归：PASS（聚合实际证据），原单命令FAIL保留。** authprivacy A–M分组1689.335s通过；N–Z实际运行1166.547s仅正式Goose元表盘点fixture失败。修正仅允许精确`public.goose_db_version`及其四个canonical列，不放宽其他C/V关系盘点；[针对C/V实际复验](E:/Hnuhole-env/android-v1-acceptance-01/privacy-formal-after.log)通过。此前半迁移兼容fixture修复亦已真实通过。生产检查未放宽。
@@ -179,3 +179,38 @@
 - 事实核对：现有分享为系统面板发送品牌+HTTPS链接；私信消息只有TEXT/IMAGE，无帖子卡片。首次联系受来源帖子/评论、身份绑定及单条文字限制，不能把分享当作任意陌生人联系入口。App上线仍需要公网业务服务；站内分享可省去外部链接关联验收，不能免除公网部署。
 - 使用本机`grill-with-docs`及grilling/domain-modeling依赖收敛：首版是否撤下外部分享并延期链接功能；私信分享是否用可点击帖子卡片而非纯文本URL；首版收件范围是否仅已互相回复的既有身份对会话。建议依次为是/帖子卡片/已互回会话；发送身份、权限、目标可见性、预览与失效处理在相应选择确定后继续收敛。
 - 本轮只调查及记录提议，无产品修改、构建、安装或远程操作；现有验收结论及证据保持原适用范围。
+
+### 首轮确认及剩余取舍
+
+- 用户逐项回答“1. 不加外部私信了；2. 可以；3. 可以”。按上一轮Q1的外部分享上下文解释第1项，并已向用户明确说明：首版取消外部分享，改为可点击私信帖子卡片，仅能发给已互相回复的既有会话；拉黑/禁言/身份限制不变。该最新确认取代首版外部分享交付目标，既有实现/历史外链验收不抹去，不自动提升为PASS。
+- 已确认原帖点击读取最新公开版本，删除/下架不可读；新增“私信帖子卡片”“可分享会话”术语，不与私人转帖混称。现有私信TEXT/IMAGE、可靠投递/ACK/撤回/举报及本机历史需完整兼容，尚未开始产品修改。
+- 剩余必要选择集中到下一轮：卡片只显示最新标题/分类，失效及离线显示通用占位而不保存旧标题/正文/图片副本；首版单会话发送，发送前明确双方身份确认，发送后留原阅读页并显示结果（取消不发送）。均待用户确认，未将建议默认为需求。
+- 首版范围调整后L01–L03将按确认的新标准改为延期/不适用并新增站内链路，原先被测版本仍保留其原结果；热榜FAIL、网页审核和其他未验范围不因本次调整关闭。软件上线依然需要公网业务服务。
+
+### 第二轮确认与站内分享实施
+
+- 用户回答“4. 可以；5. 可以”，全部影响实现的取舍已确认：仅最新标题/分类、失效或离线通用占位；单会话、双方身份确认、取消不发送、发送后留原页。没有剩余产品取舍。当前Session继续承担设计/实现/验证/独立装机，本次仍无Push/PR/合并/日常环境或正式部署授权。
+- 在现有隔离分支、main 6b722f0＋验收修复基础上增量实现；2026-11-07再次核对远端main仍为原完整SHA。GLOSSARY和本文先前未提交内容均为本Session需求确认记录，已保留。
+- 新增POST型私信引用，沿用原可靠文字命令路径与dm-text额度，JSON kind为POST、text仅canonical post ID；缺省kind保持旧文字序列化及指纹不变。服务端检查既有身份对已互回、发送权限、原帖当前可见性及最终C Gate，不产生帖内身份绑定。待投引用在ACK/撤回/删除时按旧机制清除；本机加密聊天只保存引用，不保存标题/正文/图片快照。
+- 新增受保护的最小卡片预览GET，仅postId/title/channelId/channelName；前端按权限代次丢弃迟到响应，离线/失效无旧预览。外部Android intent filter已撤下，默认入口不接收外链；旧链路实现/显式注入单元测试保留为延期兼容证据，不算首版功能。
+- 实现/验证进行中：Go host test/build/vet与完整私信OpenAPI初检PASS；真实SQL卡片发收、互回限制、重复核对、ACK清除与旧治理链路PASS，旧迁移夹具对34的固定断言已随新0035明确更新并复验中。Flutter四项引用/存储/去重测试已PASS，选择与预览界面专项正在收敛；未构建或更新设备包，不提升新版本验收结论。
+
+### 站内分享验证与构建准备（最新状态）
+
+- 本地Go host test/build/vet PASS：[日志](E:/Hnuhole-env/android-v1-acceptance-01/cards-go-host.log)。真实PG/HTTPS/race包含卡片命令/去重/互回限制、引用ACK清除、举报原引用/伪造拒绝、拉黑/撤回、101张卡片不阻塞旧客户端文字分页、新旧能力头兼容，以及旧DM治理/文字/图片HTTP与Goose fresh/upgrade/down拒绝，均实际PASS：[日志](E:/Hnuhole-env/android-v1-acceptance-01/cards-real-sql-https.log)。新迁移0035无新增角色授权或表，运行时要求对应kind约束；旧文字请求不传kind时指纹不变。
+- App完整回归1173 PASS/4既有SKIP：[最终完整日志](E:/Hnuhole-env/android-v1-acceptance-01/cards-flutter-final.log)。最后补充不可用原帖禁选后，卡片8项与分享入口10项共18项聚焦实际PASS：[聚焦日志](E:/Hnuhole-env/android-v1-acceptance-01/cards-focused-final.log)。这部分是H；引用持久化/重启/未知去重测试使用真实加密SQLite与网络替身，界面测试明确使用presentation double。最终analyze零问题，完整OpenAPI及私信契约PASS。网页admin展示POST仅为“帖子卡片引用”，[核心13项](E:/Hnuhole-env/android-v1-acceptance-01/cards-admin-core.log)PASS，不能替代网页浏览器验收。
+- 第一轮Goose固定34断言失败已保留在历史运行；更新为实际35后fresh/upgrade与down拒绝均真实PASS。早期Widget测试将动画等待与真实SQLite异步混用产生fixture等待失败，后改为明确展示替身，存储/恢复单独验证；并修正确认期间不应显示发送进度的UI问题。没有将早期失败日志写成通过。
+- 老客户端能力协商：HTTP不带`X-DM-Post-Cards: v1`时目录省略canShare，并在SQL分页前过滤POST；支持该头的生产Dart HTTP适配器读取新类型。发送权限仍由最终事务决定，能力头不授予权限。原安装包读取旧文字/图片不受新字段影响；POST等待支持版本补收。
+- ADB复核已无在线设备，因此本次新包安装及正常App真实点击链路BLOCKED；原2026110702装机证据不外推新增卡片。继续完成可独立执行的构建及真实生产Dart/HTTPS联合探针，不要求用户当前配合。日常包/日常后端不改。
+
+| 新场景 | 已确认预期 | 环境/数据 | 最新结果 |
+| --- | --- | --- | --- |
+| PC01 入口/选择 | 首页、详情及菜单分享进入站内；仅已互回会话；显示双方身份并确认；取消不发送 | H/S；A/B已有会话及非互回会话 | BLOCKED（D设备离线）；H选择/取消/单次发送PASS，S最终互回/身份校验PASS |
+| PC02 投递/草稿 | 同一稳定命令核对未知，原次重试；发送后留阅读页，真实结果提示；不动聊天草稿 | H/S/真实SQLite；丢响应/重启 | BLOCKED（D）；H/S存储、去重、草稿及阅读页保留PASS |
+| PC03 最新卡片 | 只读最新标题/分类，不存正文图片/旧预览；原帖点击、返回及前台恢复刷新 | H/S；编辑及缺失目标 | BLOCKED（D）；H更新/离线/占位，S最小字段与权限PASS；生产Dart探针待执行 |
+| PC04 失效与迟到 | 删除/下架不可读；不可用原帖不能再发；切号/失权迟到不展示 | H/S；合成失效帖/挂起响应 | BLOCKED（D）；H迟到拒绝/不可用禁选，S隐藏读拒绝及最终Gate PASS |
+| PC05 治理/通知 | 卡片沿原撤回、举报、拉黑、禁言、免打扰/默认隐私规则；无UUID正文预览 | H/S；原引用、伪造引用、同一会话 | BLOCKED（D）；S举报/伪造拒绝/拉黑/撤回PASS，既有通知规则及新增通用预览H回归PASS |
+| PC06 升级/兼容 | C34→35保留文字/图片/回执；旧客户端不解析/ACK卡片，后续文字不被卡片分页阻塞 | S；fresh/upgrade、101引用 | PASS（S）；新旧HTTP能力头与分页、迁移保留和down拒绝实际通过 |
+| PC07 构建/装机 | 独立包正常main、同测试签名、摘要与最终源一致；真机正常入口复验 | Windows/Android arm64；realme目标 | BLOCKED（D离线）；构建及新后端版本待下节回执，未称已装新版 |
+
+- 旧L01–L03按用户已确认的新范围改为SKIP，原系统分享/外链证据与自动审批拒绝历史不抹去；旧热榜FAIL、网页审核BLOCKED及其他外部缺口维持。当前仍不具备完整交付条件。
