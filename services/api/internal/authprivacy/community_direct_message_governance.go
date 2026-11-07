@@ -193,12 +193,12 @@ func (in DMReportInput) Validate() error {
 		return postError("MALFORMED_REQUEST", 400)
 	}
 	for i, v := range in.Entries {
-		if !(dmUUID(v.MessageID) || v.MessageID == "" && v.Gap != "") || v.Sequence != in.FirstSequence+int64(i) || (v.Kind != "TEXT" && v.Kind != "IMAGE" && !(v.Kind == "UNKNOWN" && v.Gap != "")) || len(v.Text) > 16384 || len(v.Data) > base64.StdEncoding.EncodedLen(postmedia.MaxBytes) {
+		if !(dmUUID(v.MessageID) || v.MessageID == "" && v.Gap != "") || v.Sequence != in.FirstSequence+int64(i) || (v.Kind != "TEXT" && v.Kind != "IMAGE" && v.Kind != "POST" && !(v.Kind == "UNKNOWN" && v.Gap != "")) || len(v.Text) > 16384 || len(v.Data) > base64.StdEncoding.EncodedLen(postmedia.MaxBytes) {
 			return postError("MALFORMED_REQUEST", 400)
 		}
 		switch v.Gap {
 		case "":
-			if v.Kind == "TEXT" && (strings.TrimSpace(v.Text) == "" || v.Data != "") || v.Kind == "IMAGE" && (v.Data == "" || v.Text != "") {
+			if v.Kind == "POST" && (!dmUUID(v.Text) || v.Data != "") || v.Kind == "TEXT" && (strings.TrimSpace(v.Text) == "" || v.Data != "") || v.Kind == "IMAGE" && (v.Data == "" || v.Text != "") {
 				return postError("MALFORMED_REQUEST", 400)
 			}
 		case "LOCAL_UNAVAILABLE", "RETRACTED", "UNVERIFIABLE":
@@ -303,7 +303,7 @@ func (c *Community) SubmitDMReport(ctx context.Context, b [32]byte, id string, i
 			if retracted {
 				fmt.Fprintf(&body, "[%d %s] 服务器标记：已撤回，以下为授权时固定的原始记录\n", v.Sequence, direction)
 			}
-			if kind == "TEXT" {
+			if kind == "TEXT" || kind == "POST" {
 				totalBytes += len(v.Text)
 				if totalBytes > 32*1024*1024 {
 					return nil, postError("EVIDENCE_LIMIT", 413)

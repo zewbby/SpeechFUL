@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../localization/app_localizations.dart';
 import 'post_api.dart';
 import 'post_controller.dart';
+import '../messaging/dm_post_cards.dart';
 
 typedef PostShareSender = Future<void> Function(String text);
 
@@ -21,7 +22,7 @@ class PostSharingScope extends InheritedWidget {
 }
 
 /// One visible action owns the in-flight request. A late authorized response
-/// cannot open a share sheet after logout, route removal or account replacement.
+/// cannot open a recipient picker after logout, route removal or replacement.
 class PostShareAction extends StatefulWidget {
   const PostShareAction({
     super.key,
@@ -48,14 +49,12 @@ class _PostShareActionState extends State<PostShareAction> {
         !widget.controller.beginSharingPost(widget.postId, _version)) {
       return;
     }
-    final send = PostSharingScope.sender(context);
     try {
-      final link = await widget.controller.loadShareLink(widget.postId);
+      // In-app sharing owns selection, confirmation and durable DM delivery.
       if (!mounted || !_current || ModalRoute.of(context)?.isCurrent != true) {
         return;
       }
-      await send(link.text);
-      // Presenting or dismissing a system sheet does not mean a post was sent.
+      await sharePostInDm(context, widget.postId);
     } catch (error) {
       if (!mounted || !_current) return;
       final message = error is PostFailure && error.code == 'POST_NOT_FOUND'

@@ -139,6 +139,11 @@ paths:
         default:
           $ref: '#/components/responses/Error'
       parameters:
+      - name: X-DM-Post-Cards
+        in: header
+        required: false
+        description: Opt in to POST references and canShare; absent keeps legacy text/image pages.
+        schema: {type: string, const: v1}
       - name: identityId
         in: query
         required: true
@@ -193,6 +198,12 @@ paths:
                       $ref: '#/components/schemas/Delivery'
         default:
           $ref: '#/components/responses/Error'
+      parameters:
+      - name: X-DM-Post-Cards
+        in: header
+        required: false
+        description: Opt in to POST references and canShare; absent keeps legacy text/image pages.
+        schema: {type: string, const: v1}
   /api/v1/dm/chat/operations/{id}:
     put:
       operationId: executeDmChatOperation
@@ -313,6 +324,47 @@ paths:
         schema:
           type: integer
           minimum: 0
+  /api/v1/dm/chat/posts/{id}:
+    get:
+      operationId: readDmPostCard
+      description: Current authorized title and category only. No body, author, images,
+        read count or identity binding. No snapshot retention; deleted or hidden returns
+        POST_NOT_FOUND.
+      responses:
+        '200':
+          description: Authorized result; inspect state for business success.
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                const: no-store
+            X-Request-ID:
+              required: true
+              schema:
+                type: string
+            Session-Expires-At:
+              required: true
+              schema:
+                type: string
+                format: date-time
+            Server-Time:
+              required: true
+              schema:
+                type: string
+                format: date-time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostCard'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
 components:
   securitySchemes:
     sessionBearer:
@@ -440,6 +492,9 @@ components:
           minimum: 0
         waiting:
           type: boolean
+        canShare:
+          type: boolean
+          description: Both identities have replied, and current sender and peer are available. Rechecked at final send transaction.
         canSend:
           type: boolean
         sourceTitle:
@@ -509,6 +564,7 @@ components:
           enum:
           - TEXT
           - IMAGE
+          - POST
         groupId:
           $ref: '#/components/schemas/OptionalId'
         position:
@@ -769,3 +825,13 @@ components:
         next:
           type: integer
           minimum: 0
+
+    PostCard:
+      type: object
+      additionalProperties: false
+      required: [postId, title, channelId, channelName]
+      properties:
+        postId: {$ref: '#/components/schemas/Id'}
+        title: {type: string}
+        channelId: {$ref: '#/components/schemas/Id'}
+        channelName: {type: string}

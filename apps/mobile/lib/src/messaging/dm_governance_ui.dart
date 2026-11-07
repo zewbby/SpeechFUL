@@ -286,6 +286,8 @@ Future<Map<String, dynamic>> dmEvidenceSnapshot({
           ? 'UNKNOWN'
           : image
           ? 'IMAGE'
+          : (row['messageType'] == 'POST' || row['kind'] == 'POST')
+          ? 'POST'
           : 'TEXT',
       'text': text,
       'data': data,
@@ -458,6 +460,12 @@ class _DmEvidencePickerState extends State<_DmEvidencePicker> {
   }
 
   String _text(Map row) {
+    if (row['recalled'] == true || row['_state'] == 'retracted') {
+      return hhText(context, '消息已撤回');
+    }
+    if (row['messageType'] == 'POST' || row['kind'] == 'POST') {
+      return hhText(context, '分享');
+    }
     final value = row['outgoing'] == true ? (row['intent'] as Map?) : row;
     final text = value?['text'] as String?;
     return text?.isNotEmpty == true ? text! : hhText(context, '[图片]');
@@ -709,6 +717,8 @@ class _DmEvidencePreviewState extends State<DmEvidencePreview> {
                             height: 180,
                             fit: BoxFit.contain,
                           )
+                        else if (row['kind'] == 'POST')
+                          Text(hhText(context, '分享'))
                         else
                           Text(row['text']),
                       ],

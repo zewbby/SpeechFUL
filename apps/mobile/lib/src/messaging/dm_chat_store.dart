@@ -372,6 +372,7 @@ extension DmChatStorage on DmStore {
                       as String?;
               await _eraseMedia(row);
               if (row['outgoing'] == true &&
+                  row['messageType'] != 'POST' &&
                   text != null &&
                   row['reeditExpired'] != true &&
                   row['reeditUntil'] == null) {
@@ -699,7 +700,7 @@ extension DmChatStorage on DmStore {
       [pair],
     )) {
       final data = await _decode(row);
-      if (data['recalled'] == true) continue;
+      if (data['recalled'] == true || data['messageType'] == 'POST') continue;
       final text = data['outgoing'] == true
           ? (data['intent'] as Map)['text']
           : data['text'];

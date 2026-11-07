@@ -160,6 +160,7 @@ components:
       required: [identityId, peerId, conversationId, sourcePostId, sourceCommentId, text, attempt]
       description: New contact requires sourcePostId and optional comment, with empty conversationId. Existing conversation requires conversationId and empty source fields. Source author must equal peerId. Text must contain non-whitespace, at most 4000 Unicode 16 graphemes and 16384 UTF-8 bytes.
       properties:
+        kind: {type: string, const: POST, description: 'Optional typed post reference; text is canonical post ID, existing mutual conversation required, empty source fields. Uses the existing dm-text quota and reliable command receipt.'}
         identityId: {$ref: '#/components/schemas/Id'}
         peerId: {$ref: '#/components/schemas/Id'}
         conversationId: {$ref: '#/components/schemas/OptionalId'}
@@ -175,7 +176,7 @@ components:
         evidenceVersion: {type: integer, enum: [0, 1], description: 1 supports authenticated local evidence after ACK; 0 must be an explicit UNVERIFIABLE gap.}
         state: {enum: [ABSENT, FAILED, SENT]}
         attempt: {type: integer, minimum: 0, maximum: 1000}
-        errorCode: {enum: [POSTING_RESTRICTED, IDENTITY_UNAVAILABLE, CONTACT_UNAVAILABLE, POST_IDENTITY_BOUND, WAITING_FOR_REPLY, ADMISSION_EXPIRED, COMMAND_CLOSED, PENDING_LIMIT, INVALID_IMAGE, COMMAND_CONFLICT]}
+        errorCode: {enum: [POSTING_RESTRICTED, IDENTITY_UNAVAILABLE, CONTACT_UNAVAILABLE, POST_IDENTITY_BOUND, WAITING_FOR_REPLY, ADMISSION_EXPIRED, COMMAND_CLOSED, PENDING_LIMIT, INVALID_IMAGE, POST_NOT_FOUND, COMMAND_CONFLICT]}
         messageId: {$ref: '#/components/schemas/Id'}
         conversationId: {$ref: '#/components/schemas/Id'}
         sequence: {type: integer, minimum: 1}

@@ -281,6 +281,7 @@ func readInboxNotice(ctx context.Context, tx pgx.Tx, account uuid.UUID, identity
 	if e != nil {
 		return n, e
 	}
+	n.CreatedAt = n.CreatedAt.UTC()
 	n.PostID = &post
 	n.CommentID = comment
 	p, _, e := readPublicPost(ctx, tx, post)

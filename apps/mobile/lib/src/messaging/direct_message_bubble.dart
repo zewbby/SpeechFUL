@@ -7,6 +7,7 @@ import '../design_system/motion.dart';
 import '../design_system/telegram_theme.dart';
 import '../localization/app_localizations.dart';
 import 'direct_message_models.dart';
+import 'dm_post_cards.dart';
 
 typedef DmImageBuilder = Widget Function(BuildContext context, DmImage image);
 
@@ -94,7 +95,17 @@ class HhDirectMessageBubble extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: width),
-                child: message.images.isEmpty
+                child: message.postId != null
+                    ? Builder(
+                        builder: (anchor) => GestureDetector(
+                          onLongPress: () => onMenu(null, anchor),
+                          child: DmPostCardBubble(
+                            postId: message.postId!,
+                            time: message.time,
+                          ),
+                        ),
+                      )
+                    : message.images.isEmpty
                     ? _text(context, width)
                     : _media(context, width),
               ),

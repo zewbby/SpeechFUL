@@ -187,7 +187,7 @@ function renderCase(parent, record, reload, current, isCurrent = () => current =
   if (record.conversationId && Array.isArray(record.evidence?.dmRecords)) {
     for (const item of record.evidence.dmRecords) {
       const row = add(el('div', null, 'report'), el('h3', `第 ${item.sequence} 条 · ${item.direction}${item.retracted ? ' · 已撤回' : ''}`));
-      row.append(el('p', item.gap ? `已声明缺口：${item.gap}` : item.text || '图片记录', 'body'));
+      row.append(el('p', item.gap ? `已声明缺口：${item.gap}` : item.kind === 'POST' ? `帖子卡片引用：${item.text}` : item.text || '图片记录', 'body'));
       if (item.imageIndex > 0) materialImages(row, [record.evidence.images?.[item.imageIndex - 1]], '授权聊天图片');
       snapshot.append(row);
     }

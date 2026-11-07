@@ -26,14 +26,15 @@ print('DM P1 full OpenAPI: PASS (7 paths, owner-only close anchors, no cloud his
 
 chat = yaml.safe_load((root / 'packages/openapi/direct-message-chat.yaml').read_text(encoding='utf-8'))
 validate_spec(chat)
-assert len(chat['paths']) == 6
+assert len(chat['paths']) == 7
+assert chat['components']['schemas']['PostCard']['additionalProperties'] is False
 assert chat['x-contract-status'] == 'P2_ISOLATED_IMPLEMENTATION'
 assert chat['components']['schemas']['ImageIntent']['additionalProperties'] is False
 assert chat['components']['schemas']['ImageIntent']['properties']['groupSize']['maximum'] == 9
 assert chat['components']['schemas']['ImageIntent']['properties']['byteLength']['maximum'] == 10 * 1024 * 1024
 assert {'version', 'settingsVersion', 'deletedThrough', 'unavailableUnread'} <= set(chat['components']['schemas']['Conversation']['required'])
 assert all('/history' not in path and '/controls/ack' not in path for path in chat['paths'])
-print('DM P2 full OpenAPI: PASS (6 paths, per-image ACK, permanent control tombstones)')
+print('DM P2 full OpenAPI: PASS (7 paths, post references, per-image ACK, permanent control tombstones)')
 
 governance = yaml.safe_load((root / 'packages/openapi/direct-message-governance.yaml').read_text(encoding='utf-8'))
 validate_spec(governance)

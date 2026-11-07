@@ -430,7 +430,10 @@ extension _ChatPhotoUi on _DmChatRouteState {
         DmMessage(
           id: images.isNotEmpty ? 'group:${data['groupId']}' : r['_id'],
           outgoing: outgoing,
-          text: data['text'] as String? ?? '',
+          text: r['messageType'] == 'POST' ? '' : data['text'] as String? ?? '',
+          postId: r['messageType'] == 'POST' && r['recalled'] != true
+              ? data['text'] as String?
+              : null,
           images: images,
           state: images.isNotEmpty ? DmSendState.sent : _sendState(r['_state']),
           recalled: r['recalled'] == true,

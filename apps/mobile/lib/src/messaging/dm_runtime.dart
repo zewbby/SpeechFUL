@@ -45,7 +45,7 @@ class DmRuntime extends ChangeNotifier {
   final AuthStore authStore;
   final IdentityApi identityApi;
   final IdentityManagementController? identityChanges;
-  final void Function(BuildContext, String)? openPost;
+  final FutureOr<void> Function(BuildContext, String)? openPost;
   List<DmIdentity> identities = [];
   DmIdentityStatus identityStatus = DmIdentityStatus.unavailable;
   String? _token;
@@ -451,6 +451,7 @@ class _DmInboxRouteState extends State<DmInboxRoute> {
                 preview: switch (v['localPreviewKind']) {
                   'recalled' => hhText(context, '消息已撤回'),
                   'image' => hhText(context, '[图片]'),
+                  'post' => hhText(context, '分享'),
                   _ =>
                     v['localPreview'] as String? ??
                         (v['waiting'] == true ? hhText(context, '等待对方回复') : ''),

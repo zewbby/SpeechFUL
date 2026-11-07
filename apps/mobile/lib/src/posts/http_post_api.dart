@@ -203,6 +203,7 @@ class HttpPostApi
             'operations',
             'images',
             'media',
+            'posts',
           }.contains(parts[1]) ||
           parts.length > 3) {
         throw const FormatException('Invalid DM chat route');
@@ -229,6 +230,7 @@ class HttpPostApi
       token,
       method,
       '/api/v1/dm/$resource',
+      headers: const {'X-DM-Post-Cards': 'v1'},
       body: body,
       query: query,
       maxRequestBytes: resource.startsWith('chat/images/')

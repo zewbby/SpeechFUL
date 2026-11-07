@@ -11,6 +11,7 @@ import 'dm_store.dart';
 
 part 'dm_chat_controller.dart';
 part 'dm_governance_controller.dart';
+part 'dm_post_cards_controller.dart';
 
 typedef DmStoreFactory = Future<DmStore> Function(String account);
 
@@ -62,6 +63,10 @@ class DmController extends ChangeNotifier {
       _store != null && _authorized?.call() == true && !_disposed;
   String get scope => '${_account ?? ''}:$_epoch';
   String? get accountId => _account;
+
+  Future<Map<String, dynamic>> postCard(String postId) => _postCard(postId);
+  Future<String> sharePost(Map<String, dynamic> directory, String postId) =>
+      _sharePost(directory, postId);
 
   Future<void> bind({
     required String account,
@@ -716,11 +721,15 @@ class DmController extends ChangeNotifier {
             ? 'recalled'
             : last['messageType'] == 'IMAGE'
             ? 'image'
+            : last['messageType'] == 'POST'
+            ? 'post'
             : 'text';
         v['localPreview'] = last['recalled'] == true
             ? '消息已撤回'
             : last['messageType'] == 'IMAGE'
             ? '[图片]'
+            : last['messageType'] == 'POST'
+            ? '分享'
             : last['outgoing'] == true
             ? (last['intent'] as Map)['text']
             : last['text'];

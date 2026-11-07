@@ -526,6 +526,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
   final _replyFailures = <String>{};
   int _listVersion = 0;
   int _contextReadVersion = 0;
+  final _rootCountReads = <String, int>{};
   Set<String> own = {};
   bool get current => mounted && widget.runtime.current(epoch);
   @override
@@ -596,8 +597,18 @@ class _CommentPostPaneState extends State<CommentPostPane> {
     }
     rows.removeWhere((r) => widget.runtime.deleted.contains(r.id));
     replies.removeWhere((id, _) => widget.runtime.deleted.contains(id));
-    for (final list in replies.values) {
-      list.removeWhere((r) => widget.runtime.deleted.contains(r.id));
+    for (final entry in replies.entries) {
+      final list = entry.value;
+      final removed = list
+          .where((r) => widget.runtime.deleted.contains(r.id))
+          .length;
+      if (removed > 0) {
+        final root = rows.where((r) => r.id == entry.key).firstOrNull;
+        if (root != null) {
+          root.data['replyCount'] = (root.replyCount - removed).clamp(0, 10000);
+        }
+        list.removeWhere((r) => widget.runtime.deleted.contains(r.id));
+      }
     }
     final added = current ? _syncLocalComments() : <String>[];
     setState(() {});
@@ -634,6 +645,7 @@ class _CommentPostPaneState extends State<CommentPostPane> {
     for (final local in _localComments.values) {
       if (local.publishedId == id) local.publishedRow = row;
     }
+    if (row?.root case final floor?) await _refreshRootCount(floor);
     if (row == null && attempt < 3 && _localPublishedIds.contains(id)) {
       _publicationRetries.remove(id)?.cancel();
       _publicationRetries[id] = Timer(Duration(seconds: attempt + 1), () {
@@ -643,6 +655,33 @@ class _CommentPostPaneState extends State<CommentPostPane> {
     }
     await _loadContext();
     if (current) setState(() {});
+  }
+
+  Future<void> _refreshRootCount(String floor) async {
+    final version = _listVersion;
+    final deleted = widget.runtime.deleted.length;
+    final read = (_rootCountReads[floor] ?? 0) + 1;
+    _rootCountReads[floor] = read;
+    try {
+      final fresh = CommentRow(
+        await widget.runtime.request(
+          'GET',
+          '/api/v1/posts/${widget.postId}/comments/$floor',
+        ),
+      );
+      if (!current ||
+          version != _listVersion ||
+          deleted != widget.runtime.deleted.length ||
+          read != _rootCountReads[floor]) {
+        return;
+      }
+      final root = rows.where((r) => r.id == floor).firstOrNull;
+      if (root != null && fresh.id == floor) {
+        setState(() => root.data['replyCount'] = fresh.replyCount);
+      }
+    } catch (_) {
+      // A count refresh must not hide an already confirmed publication.
+    }
   }
 
   bool get _sending =>

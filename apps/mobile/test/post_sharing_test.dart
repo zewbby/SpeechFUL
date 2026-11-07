@@ -269,11 +269,11 @@ void main() {
       final id = api.items.first.postId;
       await tester.tap(find.byKey(ValueKey('share:$id')));
       await tester.pump();
-      expect(api.shares, 1);
+      expect(api.shares, 0);
       // A second action cannot create another request or another system sheet.
       await tester.tap(find.byKey(ValueKey('share:$id')));
       await tester.pump();
-      expect(api.shares, 1);
+      expect(api.shares, 0);
       links.receive(_url(_other));
       await f.sessions.logout();
       api.shareWait!.complete(
@@ -293,7 +293,7 @@ void main() {
   );
 
   testWidgets(
-    'feed and detail share send only backend-approved text; cancellation has no success notice',
+    'feed and detail sharing never invokes external share when DM is unavailable',
     (tester) async {
       final api = SharingTestApi();
       final sent = <String>[];
@@ -305,19 +305,20 @@ void main() {
       final id = api.items.first.postId;
       await tester.tap(find.byKey(ValueKey('share:$id')));
       await tester.pumpAndSettle();
-      expect(sent, ['SpeechFUL\n${_url(id)}']);
+      expect(sent, isEmpty);
       expect(find.byType(PostDetailScreen), findsNothing);
       await tester.tap(find.text('今天的校园'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(ValueKey('detail-share:$id')));
       await tester.tap(find.byKey(ValueKey('detail-share:$id')));
       await tester.pumpAndSettle();
-      expect(sent.length, 2);
+      expect(sent, isEmpty);
       await tester.tap(find.byTooltip('帖子操作'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('分享').last);
       await tester.pumpAndSettle();
-      expect(sent, List.filled(3, 'SpeechFUL\n${_url(id)}'));
+      expect(sent, isEmpty);
+      expect(api.shares, 0);
       expect(find.text('分享成功'), findsNothing);
       await disposeApp(tester);
     },

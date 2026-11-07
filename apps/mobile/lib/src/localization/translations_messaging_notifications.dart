@@ -2,6 +2,32 @@ import 'app_language.dart';
 
 /// Only application-owned text; interpolated user content stays verbatim.
 const messagingNotificationTranslations = <String, UiTranslation>{
+  '联网后查看': ('連線後查看', 'Connect to view', '接続後に表示'),
+  '帖子已不可用': ('貼文已無法查看', 'Post unavailable', '投稿を表示できません'),
+  '分享至私信': ('分享至私訊', 'Share in a message', 'メッセージで共有'),
+  '发送帖子卡片？': ('傳送貼文卡片？', 'Send this post?', 'この投稿を送信しますか？'),
+  '以 {self} 发送给 {peer}': (
+    '以 {self} 傳送給 {peer}',
+    'Send as {self} to {peer}',
+    '{self} として {peer} に送信',
+  ),
+  '收件身份：{peer}': ('收件身份：{peer}', 'Recipient identity: {peer}', '受信する身分：{peer}'),
+  '帖子卡片已发送': ('貼文卡片已傳送', 'Post sent', '投稿を送信しました'),
+  '发送失败，请在私信中查看并重试': (
+    '傳送失敗，請至私訊查看並重試',
+    'Sending failed. Open messages to review and retry.',
+    '送信に失敗しました。メッセージで確認して再試行してください',
+  ),
+  '已保存待发送，请在私信中查看结果': (
+    '已儲存待傳送，請至私訊查看結果',
+    'Saved for sending. Check messages for the result.',
+    '送信用に保存しました。結果はメッセージで確認してください',
+  ),
+  '暂无可分享的会话，请先与对方互相回复': (
+    '暫無可分享的對話，請先與對方互相回覆',
+    'No eligible conversations. Exchange replies first.',
+    '共有できる会話がありません。先に互いに返信してください',
+  ),
   '你撤回了一条消息': ('你撤回了一條訊息', 'You recalled a message', 'メッセージを取り消しました'),
   '对方撤回了一条消息': (
     '對方撤回了一條訊息',

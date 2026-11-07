@@ -26,6 +26,7 @@ func (c *Community) checkDMSchema(ctx context.Context) error {
  AND to_regclass('c_dm.blocks') IS NOT NULL
  AND EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='dm_evidence_immutable' AND tgrelid='c_dm.messages'::regclass AND tgenabled='O')
  AND has_table_privilege(current_user,'c_dm.blocks','SELECT,INSERT,DELETE')
+ AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='c_dm.messages'::regclass AND conname='dm_post_card_kind')
  AND has_schema_privilege(current_user,'c_dm','USAGE')
  AND has_table_privilege(current_user,'c_dm.messages','SELECT,INSERT')
  AND has_column_privilege(current_user,'c_dm.messages','body','UPDATE')

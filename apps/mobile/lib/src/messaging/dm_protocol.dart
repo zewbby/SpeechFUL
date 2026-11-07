@@ -146,6 +146,7 @@ Map<String, dynamic> decodeDm(Object? raw, String resource) {
           'COMMAND_CLOSED',
           'PENDING_LIMIT',
           'INVALID_IMAGE',
+          'POST_NOT_FOUND',
           'COMMAND_CONFLICT',
         }.contains(m['errorCode'])) {
       throw const FormatException('Invalid failure receipt');
@@ -230,6 +231,24 @@ Map<String, dynamic> decodeDm(Object? raw, String resource) {
 }
 
 Map<String, dynamic> decodeDmChat(Object? raw, String resource) {
+  if (resource.startsWith('chat/posts/')) {
+    final m = PostJson.record(raw, {
+      'postId',
+      'title',
+      'channelId',
+      'channelName',
+    });
+    PostProtocol.resourceId(m['postId'] as String);
+    if (m['postId'] != resource.substring('chat/posts/'.length) ||
+        m['title'] is! String ||
+        (m['title'] as String).characters.length > 120 ||
+        m['channelName'] is! String ||
+        m['channelId'] is! String ||
+        (m['channelId'] as String).isEmpty) {
+      throw const FormatException('Invalid post card');
+    }
+    return m;
+  }
   if (resource.startsWith('chat/operations/')) {
     final m = PostJson.record(raw, {
       'state',
@@ -286,7 +305,7 @@ Map<String, dynamic> decodeDmChat(Object? raw, String resource) {
           'unavailableUnread',
           'sourceTitle',
         },
-        optional: {'ownBlockId', 'peerAvatar'},
+        optional: {'ownBlockId', 'peerAvatar', 'canShare'},
       );
       if (item['ownBlockId'] != null && item['ownBlockId'] != '') {
         PostProtocol.resourceId(item['ownBlockId'] as String);
@@ -311,6 +330,9 @@ Map<String, dynamic> decodeDmChat(Object? raw, String resource) {
           utf8.encode(item['note'] as String).length > 400) {
         throw const FormatException('Invalid DM note');
       }
+      if (item['canShare'] != null && item['canShare'] is! bool) {
+        throw const FormatException('Invalid sharing permission');
+      }
       originals.add(
         Map.of(item)..removeWhere(
           (k, _) => {
@@ -325,6 +347,7 @@ Map<String, dynamic> decodeDmChat(Object? raw, String resource) {
             'unavailableUnread',
             'sourceTitle',
             'ownBlockId',
+            'canShare',
           }.contains(k),
         ),
       );
@@ -442,6 +465,14 @@ Map<String, dynamic> decodeDmChat(Object? raw, String resource) {
       if (item['kind'] == 'TEXT') {
         if (!dmValidText(item['text'] as String) || item['media'] != null) {
           throw const FormatException('Invalid DM text');
+        }
+      } else if (item['kind'] == 'POST') {
+        PostProtocol.resourceId(item['text'] as String);
+        if (item['media'] != null ||
+            item['groupId'] != '' ||
+            item['position'] != 0 ||
+            item['groupSize'] != 0) {
+          throw const FormatException('Invalid post reference');
         }
       } else if (item['kind'] == 'IMAGE') {
         PostProtocol.resourceId(item['groupId'] as String);

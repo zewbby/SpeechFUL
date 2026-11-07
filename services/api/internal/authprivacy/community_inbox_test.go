@@ -5,12 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/comments"
 	"github.com/zhubaozhenshuai666-lang/HnuHole/services/api/internal/posts"
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNotificationInboxPostgres(t *testing.T) {
@@ -24,6 +28,18 @@ func TestNotificationInboxPostgres(t *testing.T) {
 	author := identityChange(t, l.c, sender.SessionToken, "CREATE", uuid.Nil, "发言者").IdentityID
 	post := commentTextPost(t, l, owner.SessionToken, first)
 	runtime := moderationLifecycleRuntime(t, l)
+	// A deployed process can decode timestamptz in its local zone. The public
+	// wire format must still be canonical UTC, as required by the App parser.
+	config := runtime.Config()
+	config.AfterConnect = func(_ context.Context, conn *pgx.Conn) error {
+		conn.TypeMap().RegisterType(&pgtype.Type{Name: "timestamptz", OID: pgtype.TimestamptzOID, Codec: &pgtype.TimestamptzCodec{ScanLocation: time.FixedZone("acceptance+08", 8*60*60)}})
+		return nil
+	}
+	runtime, e := pgxpool.NewWithConfig(ctx, config)
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Cleanup(runtime.Close)
 	grant, e := os.ReadFile("../../../../infra/postgres/grant-comments.sql")
 	if e != nil {
 		t.Fatal(e)
@@ -60,6 +76,9 @@ func TestNotificationInboxPostgres(t *testing.T) {
 		t.Fatal("a published reply is delivered once", page)
 	}
 	notice := page.Items[0]
+	if _, offset := notice.CreatedAt.Zone(); offset != 0 {
+		t.Fatal("interaction notification leaked local offset instead of canonical UTC")
+	}
 	response, e = l.c.ReadInboxCounts(ctx, owner.SessionToken, first.String())
 	if e != nil {
 		t.Fatal(e)

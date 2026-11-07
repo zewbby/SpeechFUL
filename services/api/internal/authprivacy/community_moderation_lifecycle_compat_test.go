@@ -144,6 +144,19 @@ DROP TABLE c_posts.post_tag_terms;
 ALTER TABLE c_posts.posts DROP COLUMN tag_keys,DROP COLUMN tags;
 ALTER TABLE c_posts.attempt_contents DROP COLUMN tags;
 DROP FUNCTION c_posts.sync_post_tag_terms(),c_posts.fence_post_tags(),c_posts.fence_attempt_tags(),c_posts.tag_keys(text[]),c_posts.valid_tags(text[])`)
+	// This deliberately stripped fixture models an untracked legacy install.
+	// A formal Goose run still declares 0033 applied after removing its shape;
+	// that partial migration must fail closed before constructing the legacy case.
+	var tracked bool
+	if err := l.cp.QueryRow(context.Background(), `SELECT to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&tracked); err != nil {
+		t.Fatal(err)
+	}
+	if tracked {
+		if err := checkPostTagSchema(context.Background(), l.cp); err == nil {
+			t.Fatal("tracked tag migration accepted its removed schema")
+		}
+		mustExec(t, l.cp, `DROP TABLE public.goose_db_version`)
+	}
 	// Remove this fixture's moderation additions, including the optional 0018
 	// comment projection. A half-removed 0018 must still fail startup; this case
 	// models the pre-moderation installation, not a broken forward migration.

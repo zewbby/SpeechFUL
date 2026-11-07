@@ -430,6 +430,7 @@ class DmStore {
           await _put(id, 'message', pair, ordinal, 'queued', {
             'intent': intent,
             'outgoing': true,
+            if (intent['kind'] == 'POST') 'messageType': 'POST',
           });
           // Keep an offline first contact reachable from the inbox before the
           // server has accepted it or returned its conversation directory.
@@ -458,7 +459,8 @@ class DmStore {
           }
           // Preserve a draft changed after this exact send was initiated.
           final draft = await _get('draft:$pair');
-          if (draft == null || draft['text'] == intent['text']) {
+          if (intent['kind'] != 'POST' &&
+              (draft == null || draft['text'] == intent['text'])) {
             await _put('draft:$pair', 'draft', pair, 0, 'draft', {
               'identityId': intent['identityId'],
               'text': '',
@@ -588,6 +590,9 @@ class DmStore {
         final id = item['messageId'] as String;
         final previous = await _get(id);
         if (previous != null) {
+          if ((previous['kind'] ?? 'TEXT') != (item['kind'] ?? 'TEXT')) {
+            throw const PostStorageFailure();
+          }
           if (previous['_state'] == 'deleted' ||
               previous['_state'] == 'retracted') {
             continue;
@@ -615,6 +620,7 @@ class DmStore {
         await _put(id, 'message', pair, _nextOrdinal(), 'received', {
           ...item,
           'outgoing': false,
+          'messageType': item['kind'] ?? 'TEXT',
         });
         // Keep committed incoming content reachable if the next network request
         // fails, even before the canonical directory and nickname arrive.

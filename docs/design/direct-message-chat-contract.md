@@ -57,3 +57,14 @@ ACK、删除、撤回均先按序锁 conversation，再写 message/settings/medi
 独占 runner：`services/api/authlab/run-dm-chat-isolated.sh`。环境须显式给已有 `POST_MEDIA_PYTHON` 和 `COMMENT_TEXT_GOOSE`；runner 自建 /tmp 私有 socket 数据库和合成 PNG，不读写已有服务。`DM_CHAT_TEST_PATTERN` 只选择新增/受影响检查。保留本次临时目录与日志，退出自动停库。
 
 `TestDMChatDevicePostgres` 仅当 `DM_CHAT_DEVICE_FIXTURE` 非空启用。私密 JSON 包含 P1 能力字段、第三账号 `DM_TOKEN_C`、已文字互回的 `DM_CONVERSATION`、同一已验证 `DM_IMAGE` base64/7×5 尺寸与 `HOST_PORT`。仅此 fixture 对第八、九张 attempt1 翻转原图首字节，保留 manifest/digest/长度，让真实服务器记录 INVALID_IMAGE；attempt2 不改。不得将故障注入带入运行装配。fixture 等待 `<file>.done` 或 25 分钟截止后清理能力文件；HTTP/Android驱动自行负责自有转发映射和done文件。
+
+
+## Android首版站内帖子分享（ANDROID-V1-ACCEPTANCE-01）
+
+最新确认及唯一状态见[验收任务](../tasks/ANDROID-V1-ACCEPTANCE-01.md)。外部系统分享与外链关联延期；站内仅向已互回的既有身份对会话发送可点击帖子卡片，单会话确认发送后留在原阅读页。
+
+- 0035允许POST型私信。复用`PUT /api/v1/dm/commands/{id}`及dm-text限额，新增可选`kind: POST`，`text`仅为canonical post ID，conversationId必填且source字段为空；默认不传kind的旧文字请求序列化/命令指纹不变。最终业务事务核对本人/对方、互回、拉黑、禁言、帖子可见性及C Gate；分享不创建会话或帖内身份绑定。
+- `X-DM-Post-Cards: v1`声明客户端支持新卡片：目录返回可选canShare，待投页允许POST。无该头时目录省略新字段，SQL在分页前过滤POST，旧客户端仍可接收后续文字/图片，不会误ACK卡片。卡片等待支持该版本的客户端补收；能力头不赋予阅读/发送权限。
+- `GET /api/v1/dm/chat/posts/{postId}`只读当前postId/title/channelId/channelName，严格认证、no-store与最终Gate；没有正文/图片/作者或历史快照。前台卡片首次展示、点击、详情返回、恢复前台以及可见时15秒轮询刷新；失败清旧预览，离线显示通用提示，删除/下架显示不可用。
+- 服务端待投仅引用，ACK/删除/撤回清除；本机仍按账号及身份对加密保存引用，正文和标题不进入聊天索引。卡片沿用原撤回窗口、发送失败/未知核对、原次重试、提醒和免打扰；撤回卡片不提供纯文字重新编辑。本人聊天草稿不因分享而清空。
+- 举报授权区间可含POST，证据仅为发送时不可变引用，经原HMAC与服务端kind核对；不固定原帖标题/正文。所有兼容、真实SQL/HTTPS及装机结果以任务记录为准。
