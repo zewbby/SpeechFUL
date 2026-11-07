@@ -6,7 +6,7 @@
 - 授权依据与边界：本次用户完整验收指令。允许隔离 Worktree、一次性 PostgreSQL/Redis、合成账号／数据、独立验收包构建和安装、正常 App／系统权限操作、确定性最小修复及必要本地提交。未获得本任务覆盖日常包／修改日常后端、Push、PR、合并、正式部署的新授权；完成可独立准备后再处理。只清理本任务明确创建且无依赖的资源。
 - 需求确认：以本次指令及下列已确认任务为准；私信运行中提醒，进程结束后再次进入同步并提醒，保留权限和免打扰；iOS 延期；热榜既有30分钟持续负载 FAIL 保留，先调查适用性及交付影响，不自动长测或优化。业务取舍有歧义时使用本机 `grill-with-docs` 及依赖；当前事实调查阶段无新增取舍。
 - 更新日期：2026-11-07。
-- 状态：实现 三项验收修复及新确认的站内私信帖子分享已本地实现；验证 原验收结论FAIL保留，站内分享H/S及生产Dart真实HTTPS通过、APK已构建/装机摘要已核对，完整真机链路由用户另轮跟进中；合并 未合并；独立验收包 新版2026110703已装并独立核对摘要；日常安装 未执行；正式发布 未发布。最新追加状态见文末。
+- 状态：实现 四项确定性验收修复及站内私信分享本地完成；验证 本轮网页/站内分享补验PASS（分层范围见文末），整体交付仍FAIL（热榜及远程CI/合并等未闭环）；合并 未合并；最新独立包2026110705 已安装并实际复验；日常安装 未执行；正式发布 未发布。
 
 ## 目标与范围
 
@@ -121,8 +121,8 @@
 | M04 恢复提醒 | 首页／我的／私信页回前台立即同步；进程结束后重开补收并提醒；杀进程期间无保活要求 | D+R；B真实发信，A前后台／force-stop后正常入口重开 | PASS：D+R 主页面回前台补收；force-stop时无进程/通知0，正常入口冷启补收并提醒；不要求进程终止期间后台保活。 |
 | M05 权限／DND／去重 | 权限关闭／恢复和免打扰仍生效，默认隐藏正文；重复同步不重复提醒；点击进正确身份会话 | D+R；系统通知许可、合成A/B | PASS：D+R 关权限新seq16从未ACK/有body→ACK/清body、手机可读而通知0；恢复权限seq17通知1，清通知再回前台0；免打扰/点击正确会话初始候选D证据保留。最终包权限/去重证据notifications-permission-off-acknowledged.json、notifications-permission-restored.json、notifications-final-dedup.json。 |
 | N01 通知分类／身份 | 回复、点赞、系统分类及身份切换、未读与目标跳转；已删／下架目标诚实显示不可用 | D+R/S；不同身份通知、失效目标 | PASS：D+R UTC修复后全部/回复/赞/系统、身份筛选、未读和跳转正常；B真实删除被通知评论后保留通知，点击原帖显示该评论暂不可读。[已删评论目标](E:/Hnuhole-env/android-v1-acceptance-01/30-deleted-notification-target.png)。下架细分S PASS。 |
-| G01 举报审核 | App提交合成举报→网页审核处理→用户处理通知，权限限制真实生效；证据不随编辑改写 | D+R+网页/S；独立管理员及A/B举报 | PASS（分层证据）：原D App提交/通知/限制按原版本保留；本轮6483ac1真实网页补完证据核对、领取及禁言，非API代替网页操作；新工单由正常API准备。详见文末补验，手机新工单通知回看待设备释放。 |
-| G02 申诉／限制 | 从处理通知申诉；审核通过撤销对应处罚；非管理员与其他账号不越权 | D+R+网页/S；仅合成处罚／申诉 | PASS（分层证据）：原D申诉/结果通知按原版本保留；本轮真实网页原处理人回避、独立管理员复核通过，真实API核对处罚撤销/原帖恢复/通知生成/普通账号403；新工单App通知回看待验，不称全部环节同次D执行。 |
+| G01 举报审核 | App提交合成举报→网页审核处理→用户处理通知，权限限制真实生效；证据不随编辑改写 | D+R+网页/S；独立管理员及A/B举报 | PASS（分层证据）：原D App提交/通知/限制按原版本保留；本轮6483ac1真实网页补完证据核对、领取及禁言，非API代替网页操作；新工单由正常API准备。详见文末补验，新版App新工单通知列表及申诉详情已补验。 |
+| G02 申诉／限制 | 从处理通知申诉；审核通过撤销对应处罚；非管理员与其他账号不越权 | D+R+网页/S；仅合成处罚／申诉 | PASS（分层证据）：原D申诉/结果通知按原版本保留；本轮真实网页原处理人回避、独立管理员复核通过，真实API核对处罚撤销/原帖恢复/通知生成/普通账号403；新版App通知回看已补验；新工单举报/申诉准备为正常API，不称全部环节同次D执行。 |
 | P01 我的分类 | 帖子／评论／点赞／收藏／转帖现有分类刷新分页和返回；失效内容按既有状态 | D+R/H/S；A各分类数据及删除帖 | PASS：D+R 帖子/回复/喜欢/收藏/转帖、身份筛选、删帖/删身份失效内容；列表大分页和缓存返回S/H PASS，D未为每种分类生成多页。 |
 | P02 四语言 | 简／繁／英／日即时且持久；不重置路由、用户内容、输入与阅读位；换号仍保留设备偏好 | D+R/H；多语言／重启／A→B | PASS：D+R 简/繁/英/日切换，繁/英/日分别冷启保留；恢复CN后冷启、A/B切换仍CN；用户正文未翻译。路由/输入边界H PASS。 |
 | P03 外观与安全入口 | 主题字号、窄屏大字、减少动画；黑名单、当前设备／最近替代设备、账号安全入口正确 | D+R/H；系统字体、两身份、黑名单 | PASS（分层）：D Auth浅深主题、320dp+1.6字体设置/语言、系统关闭动态效果后路由；黑名单、当前设备会话/期限、账号安全及Passkey入口均实际到达。已恢复密度408/字号0.9/动画各1.0，[设备最终核对](E:/Hnuhole-env/android-v1-acceptance-01/device-final-reconciled.json)。全页面窄屏组合H PASS，D未逐页穷举。 |
@@ -205,15 +205,15 @@
 
 | 新场景 | 已确认预期 | 环境/数据 | 最新结果 |
 | --- | --- | --- | --- |
-| PC01 入口/选择 | 首页、详情及菜单分享进入站内；仅已互回会话；显示双方身份并确认；取消不发送 | H/S；A/B已有会话及非互回会话 | NOT_RUN（D由用户另轮跟进，本轮未重复操作）；H选择/取消/单次发送PASS，S最终互回/身份校验PASS |
-| PC02 投递/草稿 | 同一稳定命令核对未知，原次重试；发送后留阅读页，真实结果提示；不动聊天草稿 | H/S/真实SQLite；丢响应/重启 | NOT_RUN（D跟进中）；H/S存储、去重、草稿及阅读页保留PASS |
-| PC03 最新卡片 | 只读最新标题/分类，不存正文图片/旧预览；原帖点击、返回及前台恢复刷新 | H/S；编辑及缺失目标 | NOT_RUN（D跟进中）；H更新/离线/占位，S最小字段与权限、生产Dart真实HTTPS探针PASS |
-| PC04 失效与迟到 | 删除/下架不可读；不可用原帖不能再发；切号/失权迟到不展示 | H/S；合成失效帖/挂起响应 | NOT_RUN（D跟进中）；H迟到拒绝/不可用禁选，S隐藏读拒绝及最终Gate PASS |
-| PC05 治理/通知 | 卡片沿原撤回、举报、拉黑、禁言、免打扰/默认隐私规则；无UUID正文预览 | H/S；原引用、伪造引用、同一会话 | NOT_RUN（D跟进中）；S举报/伪造拒绝/拉黑/撤回PASS，既有通知规则及新增通用预览H回归PASS |
+| PC01 入口/选择 | 首页、详情及菜单分享进入站内；仅已互回会话；显示双方身份并确认；取消不发送 | D+R/H/S；A/B已有会话及非互回会话 | PASS：D实际入口、可分享身份对列表、双方身份确认、取消及单次发送；首联/互回/最终权限S边界PASS。 |
+| PC02 投递/草稿 | 同一稳定命令核对未知，原次重试；发送后留阅读页，真实结果提示；不动聊天草稿 | D+R/H/S/真实SQLite；丢响应/重启 | PASS：D真实SENT后丢响应→发送中结束进程→冷启原命令恢复，真实SQL无多发；实际发送后留原阅读页，聊天草稿跨分享/取消/升级保留。完整故障组合H/S，未逐项D注入。 |
+| PC03 最新卡片 | 只读最新标题/分类，不存正文图片/旧预览；原帖点击、返回及前台恢复刷新 | D+R/H/S；编辑及缺失目标 | PASS：D发送方/接收方卡片、原帖点击/返回、回前台读取已编辑标题；离线通用占位且不显示旧标题；仅引用存储/最小字段S及真实Dart PASS。 |
+| PC04 失效与迟到 | 删除/下架不可读；不可用原帖不能再发；切号/失权迟到不展示 | D+R/H/S；合成失效帖/挂起响应 | PASS：D原帖正常删除后通用不可用占位、点击不展开旧内容；下架及切号/失权迟到H/S PASS，未称D逐项故意挂起迟到响应。 |
+| PC05 治理/通知 | 卡片沿原撤回、举报、拉黑、禁言、免打扰/默认隐私规则；无UUID正文预览 | D+R/H/S；原引用、伪造引用、同一会话 | PASS（分层）：D真实撤回、单条POST授权举报与真实C原引用留存、默认通知无正文/ID、点击正确身份对、重复恢复不重复提醒。卡片专属禁言/拉黑/DND完整组合S/H及原D治理证据按各自版本保留，未重复D全部组合。 |
 | PC06 升级/兼容 | C34→35保留文字/图片/回执；旧客户端不解析/ACK卡片，后续文字不被卡片分页阻塞 | S；fresh/upgrade、101引用 | PASS（S）；新旧HTTP能力头与分页、迁移保留和down拒绝实际通过 |
-| PC07 构建/装机 | 独立包正常main、同测试签名、摘要与最终源一致；真机正常入口复验 | Windows/Android arm64；realme目标 | PASS（APK构建/装机摘要核对）；正常App完整业务见PC01–PC05（跟进中） |
+| PC07 构建/装机 | 独立包正常main、同测试签名、摘要与最终源一致；真机正常入口复验 | Windows/Android arm64；realme目标 | PASS：最终baa817e、2026110705正常main/profile/arm64、原测试签名；实际base.apk摘要一致；卡片/目录“分享”、举报选择器/固定预览D04最终真机通过。 |
 
-- 旧L01–L03按用户已确认的新范围改为SKIP，原系统分享/外链证据与自动审批拒绝历史不抹去；旧热榜FAIL、网页审核BLOCKED及其他外部缺口维持。当前仍不具备完整交付条件。
+- 旧L01–L03按用户已确认的新范围改为SKIP，原系统分享/外链证据与自动审批拒绝历史不抹去；该阶段旧热榜FAIL、网页审核BLOCKED及其他外部缺口保留；后续网页已按末节补验关闭，热榜FAIL仍保留。
 
 ## 最新冻结与交付结论（站内私信分享）
 
@@ -254,5 +254,16 @@
 - 另一个聊天已通知停止ADB/UI/装机并释放realme，本轮按用户等待要求再继续，未向其发送消息、未改publictrial包/后端。2026110704真机确认卡片和目录均为“分享”；B实际发回卡片，发送完成留原阅读页，回聊天保留未发送草稿；原帖标题修改后回前台读取最新；只断本任务C的USB映射后显示“联网后查看”且不残留旧标题，恢复直连后恢复；B两分钟内撤回、正常A本人删除该合成原帖后通用“帖子已不可用”、点击不泄露内容均通过。[最终标签](E:/Hnuhole-env/android-v1-acceptance-01/41-share-label-current-card.png)、[发送后原页](E:/Hnuhole-env/android-v1-acceptance-01/42-share-returns-reading.png)、[离线](E:/Hnuhole-env/android-v1-acceptance-01/43-card-offline-placeholder.png)、[撤回](E:/Hnuhole-env/android-v1-acceptance-01/44-card-recalled.png)、[删除](E:/Hnuhole-env/android-v1-acceptance-01/45-card-deleted-placeholder.png)。
 - 新WebOwner正常App密码登录后，实际收到处理/撤销/申诉结果三条系统通知，点击读取“申诉通过”和处罚已撤销详情。[新通知](E:/Hnuhole-env/android-v1-acceptance-01/46-web-notifications-native.png)、[申诉详情](E:/Hnuhole-env/android-v1-acceptance-01/47-web-appeal-native.png)。新工单举报及申诉的准备仍为正常API，不改写成App提交证据。
 - 卡片真实丢回包：仅A、指定POST原帖引用、单个PUT经严格CA代理送到真实C并SENT后丢响应；App仍发送中时结束进程。恢复直连、正常冷启后原命令/同messageId恢复已发送；B正常登录补收、默认通知仅SpeechFUL/你有一条新私信、点击进入B身份与A会话；SQL确认该引用ACK后body=NULL，原会话POST总数始终3（含两条先前手动发送，一条已撤回），未因未知结果多发。[丢响应](E:/Hnuhole-env/android-v1-acceptance-01/card-unknown-before-restart.json)、[冷启核对](E:/Hnuhole-env/android-v1-acceptance-01/card-unknown-after-restart.json)、[接收ACK](E:/Hnuhole-env/android-v1-acceptance-01/card-unknown-recipient-ack.json)、[恢复界面](E:/Hnuhole-env/android-v1-acceptance-01/49-card-unknown-recovered.png)、[默认通知](E:/Hnuhole-env/android-v1-acceptance-01/notifications-card-restored-received.json)、[通知目标](E:/Hnuhole-env/android-v1-acceptance-01/50-card-notification-target.png)。代理已停、故障规则终态committed_response_dropped、USB恢复C55183/V60331直连、Gate保持OPEN/1。
-- **D04/P2（本轮新发现，已本地修复待统一装机）**：卡片举报的聊天区间选择器和固定证据预览直接显示POST引用UUID，撤回卡片在选择器误标为图片。最小修复只按POST显示已确认的“分享”、按撤回显示既有“消息已撤回”；不改变固定snapshot/签名/原引用/提交负载，不读取或保存旧标题。新增Widget回归在旧实现实际FAIL（引用UUID被渲染），修复后analyze零问题、53 PASS/1专用真实TLS/PG fixture SKIP；[失败](E:/Hnuhole-env/android-v1-acceptance-01/card-report-preview-before.log)、[修复后](E:/Hnuhole-env/android-v1-acceptance-01/card-report-after.log)、[analyze](E:/Hnuhole-env/android-v1-acceptance-01/card-report-analyze.log)。展示修复不以此H测试冒充真实网络。
+- **D04/P2（本轮新发现，首次修复后待统一包；最终复验见末节）**：卡片举报的聊天区间选择器和固定证据预览直接显示POST引用UUID，撤回卡片在选择器误标为图片。最小修复只按POST显示已确认的“分享”、按撤回显示既有“消息已撤回”；不改变固定snapshot/签名/原引用/提交负载，不读取或保存旧标题。新增Widget回归在旧实现实际FAIL（引用UUID被渲染），修复后analyze零问题、53 PASS/1专用真实TLS/PG fixture SKIP；[失败](E:/Hnuhole-env/android-v1-acceptance-01/card-report-preview-before.log)、[修复后](E:/Hnuhole-env/android-v1-acceptance-01/card-report-after.log)、[analyze](E:/Hnuhole-env/android-v1-acceptance-01/card-report-analyze.log)。展示修复不以此H测试冒充真实网络；现有direct-messages CI已包含dm_governance_test.dart，最新远程运行仍NOT_RUN。
 - 真机已用B选取并明确授权仅第21条真实收到的POST卡片，在正常App提交举报；真实C中恰一工单PENDING，仍保存原POST引用，未对该工单作处罚。[真实提交核对](E:/Hnuhole-env/android-v1-acceptance-01/card-report-native.json)。提交发生于2026110704，适用于其未改动的构造/提交协议；D04新展示需最终统一包另验，不将旧显示FAIL抹去。
+
+### 本次第3/4项最终交付
+
+- **第3项PASS：实际网页审核/独立申诉复核已补齐**，新通知在正常App读回。原处理人回避、不同管理员复核、普通账号403、一次且仅一次的一天处罚及撤销、原帖恢复均有真实服务/只读SQL核对；没有绕过浏览器警告，网页/API/真机证据分别归属明确。
+- **第4项按用户新确认的站内卡片范围PASS（分层）**：PC01–PC07结果以上述最新矩阵为准。外部系统分享/HTTPS唤起仍SKIP，不把延期称为修复通过。D完成入口/确认/取消/双向发送/冷启/未知原命令/草稿/最新标题/离线/删除/撤回/举报/默认通知及点击；其余权限竞态、全部DND/拉黑/禁言组合和旧客户端升级由已列H/S/生产Dart证据覆盖，未伪称每个子场景同次真机。
+- **D04最终真机PASS**：2026110705的选择器第19/21条显示“分享”、第20条显示“消息已撤回”，固定证据预览只显示“分享”、没有UUID；取消新预览未重复提交举报。[选择器](E:/Hnuhole-env/android-v1-acceptance-01/52-card-report-picker-fixed.png)、[固定证据预览](E:/Hnuhole-env/android-v1-acceptance-01/53-card-report-preview-fixed.png)、[最终聊天](E:/Hnuhole-env/android-v1-acceptance-01/54-final-share-card.png)。原D04 FAIL截图/测试仍保留历史；没有为隐藏引用而改写举报负载。
+- 最终App代码/构建源 **`baa817e4083293a9fc0ecfb294ff58b573cd0909`**；2026110705、`0.1.0-android-v1-card-report`、正常main/profile/arm64；APK **59,754,305字节**，SHA256 **`f3d3d4b6566c9b360922cf5072fb25fb7de2f5a8bae74ea95114bedfdea9cb55`**。同独立包、同测试签名及defines，realme Android14用户0实际安装摘要一致。[构建](E:/Hnuhole-env/android-v1-acceptance-01/android-card-report-build.log)、[签名](E:/Hnuhole-env/android-v1-acceptance-01/android-card-report-signature.log)、[包](E:/Hnuhole-env/android-v1-acceptance-01/android-card-report-receipt.json)、[设备](E:/Hnuhole-env/android-v1-acceptance-01/device-card-report-receipt.json)。
+- C仍 **6483ac119c97ce17c3f4f360c68bc229cccef066**、二进制3e12436c，V仍main6b722f0、C35/V7；当前C配置SHA256 **`feb2241d75dcd266c748b57e339c0e49c04203cda7b4723abcb82d63b4ccc409`**。相对该C构建只改Go测试，最新App与实际构建产品树一致，[源码等价回执](E:/Hnuhole-env/android-v1-acceptance-01/followup-source-equivalence.json)。53项针对回归/1专用真实fixture SKIP及零analyze适用于D04源；新包未重跑全量1173项，不把旧完整运行提升为最新源全量。
+- 最终独立实验室严格TLS健康；C/V Gate均OPEN/1，各RECOVER审计仍只有初始化1次，角色仍无kind/sender UPDATE或messages DELETE；POST 19/20/21均已ACK清body、20已撤回，原命令回执保留，未多发。故障代理停止、C/V两条任务USB映射直连，实验室保留供已装包使用。[最终服务核对](E:/Hnuhole-env/android-v1-acceptance-01/followup-final-service.json)、[最后重复恢复通知0](E:/Hnuhole-env/android-v1-acceptance-01/notifications-card-final-dedup.json)。旧lab-final-check历史回执已恢复原摘要，新故障收尾另存lab-followup-final-check，不覆盖旧版本事实。
+- 手机操作已结束，回到系统首页；未修改publictrial/日常包及对应后端，未重启Windows/WSL。合成新工单2已完成处罚撤销；卡片举报工单仅PENDING、未处罚，均非正式用户。截图/日志/私有运行材料不提交，本文本机证据链接及摘要见[本次证据清单](E:/Hnuhole-env/android-v1-acceptance-01/followup-34-evidence-manifest.json)。
+- **整体首版仍不具备交付条件**：本次已关闭网页缺口及新范围站内分享待验，不消除Q06已有持续负载FAIL，也不替代最新本地修复的远程产品CI/审查/合并与正式发布。其他原生Passkey、旧Android权限分支、第二物理设备及iOS原延期/缺口维持；公网试用、真实邮件/电脑恢复另按PUBLIC-TRIAL-ACCESS-01其独立候选记录，不以本实验室替代。实现本地完成；本项验证完成（明确分层）；未Push/PR/合并；独立安装完成；日常安装未执行；正式发布未执行。
