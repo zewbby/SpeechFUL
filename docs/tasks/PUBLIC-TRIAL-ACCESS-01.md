@@ -7,7 +7,7 @@
 - 范围：独立公网试用环境及接入准备；不改日常后端、正式数据和验收实验室；不购买套餐/域名、不开启付费续费；不Push/PR/合并/正式发布。外部分享已取消，公网App Links不再作为这个接入目标。
 - 需求确认：公网地址是App连接业务/认证后端的地址；现有C/V独立HTTPS origin及所有认证/Gate保留。来源`apps/mobile/lib/src/auth/http_auth_api.dart`与`services/api/internal/authprivacyruntime/config.go`；不为省一个地址而放宽隔离。域名固定不等于永久免费/无限流量。
 - 更新日期：2026-11-07。
-- 状态（以下为当前权威状态，后文早期调查按历史快照阅读）：两个公网路由已启用；独立测试后端和隧道运行中；手机 HTTPS 健康检查 PASS；合成账号公网注册和发帖读回 PASS；真实邮箱 BLOCKED；正式发布未发布。
+- 状态（以下及文末复验为当前权威状态，早期调查按历史快照阅读）：公网最小链路 PASS；真实校园邮箱投递 PASS；首页发布自动显示 PASS；登录 Windows 后自动启动已配置，任务资源冷启动/故障恢复 PASS；整机重启 NOT_RUN（用户明确稍后）；合并未执行；独立试用包已安装；日常包未覆盖；正式发布未发布。
 
 ## 目标与范围
 
@@ -81,3 +81,34 @@
 
 - 手机经正常 App 入口及两个公网 HTTPS origin，使用隔离 Mailpit 接收验证码，完成合成账号注册、恢复码确认、首次身份设置和首页空态；发布一条合成文字帖后，在“我的”帖子中读回 PASS。发布后分类首页仍显示空态，尚未排查刷新或可见条件，标记 NOT_RUN，不能认定首页同步通过。脱敏 UI 证据位于 `E:/Hnuhole-env/public-trial-access-01/ui-dumps`；合成凭据独立私有保存，不提交。
 - 该最小链路不替代全场景回归、独立产品 CI、真实邮箱投递、持续服务和重启恢复验证；也不代表日常包已覆盖安装、合并或正式发布。
+
+
+## 三项跟进与最终复验（2026-11-07）
+
+- 用户明确要求解决真实验证码、电脑重启自动恢复、首页帖子显示，并报告未通过项；维持同一常规任务分支，产品二进制/APK均未改动，不重复构建。当前运行配置和部署脚本变更以[复验回执](E:/Hnuhole-env/public-trial-access-01/followup-validation.json)中摘要绑定。
+- 用户随后明确暂不整机重启，保留待验；并授权向“执行 Android 首版完整验收 (3)”通知手机释放。已向该会话发送通知，之后停止所有 ADB/UI/截图/装机操作。本轮不再占用设备，也未重启 Windows、WSL 或其他环境。
+
+| 场景 | 结果 | 证据及边界 |
+| --- | --- | --- |
+| 真实校园邮箱投递 | PASS | 复用此前已配置的 QQ SMTP，严格 TLS/账号认证通过；独立 V 仅复制任务私有凭据，文件 0600，日常配置不变。正常手机 App 经公网发起一次 OTP，任务 outbox=SENT，用户回答“已收到验证码”。真实邮箱的确认码提交/开户 NOT_RUN；未向聊天输出验证码/发件凭据，也未自动重发未知结果。 |
+| 首页已有列表发布 | PASS | 合成账号发布 `AV1 pub2`，无需手动刷新自动显示；已有帖子仍可读。 |
+| 空分类发布首帖 | PASS | 科技分类先确认空态，再正常发布 `AV1 first`，约 7.8 秒自动进入首页，无手动刷新。[机器回执](E:/Hnuhole-env/public-trial-access-01/first-post-autorefresh.json)、[脱敏 UI 序列](E:/Hnuhole-env/public-trial-access-01/ui-dumps)。初次短时空态未复现为持续缺陷，保留原观察；没有为此修改产品语义。 |
+| 持久自动启动 | PASS（配置/当前启动） | Windows 任务 `SpeechFUL-PublicTrial-Access-01` 使用当前用户交互登录触发，不保存 Windows 密码。隐藏监控持有任务专属 WSL 前台 keepalive，启动两个已 enable 的持久 systemd 单元、检查并重启本任务连接器。使用互斥锁和 PID/启动时间/路径核对，不依赖另一验收任务维持 WSL。该方案在 Windows 用户登录后启动，登录前服务不承诺可用。 |
+| 服务/连接器退出后恢复 | PASS | 仅停止任务服务及已校验身份的连接器，监控自动拉起；新的连接器 PID 已核对。未停止其他会话资源。 |
+| 修正停机顺序后完整冷启动 | PASS | 连续两轮停止任务 API/watch/Redis/代理及两个 PostgreSQL，再由已注册监控自动启动；健康入口均 200，C/V Gate 保持 OPEN，代次分别 1/2。[最终健康回执](E:/Hnuhole-env/public-trial-access-01/runtime-health.json)、[当前监控回执](E:/Hnuhole-env/public-trial-access-01/resume-status.json)。该结果不等价 Windows/WSL 整机重启。 |
+| 真实 Windows 重启 | NOT_RUN | 用户明确回答“稍后重启，先保留整机待验”。不能记 PASS；重启后须登录相同 Windows 用户，再核对任务回执、两个公网入口和 App 会话/数据。 |
+| 最终公网 HTTPS | PASS（PC 探针） | 两个域名 `/health/ready` 均 200，使用公共 DoH 实际 A 记录固定连接地址并保留正常域名/证书验证。本机默认假 IP DNS/代理路径曾出现 TLS/403，未修改系统网络配置；手机公网业务证据为上文版本范围，最终电脑探针不冒充新的真机业务回归。 |
+| 部署配置校验 | PASS | Python AST、PowerShell parser、`systemd-analyze verify`；不把这些检查当作 Go/Flutter 产品 CI。 |
+
+### 本轮恢复失败、原因与处理
+
+- 保留真实 FAIL：先前 systemd 默认 `KillMode=control-group` 会同时发送终止信号给宿主、API/watch 和 PostgreSQL。最后一轮全资源停止时，V 外部锚高水位领先数据库约 62 毫秒；安全 Gate 正常检测 `SNAPSHOT_OR_ANCHOR_MISMATCH` 并冻结。早先多次人工启停也触发 `start-limit-hit`，只清除任务服务的 systemd 启动计数，未借此操作认证 Gate。
+- 最小运维修复：持久单元改 `KillMode=mixed`，宿主先等待证据维护进程退出，再停 API、Mailpit/Redis，最后使用原任务 PG 路径和 PID 归属校验正常停止两个库。重启时不对复用 PID 发信号；保留 boot ID，丢弃已失效的进程回执。普通路径仍只 resume/watch；签名/外部锚/Gate 最终检查未变。
+- 在独立 V 私有数据库和锚备份后，用户明确回答“允许独立认证后端签名恢复”。只执行一次正常签名 V recovery，代次 1→2；C 保持 1。既有未完成 V 验证失效，不修改原库/代次，不删除失败记录，不在启动器加入自动 recover。随后两轮同门槛冷启动成功，未再冻结。
+- 运维脚本位于 `E:/Hnuhole-env/public-trial-access-01/`，只用于本任务资源；可审阅的[监控](E:/Hnuhole-env/public-trial-access-01/resume-public-trial.ps1)、[宿主](E:/Hnuhole-env/public-trial-access-01/host-lab.py)、[持久单元安装器](E:/Hnuhole-env/public-trial-access-01/install-services.py)及摘要见复验回执。私有配置、日志、数据库备份和凭据不提交 Git。
+
+### 剩余未通过或待验
+
+- 本任务：整机重启 NOT_RUN（用户延期）；真实校园验证码确认/真实开户 NOT_RUN，仅实际投递与收信 PASS；登录前启动、掉电/强杀后的安全恢复、广泛外网和长期在线运行未验。系统安全检测到不一致时仍应冻结，不能承诺异常断电后必定自动解冻。
+- Android 完整候选：沿用[原唯一记录](E:/Hnuhole-env/source/SpeechFUL-android-v1-acceptance-01/docs/tasks/ANDROID-V1-ACCEPTANCE-01.md)的适用版本和结论。热榜旧 30 分钟持续负载 FAIL（窗口搜索 P95 +77.8335%、2 次 503、40 次 capacity drop）未修复、未重测；本次接入不关闭它。站内卡片和网页治理完整真机/网页复验由“执行 Android 首版完整验收 (3)”继续，结果以其后续证据为准，不抢写其记录。
+- 修复候选远程产品 CI 未运行，未 Push/PR/合并；仍为独立 profile 试用包与独立后端，未覆盖日常包/数据、未正式发布。外部分享及链接关联按用户取消范围，不重新列为首版接入阻断；iOS 保留延期。
