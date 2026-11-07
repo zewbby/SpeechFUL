@@ -4,7 +4,6 @@ import 'app_language.dart';
 const messagingNotificationTranslations = <String, UiTranslation>{
   '联网后查看': ('連線後查看', 'Connect to view', '接続後に表示'),
   '帖子已不可用': ('貼文已無法查看', 'Post unavailable', '投稿を表示できません'),
-  '帖子分享': ('貼文分享', 'Shared post', '共有された投稿'),
   '分享至私信': ('分享至私訊', 'Share in a message', 'メッセージで共有'),
   '发送帖子卡片？': ('傳送貼文卡片？', 'Send this post?', 'この投稿を送信しますか？'),
   '以 {self} 发送给 {peer}': (

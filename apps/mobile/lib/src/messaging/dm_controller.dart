@@ -729,7 +729,7 @@ class DmController extends ChangeNotifier {
             : last['messageType'] == 'IMAGE'
             ? '[图片]'
             : last['messageType'] == 'POST'
-            ? '帖子分享'
+            ? '分享'
             : last['outgoing'] == true
             ? (last['intent'] as Map)['text']
             : last['text'];

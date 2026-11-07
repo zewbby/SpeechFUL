@@ -235,3 +235,13 @@
 - 跟进环境已有配置增量：[网页挂载回执](E:/Hnuhole-env/android-v1-acceptance-01/web-followup-environment.json)将同源adminDirectory启用，C二进制仍为上述6483ac1/3e12436c，当前C配置SHA256变为 **`feb2241d75dcd266c748b57e339c0e49c04203cda7b4723abcb82d63b4ccc409`**。本Session只读重算实际配置摘要及四个静态资产摘要，均与该回执、冻结源码一致；未覆盖该轮配置。原3263ffe摘要只适用于先前构建/首轮联测。网页处理/申诉等完整UI结论待该轮后续证据，HTTP200挂载不等于网页业务PASS。
 - 模式仍为常规，本Session未派出子Agent；上述另轮工作由用户在另一聊天直接发起。本轮仅归档自己执行或独立读回的事实，完整任务状态继续由本唯一记录维护，不创建平行状态文档。
 - [本轮证据摘要清单](E:/Hnuhole-env/android-v1-acceptance-01/cards-evidence-manifest.json)校验所有本文本机链接存在并记录摘要；阶段/版本按本文明确边界使用，不将旧日志提升为新版本结果。[装机及跟进配置独立读回](E:/Hnuhole-env/android-v1-acceptance-01/cards-followup-readback.json)确认本轮记录的版本组合。
+
+## 网页审核及站内分享补验（当前跟进，2026-11-07）
+
+- 用户本轮要求继续原清单第3/4项，随后明确选择“继续站内卡片验收”，不恢复已延期的外链范围；手机已重新连接。另明确要求手机上“帖子分享”改为至多“分享”，属确定文案调整，无剩余产品取舍。常规模式，不委派。
+- 核对本任务分支已到`c6f9789`，含站内卡片实现6483ac1与C35迁移测试修正481fcd9；保留这些其他轮次的已提交/未提交工作，不重建或回退任务Worktree。最终被测C仍6483ac1、C35/V7，当前配置增量见上述网页挂载回执。
+- **网页补验PASS（真实浏览器+真实服务）**：内置浏览器实际加载同源/admin；审核员688348登录→核对工单2证据→领取→禁言一次性合成账号1天；原处理人打开申诉明确被回避；独立管理员563089登录→接受申诉、对应处罚撤销；两账号正常退出。新合成账号、帖子、举报和申诉由正常严格CA HTTPS API准备，未直接SQL修改业务事实。用户先前误开的URL包含后续中文，改为准确/admin后可达；实验室原缺adminDirectory亦已显式配置，不改浏览器证书检查或Gate。
+- [网页处理](E:/Hnuhole-env/android-v1-acceptance-01/36-web-case-ended.png)、[原处理人回避](E:/Hnuhole-env/android-v1-acceptance-01/37-web-original-actor-recusal.png)、[独立申诉通过](E:/Hnuhole-env/android-v1-acceptance-01/38-web-appeal-accepted.png)、[真实服务最终核对](E:/Hnuhole-env/android-v1-acceptance-01/web-followup-result.json)：处罚已撤销、申诉ACCEPTED、原帖恢复可见、普通账号审核入口403；用户有处理/撤销/申诉结果通知。此处不将API准备冒充新工单的App点击；旧App举报/申诉证据仍按原版本使用，新版App通知回看继续。
+- 2026110703真机已验证：正常分享入口、双方身份确认、取消回选择器；A实际发送POST，B普通登录并冷启补收后显示最新卡片、正确原帖打开/返回；原A私人备注未串给B。B带未发送聊天草稿进入卡片/分享取消后，返回仍保留原草稿；A通过正常本人编辑命令改题为AV1 card edited，B回前台实际读到新标题。后续离线/删除/治理及最终包复验继续。
+- 手机被另一publictrial任务多次抢前台，已暂停依赖点击并加前台包名检查，阻止向其他包输入；uiautomator137及草稿检查无目标控件均为资源冲突，不记产品缺陷。用户已授权本轮独占，等待实际停止冲突；40-card-current-title.png在冲突窗口捕获，不作为本链证据。
+- 文案最小调整：卡片标题、会话列表/本地预览和开启正文预览时的通知统一复用既有四语言“分享”翻译，移除不用的“帖子分享”翻译键；不改变引用/发送/权限/通知隐私协议。analyze零问题、现有卡片/分享入口/通知导航/多语言共30项PASS：[analyze](E:/Hnuhole-env/android-v1-acceptance-01/share-label-analyze.log)、[测试](E:/Hnuhole-env/android-v1-acceptance-01/share-label-tests.log)。统一新包构建及装机回执待后续补录，未提前宣称手机文案已更新。

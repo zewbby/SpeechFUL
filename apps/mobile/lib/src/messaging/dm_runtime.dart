@@ -451,7 +451,7 @@ class _DmInboxRouteState extends State<DmInboxRoute> {
                 preview: switch (v['localPreviewKind']) {
                   'recalled' => hhText(context, '消息已撤回'),
                   'image' => hhText(context, '[图片]'),
-                  'post' => hhText(context, '帖子分享'),
+                  'post' => hhText(context, '分享'),
                   _ =>
                     v['localPreview'] as String? ??
                         (v['waiting'] == true ? hhText(context, '等待对方回复') : ''),

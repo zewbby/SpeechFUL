@@ -222,7 +222,7 @@ class DmNotifications {
               ? (item['kind'] == 'IMAGE'
                     ? translateUi('[图片]', _language)
                     : item['kind'] == 'POST'
-                    ? translateUi('帖子分享', _language)
+                    ? translateUi('分享', _language)
                     : item['text'])
               : '',
         });

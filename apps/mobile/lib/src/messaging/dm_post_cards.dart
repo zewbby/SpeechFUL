@@ -141,7 +141,7 @@ class _DmPostCardBubbleState extends State<DmPostCardBubble>
               children: [
                 const Icon(Icons.article_outlined, size: 20),
                 const SizedBox(width: 6),
-                Text(hhText(context, '帖子分享')),
+                Text(hhText(context, '分享')),
               ],
             ),
             const SizedBox(height: 8),
