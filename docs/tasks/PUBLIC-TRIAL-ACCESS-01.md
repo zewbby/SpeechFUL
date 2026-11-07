@@ -51,3 +51,10 @@
 - 独立环境初始构建/PG C34 V7迁移/严格TLS就绪实际PASS，`lab-receipt.json`在任务外部目录。后续检查发现CLI会话结束后其子进程未持续运行，当前health FAIL；保留原始结果，先修正进程托管再复验，不将初始化PASS视为可日常运行。数据库/密钥仍为独立合成资源，未改日常后端和验收实验室。
 - Windows/ngrok/花生壳客户端均未安装为常驻服务；花生壳Linux包仅下载并展开检查，未运行安装脚本；Nginx仅从Ubuntu官方仓库下载/解包，未创建全局服务。已下载工具不代表公网部署。
 - 下一步：Cloudflare登录→核对现有zone/证书→准备严格TLS上游和持久进程→审阅具体公开路由→公网实际业务测试→完成站内分享调整后构建配套包。域名用途确认不等于正式上线或日常用户数据迁移已完成。
+
+### 自有域名接入准备回报
+
+- 用户已亲自登录Cloudflare；实际管理页确认speechful.dpdns.org在当前账号、Full DNS/Free plan、域名已激活；隧道列表0条。
+- 已准备名为speechful-pc的隧道创建表单，未提交。创建持续连接凭据的当次确认已提出，待用户回答；尚无DNS/公网路由改动。
+- [公网路由草稿](E:/Hnuhole-env/public-trial-access-01/cloudflare-route-draft.json)已保存，不含任何令牌。后续主域社区/auth子域认证，数据库、Redis和内部mTLS不公开。
+- 本地托管修正：任务专用隐藏WSL宿主持续持有会话，原PID身份检查后重启任务进程；仅对既有OPEN Gate执行resume/watch，不再次recover。启动后独立第二次health PASS，未修改日常或旧验收实例。当前尚非系统开机自启服务，电脑重启后恢复流程仍待验证。
