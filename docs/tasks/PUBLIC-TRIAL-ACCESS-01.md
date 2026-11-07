@@ -7,7 +7,7 @@
 - 范围：独立公网试用环境及接入准备；不改日常后端、正式数据和验收实验室；不购买套餐/域名、不开启付费续费；本轮用户明确“先把已经做了的提交合并”，授权本任务 Push/PR/合并；不正式发布。外部分享已取消，公网App Links不再作为这个接入目标。
 - 需求确认：公网地址是App连接业务/认证后端的地址；现有C/V独立HTTPS origin及所有认证/Gate保留。来源`apps/mobile/lib/src/auth/http_auth_api.dart`与`services/api/internal/authprivacyruntime/config.go`；不为省一个地址而放宽隔离。域名固定不等于永久免费/无限流量。
 - 更新日期：2026-11-07。
-- 状态（以下及文末复验为当前权威状态，早期调查按历史快照阅读）：公网最小链路 PASS；真实校园邮箱投递 PASS；首页发布自动显示 PASS；登录 Windows 后自动启动已配置，任务资源冷启动/故障恢复 PASS；整机重启首轮 FAIL 保留，修复后第二次真实重启自动恢复 PASS（Windows 登录后）；合并未执行；独立试用包已安装；日常包未覆盖；正式发布未发布。
+- 状态（以下及文末复验为当前权威状态，早期调查按历史快照阅读）：公网最小链路 PASS；真实校园邮箱投递 PASS；首页发布自动显示 PASS；登录 Windows 后自动启动已配置，任务资源冷启动/故障恢复 PASS；整机重启首轮 FAIL 保留，修复后第二次真实重启自动恢复 PASS（Windows 登录后）；合并状态以 [PR #114](https://github.com/zewbby/SpeechFUL/pull/114) 实时结果为准；独立试用包已安装；日常包未覆盖；正式发布未发布。
 
 ## 目标与范围
 
@@ -143,3 +143,5 @@
 - 本地差异/凭据检查、协作检查通过；PR 与远程检查状态随本轮核对更新。首版产品整体热榜 FAIL 和其他未完成验收不因本次记录合并关闭。
 
 - PR：[SpeechFUL #114](https://github.com/zewbby/SpeechFUL/pull/114)。提交后 main 已合并另一任务 #113（314162a），已合入最新主线并保留近期工作中双方条目；相对当前 main 仍只修改本任务记录和索引。该同步不修改运行环境，不将另一任务的功能或验收记为本 PR 实现。适用远程文档 CI 待当前 head 核对。
+
+- 文档检查回执：[Collaboration](https://github.com/zewbby/SpeechFUL/actions/runs/42339207984) 在归档前 head 3f8eec4 PASS；本地 19 项协作回归 PASS。最终合并状态与最新 head 检查以 [PR #114](https://github.com/zewbby/SpeechFUL/pull/114) 为实时依据。无 GitHub 成员批准记录，不将维护者授权合并或本地复核表述为独立成员批准。
