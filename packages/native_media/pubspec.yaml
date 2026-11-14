@@ -1,0 +1,18 @@
+name: hnuhole_native_media
+description: Original iOS photo selection and lossless Photos import.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.4 <4.0.0'
+  flutter: '>=3.47.5'
+dependencies:
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: NativeMediaPlugin

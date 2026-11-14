@@ -1,0 +1,924 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:hnuhole_image_viewer/image_viewer.dart';
+
+import '../auth/auth_models.dart';
+import '../auth/auth_session_controller.dart';
+import '../auth/auth_store.dart';
+import '../identity/active_identity_controller.dart';
+import '../identity/identity_api.dart';
+import '../identity/identity_management_controller.dart';
+import '../localization/app_localizations.dart';
+import '../posts/post_photo_picker.dart';
+import '../reports/report_screens.dart';
+import 'direct_message_inbox.dart';
+import 'direct_message_models.dart';
+import 'direct_message_screen.dart';
+import 'dm_controller.dart';
+import 'dm_governance_ui.dart';
+import 'dm_protocol.dart';
+import 'messaging_ui_text.dart';
+
+part 'dm_chat_ui.dart';
+
+enum DmIdentityStatus { loading, ready, empty, failed, unavailable }
+
+class DmRuntime extends ChangeNotifier {
+  DmRuntime({
+    required this.controller,
+    required this.sessions,
+    required this.authStore,
+    required this.identityApi,
+    this.openPost,
+    this.identityChanges,
+  }) {
+    sessions.addListener(_changed);
+    authStore.addListener(_changed);
+    identityChanges?.addListener(_identityChanged);
+    _changed();
+  }
+  final DmController controller;
+  final AuthSessionController sessions;
+  final AuthStore authStore;
+  final IdentityApi identityApi;
+  final IdentityManagementController? identityChanges;
+  final FutureOr<void> Function(BuildContext, String)? openPost;
+  List<DmIdentity> identities = [];
+  DmIdentityStatus identityStatus = DmIdentityStatus.unavailable;
+  String? _token;
+  int _authority = -1, _epoch = 0;
+  bool _disposed = false;
+  final _closedAccounts = <String>{};
+  Timer? _retry;
+  bool _identityRefreshQueued = false;
+  void _identityChanged() {
+    final management = identityChanges;
+    if (_disposed || management == null) return;
+    final directory = management.directory;
+    // Loading/discarding a management view does not revoke a confirmed DM
+    // identity. A durable mutation intent still invalidates immediately, even
+    // when its result is unknown or the management view has been cancelled.
+    if (!management.hasPending &&
+        (directory == null ||
+            (identityStatus == DmIdentityStatus.ready ||
+                    identityStatus == DmIdentityStatus.empty) &&
+                directory.identities.length == identities.length &&
+                directory.identities.every(
+                  (item) => identities.any(
+                    (current) =>
+                        current.id == item.id &&
+                        current.name == item.nickname &&
+                        current.avatar == item.avatar,
+                  ),
+                ))) {
+      return;
+    }
+    _refreshIdentities();
+  }
+
+  void _refreshIdentities() {
+    // Management screens notify from init/dispose. Invalidate access now, but
+    // coalesce their UI refresh after the current widget build has finished.
+    if (_disposed) return;
+    _epoch++;
+    _authority = -1;
+    if (_identityRefreshQueued) return;
+    _identityRefreshQueued = true;
+    scheduleMicrotask(() {
+      _identityRefreshQueued = false;
+      _changed();
+    });
+  }
+
+  void _changed() {
+    if (_disposed) return;
+    final record = authStore.current?.session;
+    final token =
+        record != null &&
+            !_closedAccounts.contains(record.accountId) &&
+            sessions.isCurrentToken(record.token)
+        ? record.token
+        : null;
+    if (token == _token && sessions.authorityVersion == _authority) return;
+    _token = token;
+    _authority = sessions.authorityVersion;
+    final epoch = ++_epoch;
+    _retry?.cancel();
+    identities = [];
+    identityStatus = token == null
+        ? DmIdentityStatus.unavailable
+        : DmIdentityStatus.loading;
+    notifyListeners();
+    unawaited(() async {
+      try {
+        await controller.detach();
+        if (token == null || record == null || !_current(epoch, token)) return;
+        final directory = await identityApi.identities(token);
+        if (!_current(epoch, token) ||
+            !await sessions.persistSessionMetadata(
+              token,
+              directory.sessionExpiresAt,
+              () => _current(epoch, token),
+            ) ||
+            !_current(epoch, token)) {
+          return;
+        }
+        identities = directory.identities
+            .map(
+              (i) => DmIdentity(id: i.id, name: i.nickname, avatar: i.avatar),
+            )
+            .toList();
+        await controller.bind(
+          account: record.accountId,
+          token: token,
+          identities: identities.map((i) => i.id).toList(),
+          isCurrent: () =>
+              !_disposed && epoch == _epoch && sessions.isCurrentToken(token),
+        );
+        if (!_current(epoch, token)) return;
+        identityStatus = !controller.available
+            ? DmIdentityStatus.failed
+            : identities.isEmpty
+            ? DmIdentityStatus.empty
+            : DmIdentityStatus.ready;
+        notifyListeners();
+      } catch (failure) {
+        if (token != null && _current(epoch, token)) {
+          if (failure is AuthFailure && failure.unauthorized) {
+            sessions.sessionUnauthorized(token, failure.code);
+            return;
+          }
+          if (failure is AuthFailure &&
+              failure.kind == AuthFailureKind.unavailable) {
+            sessions.sessionUnavailable(token);
+            return;
+          }
+          identities = [];
+          identityStatus = DmIdentityStatus.failed;
+          notifyListeners();
+          _retry = Timer(const Duration(seconds: 4), _refreshIdentities);
+        }
+      }
+    }());
+  }
+
+  bool _current(int epoch, String token) =>
+      !_disposed && epoch == _epoch && sessions.isCurrentToken(token);
+
+  /// Recheck the directory in a fresh window; never reuse another session's data.
+  void retryIdentities() {
+    if (_disposed || identityStatus == DmIdentityStatus.loading) return;
+    if (!sessions.isAuthenticated) {
+      unawaited(sessions.retry());
+    } else {
+      _refreshIdentities();
+    }
+  }
+
+  /// The auth flow owns the CLOSED decision; ordinary logout/replacement only
+  /// detaches and leaves encrypted local history intact.
+  Future<void> purgeClosedAccount(String accountId) async {
+    _closedAccounts.add(accountId);
+    if (authStore.current?.session?.accountId == accountId ||
+        controller.accountId == accountId) {
+      _epoch++;
+      _token = null;
+      _authority = -1;
+      _retry?.cancel();
+      identities = [];
+      identityStatus = DmIdentityStatus.unavailable;
+      if (!_disposed) notifyListeners();
+    }
+    await controller.purgeClosedAccount(accountId);
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _epoch++;
+    _retry?.cancel();
+    sessions.removeListener(_changed);
+    authStore.removeListener(_changed);
+    identityChanges?.removeListener(_identityChanged);
+    controller.dispose();
+    super.dispose();
+  }
+}
+
+class DmScope extends InheritedWidget {
+  const DmScope({super.key, required this.runtime, required super.child});
+  final DmRuntime? runtime;
+  static DmRuntime? of(BuildContext c) =>
+      c.dependOnInheritedWidgetOfExactType<DmScope>()?.runtime;
+  @override
+  bool updateShouldNotify(DmScope oldWidget) => runtime != oldWidget.runtime;
+  static Future<void> contact(
+    BuildContext context,
+    String post, {
+    String comment = '',
+  }) async {
+    final r = of(context);
+    if (r == null || !r.controller.available) return;
+    final scope = r.controller.scope;
+    try {
+      final target = await r.controller.contact(post, comment);
+      if (!context.mounted ||
+          scope != r.controller.scope ||
+          target['self'] == true) {
+        return;
+      }
+      final bound = target['boundIdentityId'] as String;
+      DmIdentity? own;
+      if (bound.isNotEmpty) {
+        own = r.identities.where((i) => i.id == bound).firstOrNull;
+      } else {
+        own = await showModalBottomSheet<DmIdentity>(
+          context: context,
+          builder: (c) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(title: Text(hhText(context, '选择本次联系使用的身份'))),
+                for (final i in r.identities)
+                  ListTile(
+                    title: Text(i.name),
+                    onTap: () => Navigator.pop(c, i),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }
+      if (!context.mounted || own == null || scope != r.controller.scope) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => DmChatRoute(
+            runtime: r,
+            own: own!,
+            peer: DmIdentity(
+              id: target['peerId'],
+              name: target['peerName'],
+              avatar: target['peerAvatar'] as String? ?? 'default-v1',
+            ),
+            sourcePost: post,
+            sourceComment: comment,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(hhText(context, '暂时无法联系，请稍后重试'))),
+        );
+      }
+    }
+  }
+}
+
+class DmInboxRoute extends StatefulWidget {
+  const DmInboxRoute({
+    super.key,
+    required this.runtime,
+    this.navigation,
+    this.initialIdentity,
+    this.onManageIdentities,
+    this.activeIdentity,
+  });
+  final String? initialIdentity;
+  final DmRuntime runtime;
+  final Widget? navigation;
+  final VoidCallback? onManageIdentities;
+  final ActiveIdentityController? activeIdentity;
+  @override
+  State<DmInboxRoute> createState() => _DmInboxRouteState();
+}
+
+class _DmInboxRouteState extends State<DmInboxRoute> {
+  late String? _selected =
+      widget.initialIdentity ?? widget.activeIdentity?.selectedId;
+  @override
+  void initState() {
+    super.initState();
+    widget.activeIdentity?.addListener(_activeChanged);
+    if (widget.initialIdentity case final id?) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.activeIdentity?.select(id);
+      });
+    }
+  }
+
+  void _activeChanged() {
+    final id = widget.activeIdentity?.selectedId;
+    if (!mounted || id == _selected) return;
+    setState(() {
+      _selected = id;
+      _query = '';
+      _searchMatches = {};
+      _searchGeneration++;
+      _searching = false;
+      _searchError = null;
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.activeIdentity?.removeListener(_activeChanged);
+    super.dispose();
+  }
+
+  String _query = '';
+  Set<String> _searchMatches = {};
+  int _searchGeneration = 0;
+  bool _searching = false;
+  String? _searchError;
+  Future<void> _search(String query, String identity) async {
+    final generation = ++_searchGeneration,
+        controller = widget.runtime.controller;
+    final scope = controller.scope;
+    setState(() {
+      _query = query;
+      _searching = query.trim().isNotEmpty;
+      _searchError = null;
+      _searchMatches = {};
+    });
+    if (query.trim().isEmpty) return;
+    try {
+      bool current() =>
+          mounted &&
+          generation == _searchGeneration &&
+          scope == controller.scope;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      if (!current()) return;
+      final result = await controller.search(
+        identity,
+        query,
+        isCurrent: current,
+      );
+      if (mounted &&
+          generation == _searchGeneration &&
+          scope == controller.scope) {
+        setState(() {
+          _searchMatches = result;
+          _searching = false;
+        });
+      }
+    } catch (_) {
+      if (mounted &&
+          generation == _searchGeneration &&
+          scope == controller.scope) {
+        setState(() {
+          _searchError = '本机搜索暂未完成，请重试';
+          _searching = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: Listenable.merge([widget.runtime, widget.runtime.controller]),
+    builder: (context, _) {
+      final r = widget.runtime, c = r.controller;
+      final own =
+          r.identities.where((i) => i.id == _selected).firstOrNull ??
+          r.identities.firstOrNull;
+      if (!c.available || own == null) {
+        return Scaffold(
+          appBar: AppBar(title: Text(hhText(context, '私信'))),
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (r.identityStatus == DmIdentityStatus.empty)
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    children: [
+                      Text(hhText(context, '您目前还没有身份')),
+                      if (widget.onManageIdentities != null)
+                        TextButton(
+                          onPressed: widget.onManageIdentities,
+                          child: Text(hhText(context, '添加身份')),
+                        ),
+                    ],
+                  )
+                else if (r.identityStatus == DmIdentityStatus.loading)
+                  SizedBox.square(
+                    dimension: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      semanticsLabel: hhText(context, '正在加载'),
+                    ),
+                  )
+                else
+                  Text(switch (r.identityStatus) {
+                    DmIdentityStatus.unavailable => hhText(context, '暂时无法加载私信'),
+                    _ => messagingUiError(context, c.error ?? '加载失败，请重试'),
+                  }),
+                if (r.identityStatus == DmIdentityStatus.failed ||
+                    r.identityStatus == DmIdentityStatus.unavailable)
+                  TextButton(
+                    onPressed: r.retryIdentities,
+                    child: Text(hhText(context, '重试')),
+                  ),
+              ],
+            ),
+          ),
+          bottomNavigationBar: widget.navigation,
+        );
+      }
+      int unread(String id) => c.conversations
+          .where(
+            (v) =>
+                v['identityId'] == id &&
+                v['hidden'] != true &&
+                v['deleted'] != true,
+          )
+          .fold(0, (n, v) => n + (v['unread'] as int));
+      return HhDmInboxScreen(
+        scopeKey: '${c.scope}:${own.id}',
+        identity: own,
+        identities: r.identities
+            .map((i) => DmInboxIdentity(i, unread: unread(i.id)))
+            .toList(),
+        entries: c.conversations
+            .where((v) => v['deleted'] != true)
+            .map(
+              (v) => DmInboxEntry(
+                id: v['id'],
+                selfIdentityId: v['identityId'],
+                recipient: DmIdentity(
+                  id: v['peerId'],
+                  name: v['peerName'],
+                  avatar: v['peerAvatar'] as String? ?? 'default-v1',
+                ),
+                preview: switch (v['localPreviewKind']) {
+                  'recalled' => hhText(context, '消息已撤回'),
+                  'image' => hhText(context, '[图片]'),
+                  'post' => hhText(context, '分享'),
+                  _ =>
+                    v['localPreview'] as String? ??
+                        (v['waiting'] == true ? hhText(context, '等待对方回复') : ''),
+                },
+                previewVersion: (
+                  v['localPreviewKind'],
+                  v['localPreview'],
+                  v['localOrdinal'],
+                  v['waiting'] == true,
+                ),
+                outgoingState: switch (v['localState']) {
+                  'queued' => DmSendState.sending,
+                  'unknown' => DmSendState.unknown,
+                  'failed' => DmSendState.failed,
+                  'sent' => DmSendState.sent,
+                  _ => null,
+                },
+                time: '',
+                sourceTitle:
+                    v['sourceTitle'] as String? ?? hhText(context, '来自帖子'),
+                privateNote: (v['note'] as String?)?.isNotEmpty == true
+                    ? v['note']
+                    : null,
+                pinned: v['pinned'] == true,
+                hidden: v['hidden'] == true,
+                localSearchText: _searchMatches.contains(v['id']) ? _query : '',
+                unread: v['unread'],
+              ),
+            )
+            .toList(),
+        error: _searchError ?? c.error,
+        loading: _searching,
+        onSearchChanged: !c.chatEnabled
+            ? null
+            : (query) => unawaited(_search(query, own.id)),
+        onRetry: () => unawaited(c.sync()),
+        navigation: widget.navigation,
+        onAddIdentity: widget.onManageIdentities,
+        onManage: !c.chatEnabled
+            ? null
+            : (target) {
+                final dir = c.conversations
+                    .where(
+                      (v) =>
+                          v['id'] == target.conversationId &&
+                          v['identityId'] == target.identityId,
+                    )
+                    .firstOrNull;
+                if (dir != null) unawaited(showDmManagement(context, c, dir));
+              },
+        onIdentitySelected: (i) {
+          widget.activeIdentity?.selectConfirmed(
+            i.id,
+            widget.runtime.identities.map((i) => i.id),
+            account: widget.runtime.authStore.current?.session?.accountId,
+          );
+          setState(() {
+            _selected = i.id;
+            _query = '';
+            _searchMatches = {};
+            _searchGeneration++;
+            _searching = false;
+            _searchError = null;
+          });
+        },
+        onOpen: (target) {
+          final v = c.conversations
+              .where(
+                (v) =>
+                    v['id'] == target.conversationId &&
+                    v['identityId'] == own.id,
+              )
+              .firstOrNull;
+          if (v == null) return;
+          if (c.chatEnabled && v['hidden'] == true) {
+            unawaited(c.manage(v, 'RESTORE'));
+          }
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => DmChatRoute(
+                runtime: r,
+                own: own,
+                peer: DmIdentity(
+                  id: v['peerId'],
+                  name: v['peerName'],
+                  avatar: v['peerAvatar'] as String? ?? 'default-v1',
+                ),
+                conversation: v['localOnly'] == true ? '' : v['id'],
+                sourcePost: v['sourcePostId'],
+                sourceComment: v['sourceCommentId'] as String? ?? '',
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+class DmChatRoute extends StatefulWidget {
+  const DmChatRoute({
+    super.key,
+    required this.runtime,
+    required this.own,
+    required this.peer,
+    required this.sourcePost,
+    this.sourceComment = '',
+    this.conversation = '',
+  });
+  final DmRuntime runtime;
+  final DmIdentity own, peer;
+  final String sourcePost, sourceComment, conversation;
+  @override
+  State<DmChatRoute> createState() => _DmChatRouteState();
+}
+
+class _DmChatRouteState extends State<DmChatRoute> with WidgetsBindingObserver {
+  DmController get c => widget.runtime.controller;
+  late final String scope;
+  List<Map<String, dynamic>> rows = [];
+  String draft = '';
+  bool restored = false, loading = false, more = false;
+  bool historyFailed = false, _reloadPending = false;
+  final _picker = NativePostPhotoPicker();
+  List<DmImage> _draftImages = [];
+  final _photoRequests = <String, Future<Uint8List>>{};
+  final _photoProviders = <String, MemoryImage>{};
+  ViewerController? _viewer;
+  int _loadEpoch = 0;
+  int _draftEditGeneration = 0, _draftRevision = 0;
+  int _textSaveGeneration = 0;
+  bool _draftDirty = false;
+  @override
+  void initState() {
+    super.initState();
+    scope = c.scope;
+    c.addListener(_changed);
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_load());
+  }
+
+  void _changed() {
+    if (scope != c.scope || !c.available) _releasePhotos();
+    if (mounted) unawaited(_load());
+  }
+
+  Future<void> _load({bool older = false}) async {
+    if (loading) {
+      if (!older) _reloadPending = true;
+      return;
+    }
+    if (!c.available || scope != c.scope) {
+      if (mounted) setState(() => rows = []);
+      return;
+    }
+    final epoch = ++_loadEpoch;
+    final draftGeneration = _draftEditGeneration;
+    setState(() {
+      loading = true;
+      historyFailed = false;
+    });
+    try {
+      final next = await c.history(
+        widget.own.id,
+        widget.peer.id,
+        before: older && rows.isNotEmpty ? rows.first['_sort'] as int : null,
+      );
+      final savedDraft = c.chatEnabled
+          ? await c.draftState(widget.own.id, widget.peer.id)
+          : null;
+      final text =
+          savedDraft?['text'] as String? ??
+          (restored ? draft : await c.draft(widget.own.id, widget.peer.id));
+      final photos = savedDraft?['photos'] as List? ?? const [];
+      // Receipt reconciliation may move an outgoing row outside the newest
+      // page. Refresh already displayed work by its stable local id as well.
+      final updated = <Map<String, dynamic>>[];
+      // Read the latest durable projection for every candidate, including
+      // newly paged IDs: deletion may have committed after history returned.
+      for (final id in {
+        ...rows.map((r) => r['_id']),
+        ...next.map((r) => r['_id']),
+      }) {
+        final value = await c.message(id);
+        if (value != null && value['_kind'] != 'hidden_message') {
+          updated.add(value);
+        }
+      }
+      if (!mounted || epoch != _loadEpoch || scope != c.scope || _reloadPending) {
+        return;
+      }
+      if (rows.any(
+        (old) =>
+            old['messageType'] == 'IMAGE' &&
+            old['recalled'] != true &&
+            !updated.any(
+              (v) => v['_id'] == old['_id'] && v['recalled'] != true,
+            ),
+      )) {
+        _releasePhotos();
+      }
+      setState(() {
+        final byId = <String, Map<String, dynamic>>{
+          for (final r in updated) r['_id']: r,
+        };
+        rows = byId.values.toList()
+          ..sort((a, b) => (a['_sort'] as int).compareTo(b['_sort'] as int));
+        if (older || !restored) more = next.length == 40;
+        if (!restored ||
+            (!_draftDirty && draftGeneration == _draftEditGeneration)) {
+          final images = photos
+              .map(
+                (p) => DmImage(
+                  id: p['mediaId'],
+                  description: hhText(context, '待发送图片'),
+                ),
+              )
+              .toList();
+          final changed =
+              !restored ||
+              draft != text ||
+              images.length != _draftImages.length ||
+              images.indexed.any((p) => p.$2.id != _draftImages[p.$1].id);
+          if (changed) {
+            draft = text;
+            _draftImages = images;
+            _draftRevision++;
+          }
+          restored = true;
+        }
+      });
+    } catch (_) {
+      if (mounted && epoch == _loadEpoch) setState(() => historyFailed = true);
+    } finally {
+      if (mounted && epoch == _loadEpoch) {
+        setState(() => loading = false);
+        if (_reloadPending) {
+          _reloadPending = false;
+          unawaited(_load());
+        }
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(c.sync());
+  }
+
+  @override
+  void dispose() {
+    _releasePhotos();
+    _loadEpoch++;
+    c.removeListener(_changed);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (scope != c.scope || !c.available) {
+      return Scaffold(
+        body: Center(child: Text(hhText(context, '请恢复当前账号后查看私信'))),
+      );
+    }
+    final directory = c.conversations
+        .where(
+          (v) =>
+              v['identityId'] == widget.own.id && v['peerId'] == widget.peer.id,
+        )
+        .firstOrNull;
+    final conv = directory?['localOnly'] == true
+        ? ''
+        : directory?['id'] as String? ?? widget.conversation;
+    final awaiting =
+        directory?['waiting'] == true ||
+        conv.isEmpty &&
+            rows.any((r) => r['outgoing'] == true && r['_state'] != 'failed');
+    final messages = c.chatEnabled
+        ? _chatMessages()
+        : rows.map((r) {
+            final outgoing = r['outgoing'] == true;
+            final data = outgoing
+                ? Map<String, dynamic>.from(r['intent'] as Map)
+                : r;
+            final receipt = r['receipt'] as Map?;
+            final rawDate = outgoing
+                ? (receipt?['acceptedAt'])
+                : r['acceptedAt'];
+            final date = DateTime.tryParse(rawDate as String? ?? '')?.toLocal();
+            return DmMessage(
+              id: r['_id'],
+              outgoing: outgoing,
+              text: data['text'],
+              time: date == null
+                  ? ''
+                  : '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}',
+              dayLabel: date == null
+                  ? ''
+                  : hhText(
+                      context,
+                      '{month}月{day}日',
+                      args: {'month': date.month, 'day': date.day},
+                    ),
+              state: switch (r['_state']) {
+                'queued' => DmSendState.sending,
+                'unknown' => DmSendState.unknown,
+                'failed' => DmSendState.failed,
+                _ => DmSendState.sent,
+              },
+            );
+          }).toList();
+    return HhDirectMessageScreen(
+      syncError: c.error,
+      view: DmConversationView(
+        scopeKey: '$scope:${widget.own.id}:${widget.peer.id}',
+        recipient: DmIdentity(
+          id: widget.peer.id,
+          name: directory?['peerName'] as String? ?? widget.peer.name,
+          avatar: directory?['peerAvatar'] as String? ?? widget.peer.avatar,
+        ),
+        selfIdentity: widget.own,
+        sourceTitle:
+            directory?['sourceTitle'] as String? ??
+            (widget.sourcePost.isEmpty
+                ? hhText(context, '匿名私信')
+                : hhText(context, '来自帖子')),
+        sourceDeleted: widget.sourcePost.isEmpty,
+        messages: messages,
+        draftText: draft,
+        draftImages: _draftImages,
+        privateNote: (directory?['note'] as String?)?.isNotEmpty == true
+            ? directory!['note']
+            : null,
+        draftRevision: _draftRevision,
+        firstContact: conv.isEmpty || awaiting,
+        firstTextAccepted: awaiting,
+        localHistoryUnavailable:
+            conv.isNotEmpty &&
+            (directory?['sequence'] as int? ?? 0) > 0 &&
+            messages.isEmpty,
+        canSend: restored && directory?['canSend'] != false,
+        localSaveFailed:
+            c.error?.contains('保存失败') == true ||
+            c.error?.contains('未保存') == true,
+        historyState: historyFailed
+            ? DmHistoryState.failed
+            : loading
+            ? DmHistoryState.loading
+            : more
+            ? DmHistoryState.available
+            : DmHistoryState.complete,
+        historyCursor: rows.isEmpty ? null : '${rows.first['_sort']}',
+      ),
+      identities: widget.runtime.identities,
+      imageBuilder: c.chatEnabled
+          ? _photoWidget
+          : (_, _) => const SizedBox.shrink(),
+      onSend: (intent) async {
+        final value = <String, Object>{
+          'identityId': widget.own.id,
+          'peerId': widget.peer.id,
+          'conversationId': conv,
+          'sourcePostId': conv.isEmpty ? widget.sourcePost : '',
+          'sourceCommentId': conv.isEmpty ? widget.sourceComment : '',
+          'text': intent.text,
+          'attempt': 1,
+        };
+        final saved = await (intent.images.isEmpty
+            ? c.send(value, peerName: widget.peer.name)
+            : c.sendPhotos(value, intent.images.map((i) => i.id).toList()));
+        if (saved && mounted && scope == c.scope) {
+          _draftImages.removeWhere(
+            (i) => intent.images.any((sent) => sent.id == i.id),
+          );
+        }
+        return saved;
+      },
+      onDraftChanged: (text) {
+        _draftEditGeneration++;
+        final edit = ++_textSaveGeneration;
+        _draftDirty = true;
+        draft = text;
+        unawaited(() async {
+          final saved = await c.saveDraft(widget.own.id, widget.peer.id, text);
+          if (mounted &&
+              scope == c.scope &&
+              edit == _textSaveGeneration &&
+              saved) {
+            _draftDirty = false;
+          }
+        }());
+      },
+      onIdentitySelected: (_) {},
+      onPickImages: c.chatEnabled
+          ? () async {
+              _draftEditGeneration++;
+              final selected = await _pickChatImages();
+              _draftEditGeneration++;
+              return selected;
+            }
+          : () async => [],
+      onRemoveDraftImage: (image) async {
+        _draftEditGeneration++;
+        try {
+          await c.removePhoto(widget.own.id, widget.peer.id, image.id);
+          _draftImages.removeWhere((i) => i.id == image.id);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      },
+      onManage:
+          c.chatEnabled && directory != null && directory['localOnly'] != true
+          ? () => unawaited(showDmManagement(context, c, directory))
+          : null,
+      onMessageAction: (target, action) async {
+        if (c.chatEnabled && action != DmMessageAction.copy) {
+          await _chatMessageAction(target, action, directory);
+          return;
+        }
+        if (action == DmMessageAction.copy) {
+          final text = messages
+              .where((m) => m.id == target.messageId)
+              .firstOrNull
+              ?.text;
+          if (text != null) await Clipboard.setData(ClipboardData(text: text));
+        }
+      },
+      onRetry: (target) =>
+          unawaited(c.retry(target.imageId ?? target.messageId)),
+      onImage: c.chatEnabled ? _openPhoto : (_) {},
+      onSource: () {
+        if (widget.sourcePost.isNotEmpty) {
+          widget.runtime.openPost?.call(context, widget.sourcePost);
+        }
+      },
+      onBack: () => Navigator.pop(context),
+      onLoadOlder: (_) async => _load(older: true),
+      onSaveRetry: () => unawaited(() async {
+        final edit = ++_textSaveGeneration;
+        final saved = await c.saveDraft(widget.own.id, widget.peer.id, draft);
+        if (!mounted || scope != c.scope || edit != _textSaveGeneration) return;
+        if (saved) {
+          _draftDirty = false;
+          await c.sync();
+        }
+      }()),
+      onVisible: (ids) {
+        if (ModalRoute.of(context)?.isCurrent == true &&
+            WidgetsBinding.instance.lifecycleState ==
+                AppLifecycleState.resumed) {
+          unawaited(c.visible(ids));
+        }
+      },
+      textOnly: !c.chatEnabled,
+      reportEnabled: GovernanceScope.maybeOf(context) != null,
+    );
+  }
+}

@@ -1,0 +1,6 @@
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="8%">
+    <bitmap android:src="@drawable/startup_logo_mark"
+        android:tint="@color/startup_logo_ink"
+        android:gravity="fill" />
+</inset>

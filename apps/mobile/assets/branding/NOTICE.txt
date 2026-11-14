@@ -1,0 +1,9 @@
+The @SpeechFUL welcome wordmark is derived entirely from Roboto Black Italic,
+including the standard @ glyph. All characters use the same font size,
+baseline and -0.025em tracking. See ../fonts/NOTICE-Roboto.txt and
+../fonts/LICENSE-Roboto.txt for the original font's Apache-2.0 license.
+
+The retained threads-symbol.svg asset is from Simple Icons (CC0-1.0):
+https://github.com/simple-icons/simple-icons/blob/develop/icons/threads.svg
+Retrieved 2026-10-23. It is no longer used by the welcome wordmark.
+See LICENSE-Simple-Icons.md.

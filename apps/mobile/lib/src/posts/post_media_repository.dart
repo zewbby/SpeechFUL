@@ -1,0 +1,536 @@
+import 'dart:async';
+import 'dart:collection';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
+import 'package:hnuhole_image_viewer/image_viewer.dart';
+
+import 'post_api.dart';
+import 'post_controller.dart';
+import 'post_images.dart';
+import 'post_media_api.dart';
+
+typedef _MediaKey = (String?, int, String, int);
+
+/// Shares protected bytes within their verified authorization deadline. Idle
+/// resources use a bounded LRU; displayed resources remain owned by consumers.
+/// Nothing is written to disk, and saving always reauthorizes original bytes.
+class PostMediaRepository {
+  PostMediaRepository(
+    this.posts, {
+    this.maxIdleEntries = 12,
+    this.maxIdleBytes = 48 * 1024 * 1024,
+    Stopwatch Function()? stopwatch,
+  }) : assert(maxIdleEntries >= 0),
+       assert(maxIdleBytes >= 0),
+       _stopwatch = stopwatch ?? Stopwatch.new {
+    posts.addListener(_authorityChanged);
+  }
+  final PostController posts;
+  final int maxIdleEntries, maxIdleBytes;
+  final Stopwatch Function() _stopwatch;
+  final _entries = <_MediaKey, _MediaLease>{};
+  final _manifests = <_MediaKey, Future<_MediaLease>>{};
+  final _waiting = Queue<Completer<void>>();
+  int _active = 0;
+  bool _disposed = false;
+
+  @visibleForTesting
+  int get idleGroupCount =>
+      _entries.values.where((l) => l.references == 0).length;
+  @visibleForTesting
+  int get idleBytes => _entries.values
+      .where((l) => l.references == 0)
+      .fold(0, (sum, l) => sum + l.weight);
+
+  Future<T> _read<T>(Future<T> Function() action) async {
+    if (_disposed) throw const PostFailure(kind: PostFailureKind.unauthorized);
+    if (_active >= 2) {
+      final ready = Completer<void>();
+      _waiting.add(ready);
+      await ready.future;
+    } else {
+      _active++;
+    }
+    try {
+      return await action();
+    } finally {
+      if (_waiting.isNotEmpty) {
+        _waiting.removeFirst().complete();
+      } else {
+        _active--;
+      }
+    }
+  }
+
+  void _authorityChanged() {
+    for (final lease in _entries.values.toList()) {
+      lease.revokeIfStale();
+    }
+  }
+
+  Future<PostImages> load(String postId) async {
+    final key = (
+      posts.accountId,
+      posts.authorityVersion,
+      postId,
+      posts.postMediaRevision(postId),
+    );
+    bool current() =>
+        !_disposed &&
+        posts.available &&
+        posts.accountId == key.$1 &&
+        posts.authorityVersion == key.$2 &&
+        posts.postMediaRevision(postId) == key.$4 &&
+        !posts.isPostDeleted(postId);
+    if (!current()) throw const PostFailure(kind: PostFailureKind.unauthorized);
+    final cached = _entries[key];
+    if (cached != null && cached.current) {
+      _touch(cached);
+      return cached.acquire();
+    }
+    cached?.revokeIfStale();
+    final future = _manifests.putIfAbsent(key, () async {
+      final elapsed = _stopwatch()..start();
+      final response = await posts.loadImageManifest(postId);
+      final manifest = response.value;
+      final lifetime = manifest.accessValidUntil.difference(
+        response.serverTime,
+      );
+      if (!current() ||
+          manifest.postId != postId ||
+          lifetime <= elapsed.elapsed ||
+          lifetime > const Duration(seconds: 60) ||
+          manifest.accessValidUntil.isAfter(response.sessionExpiresAt)) {
+        throw const PostFailure(kind: PostFailureKind.invalidResponse);
+      }
+      final lease = _MediaLease(
+        this,
+        key,
+        manifest,
+        current,
+        elapsed,
+        lifetime,
+      );
+      _entries[key] = lease;
+      lease.start();
+      return lease;
+    });
+    try {
+      final lease = await future;
+      if (!current()) {
+        lease.revoke();
+        throw const PostFailure(kind: PostFailureKind.unauthorized);
+      }
+      return lease.acquire();
+    } finally {
+      if (identical(_manifests[key], future)) _manifests.remove(key);
+    }
+  }
+
+  void _touch(_MediaLease lease) {
+    if (identical(_entries[lease.key], lease)) {
+      _entries.remove(lease.key);
+      _entries[lease.key] = lease;
+    }
+  }
+
+  void _idle(_MediaLease lease) {
+    if (lease.references != 0) return;
+    // An abandoned request must not occupy a byte slot or publish late bytes.
+    if (lease.inFlight != 0) {
+      lease.revoke();
+      return;
+    }
+    _touch(lease);
+    while (idleGroupCount > maxIdleEntries || idleBytes > maxIdleBytes) {
+      _entries.values.firstWhere((l) => l.references == 0).revoke();
+    }
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    posts.removeListener(_authorityChanged);
+    for (final lease in _entries.values.toList()) {
+      lease.revoke();
+    }
+    _manifests.clear();
+    while (_waiting.isNotEmpty) {
+      _waiting.removeFirst().completeError(
+        const PostFailure(kind: PostFailureKind.unauthorized),
+      );
+    }
+  }
+}
+
+class _MediaLease {
+  _MediaLease(
+    this.owner,
+    this.key,
+    this.manifest,
+    this.authorized,
+    this.elapsed,
+    this.lifetime,
+  );
+  final PostMediaRepository owner;
+  final _MediaKey key;
+  final PostMediaManifest manifest;
+  final bool Function() authorized;
+  Stopwatch elapsed;
+  Duration lifetime;
+  final _consumers = <ValueNotifier<bool>>{};
+  final _visibility = <ValueNotifier<bool>, bool Function()>{};
+  final _providers = <ImageProvider>{};
+  final _pending = <String, Future<MemoryImage>>{};
+  final _decodeKeys = <(ImageProvider, int?, int?, ResizeImagePolicy)>{};
+  Timer? _timer;
+  Timer? _renewalTimer;
+  bool _renewing = false, _renewalFailed = false;
+  bool _revoked = false, _expired = false;
+  int inFlight = 0, weight = 0;
+  String get postId => key.$3;
+  int get references => _consumers.length;
+  bool get current => !_revoked && authorized() && elapsed.elapsed < lifetime;
+  void start() {
+    _timer?.cancel();
+    _timer = Timer(lifetime - elapsed.elapsed, () => revoke(expired: true));
+    _scheduleRenewal();
+  }
+
+  void _scheduleRenewal() {
+    _renewalTimer?.cancel();
+    if (!current || _visibility.isEmpty || _renewing || _renewalFailed) return;
+    // Keep the existing deadline armed throughout the request. Short grants
+    // use a proportional lead; a normal 60s grant is checked about 10s early.
+    final lead = Duration(
+      microseconds: (lifetime.inMicroseconds ~/ 4).clamp(1, 10000000),
+    );
+    final delay = lifetime - elapsed.elapsed - lead;
+    _renewalTimer = Timer(delay > Duration.zero ? delay : Duration.zero, () {
+      if (!current) return;
+      if (_visibility.values.any((visible) => visible())) {
+        unawaited(_renew());
+      } else {
+        // A route/scroll can become visible without rebuilding this section.
+        // Only poll local visibility during the final seconds; no HTTP while
+        // hidden, covered, released or in the background.
+        final remaining = lifetime - elapsed.elapsed;
+        _renewalTimer = Timer(
+          remaining < const Duration(seconds: 1)
+              ? remaining
+              : const Duration(seconds: 1),
+          _scheduleRenewal,
+        );
+      }
+    });
+  }
+
+  Future<void> _renew() async {
+    if (!current || _renewing) return;
+    _renewing = true;
+    final nextElapsed = owner._stopwatch()..start();
+    try {
+      final response = await owner._read(() async {
+        check();
+        // The shared I/O slot may have been busy when renewal was queued.
+        if (!_visibility.values.any((visible) => visible())) return null;
+        return owner.posts.loadImageManifest(postId);
+      });
+      if (response == null) return;
+      // Never resurrect an expired/released/replaced authority window, even
+      // when its old request eventually succeeds.
+      check();
+      if (_visibility.isEmpty) return;
+      final next = response.value;
+      final nextLifetime = next.accessValidUntil.difference(
+        response.serverTime,
+      );
+      if (next.postId != postId ||
+          nextLifetime <= nextElapsed.elapsed ||
+          nextLifetime > const Duration(seconds: 60) ||
+          next.accessValidUntil.isAfter(response.sessionExpiresAt)) {
+        throw const PostFailure(kind: PostFailureKind.invalidResponse);
+      }
+      if (!_sameContent(next)) {
+        // A new version needs a new group. Seed the verified manifest so the
+        // visible host can switch without requesting that manifest twice.
+        final replacement = _MediaLease(
+          owner,
+          key,
+          next,
+          authorized,
+          nextElapsed,
+          nextLifetime,
+        );
+        owner._entries[key] = replacement;
+        replacement.start();
+        revoke(expired: true);
+        return;
+      }
+      // Check both authorities before publishing a new deadline. Existing
+      // providers, decode keys, consumers and viewer state remain untouched.
+      elapsed = nextElapsed;
+      lifetime = nextLifetime;
+      start();
+    } on PostFailure catch (error) {
+      _renewalFailed = true;
+      // A transient connection failure keeps only the still-valid old grant.
+      // Denials/invalid manifests stop display immediately. No retry loop.
+      if (error.kind != PostFailureKind.transport) revoke();
+    } catch (_) {
+      _renewalFailed = true;
+      revoke();
+    } finally {
+      _renewing = false;
+      _scheduleRenewal();
+    }
+  }
+
+  bool _sameContent(PostMediaManifest next) {
+    if (manifest.images.length != next.images.length) return false;
+    bool same(PostMediaImage a, PostMediaImage b) =>
+        a.mediaId == b.mediaId &&
+        a.contentVersionId == b.contentVersionId &&
+        a.path == b.path &&
+        a.mimeType == b.mimeType &&
+        a.byteLength == b.byteLength &&
+        a.exactLength == b.exactLength &&
+        a.pixelWidth == b.pixelWidth &&
+        a.pixelHeight == b.pixelHeight &&
+        a.frames == b.frames &&
+        a.saveAllowed == b.saveAllowed;
+    for (var i = 0; i < manifest.images.length; i++) {
+      final old = manifest.images[i], fresh = next.images[i];
+      if (!same(old, fresh) || !same(old.preview, fresh.preview)) return false;
+    }
+    return true;
+  }
+
+  void revokeIfStale() {
+    if (!current) {
+      revoke(expired: authorized() && elapsed.elapsed >= lifetime);
+    }
+  }
+
+  void check() {
+    if (!current) {
+      revokeIfStale();
+      throw const PostFailure(kind: PostFailureKind.unauthorized);
+    }
+  }
+
+  void revoke({bool expired = false}) {
+    if (_revoked) return;
+    _revoked = true;
+    _expired = expired;
+    _timer?.cancel();
+    _renewalTimer?.cancel();
+    _visibility.clear();
+    _pending.clear();
+    for (final provider in _providers) {
+      unawaited(provider.evict());
+    }
+    _providers.clear();
+    _decodeKeys.clear();
+    if (identical(owner._entries[key], this)) owner._entries.remove(key);
+    for (final access in _consumers.toList()) {
+      access.value = false;
+    }
+    _consumers.clear();
+    weight = 0;
+  }
+
+  Future<PostResponse<T>> read<T>(
+    Future<PostResponse<T>> Function() action,
+  ) async {
+    check();
+    try {
+      final response = await owner._read(() {
+        check();
+        return action();
+      });
+      check();
+      return response;
+    } on PostFailure catch (error) {
+      if (current &&
+          ({401, 403, 404, 503}.contains(error.statusCode) ||
+              error.kind == PostFailureKind.unauthorized ||
+              error.kind == PostFailureKind.unavailable)) {
+        revoke();
+      }
+      rethrow;
+    }
+  }
+
+  Future<MemoryImage> provider(PostMediaImage item) {
+    check();
+    final existing = _pending[item.path];
+    if (existing != null) return existing;
+    inFlight++;
+    final future = (() async {
+      try {
+        final response = await read(
+          () => owner.posts.loadImageBytes(postId, item),
+        );
+        final image = MemoryImage(response.value);
+        _providers.add(image);
+        // Conservative decoded-size estimate; resized variants are tracked too.
+        weight +=
+            response.value.length +
+            item.pixelWidth * item.pixelHeight * item.frames * 4;
+        return image;
+      } catch (_) {
+        _pending.remove(item.path);
+        rethrow;
+      } finally {
+        inFlight--;
+      }
+    })();
+    _pending[item.path] = future;
+    return future;
+  }
+
+  Future<MemoryImage> retryProvider(PostMediaImage item) async {
+    check();
+    final previous = _pending.remove(item.path);
+    if (previous != null) {
+      MemoryImage? image;
+      try {
+        image = await previous;
+      } catch (_) {
+        // Failed transfers already remove themselves from the pending map.
+      }
+      check();
+      if (image != null) {
+        final removed = _providers
+            .where(
+              (p) => p == image || p is ResizeImage && p.imageProvider == image,
+            )
+            .toList();
+        for (final p in removed) {
+          _providers.remove(p);
+          weight -= p is ResizeImage
+              ? (p.width ?? 640) * (p.height ?? 640) * item.frames * 4
+              : image.bytes.length +
+                    item.pixelWidth * item.pixelHeight * item.frames * 4;
+        }
+        _decodeKeys.removeWhere((k) => k.$1 == image);
+        await Future.wait([for (final p in removed) p.evict()]);
+      }
+    }
+    check();
+    return provider(item);
+  }
+
+  PostImages acquire() {
+    check();
+    final access = ValueNotifier(true);
+    _consumers.add(access);
+    void held() {
+      check();
+      if (!access.value) {
+        throw const PostFailure(kind: PostFailureKind.unauthorized);
+      }
+    }
+
+    return PostImages(
+      postId: postId,
+      accessGranted: access,
+      isExpired: () => _expired,
+      maintainAccessWhile: (visible) {
+        held();
+        _visibility[access] = visible;
+        _scheduleRenewal();
+      },
+      onRelease: () {
+        if (!_consumers.remove(access)) return;
+        _visibility.remove(access);
+        _scheduleRenewal();
+        access.value = false;
+        owner._idle(this);
+      },
+      images: [
+        for (var i = 0; i < manifest.images.length; i++)
+          _image(manifest.images[i], i, manifest.images.length, held),
+      ],
+    );
+  }
+
+  PostImage _image(
+    PostMediaImage item,
+    int index,
+    int count,
+    VoidCallback held,
+  ) => PostImage.deferred(
+    pixelSize: Size(item.pixelWidth.toDouble(), item.pixelHeight.toDouble()),
+    animated: item.frames > 1,
+    registerDecodeProvider: (provider) {
+      held();
+      if (provider is ResizeImage &&
+          _decodeKeys.add((
+            provider.imageProvider,
+            provider.width,
+            provider.height,
+            provider.policy,
+          ))) {
+        _providers.add(provider);
+        weight +=
+            (provider.width ?? 640) *
+            (provider.height ?? 640) *
+            item.preview.frames *
+            4;
+      }
+    },
+    loadThumbnail: () async {
+      held();
+      final image = await provider(item.preview);
+      held();
+      return image;
+    },
+    retryThumbnail: () async {
+      held();
+      final image = await retryProvider(item.preview);
+      held();
+      return image;
+    },
+    item: ViewerItem(
+      id: item.contentVersionId,
+      semanticLabel: '第${index + 1}张图片，共$count张',
+      saveAllowed: item.saveAllowed,
+      loadSource: () async {
+        held();
+        final image = await provider(item);
+        held();
+        return ViewerSource(
+          provider: image,
+          pixelSize: Size(
+            item.pixelWidth.toDouble(),
+            item.pixelHeight.toDouble(),
+          ),
+        );
+      },
+      resolveOriginal: item.saveAllowed
+          ? () async {
+              held();
+              final response = await read(
+                () => owner.posts.loadImageBytes(postId, item),
+              );
+              held();
+              return ViewerOriginal.bytes(
+                response.value,
+                switch (item.mimeType) {
+                  'image/jpeg' => ViewerOriginalFormat.jpeg,
+                  'image/png' => ViewerOriginalFormat.png,
+                  'image/gif' => ViewerOriginalFormat.gif,
+                  'image/webp' => ViewerOriginalFormat.webp,
+                  _ => throw const PostFailure(
+                    kind: PostFailureKind.invalidResponse,
+                  ),
+                },
+              );
+            }
+          : null,
+    ),
+  );
+}

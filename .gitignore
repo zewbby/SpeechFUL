@@ -1,0 +1,33 @@
+# Local editor/OS state
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+# Local credentials and signing
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+key.properties
+local.properties
+# Generated Flutter/native files
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+apps/mobile/android/.kotlin/
+node_modules/
+dist/
+*.apk
+*.aab
+*.ipa
+*.log
+__pycache__/
+*.py[cod]
