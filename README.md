@@ -24,24 +24,6 @@
 
 </div>
 
-
-
-## Contributor
-
-  <p>
-    The first version of SpeechFUL, including both frontend and backend, was independently designed and developed by <b><i>@zewbby</i></b>.
-  </p>
-
-  <p>
-    <b><i>@楼下的老李头 & @Joseph1237654</i></b> — Core Contributor. Contributed to the subsequent core development, testing, and ongoing operations and maintenance of the app.
-  </p>
-
-  <p>
-    SpeechFUL continues to grow through collaboration. We sincerely appreciate everyone who contributes to its development and growth.
-  </p>
-
-
-
 ## Acknowlegement
 
 <div align="center">
